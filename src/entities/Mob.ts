@@ -4,7 +4,10 @@ import { dist2, randomPointInRing } from '../utils/math';
 import { Palette, createToonMaterial } from '../render/stylized';
 import { clamp01, easeOutCubic, smoothstep } from '../anim/ease';
 
-export type MobAIState = 'idle' | 'chase' | 'attack' | 'leash' | 'dead';
+export type MobAIState = 'idle' | 'chase' | 'attack' | 'leash' | 'retreat' | 'dead';
+
+/** Shared combat surface for meadow blobs and spitters. */
+export type Enemy = import('./Spitter').Spitter | Mob;
 
 const sharedBodyGeo = new THREE.SphereGeometry(0.62, 16, 14);
 const sharedBellyGeo = new THREE.SphereGeometry(0.4, 12, 10);
@@ -38,6 +41,7 @@ function earMatFor(color: number): THREE.MeshToonMaterial {
 }
 
 export class Mob extends Entity {
+  readonly kind = 'blob' as const;
   readonly moveSpeed = 3.45;
   readonly aggroRange = 9.5;
   readonly leashRange = 16;

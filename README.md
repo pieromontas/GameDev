@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** Warrior + Mage starter classes (switchable), one meadow biome, blob mobs, loot pickups, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage starter classes (switchable), one meadow biome, blob + **Spitter** mobs, loot pickups, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -52,8 +52,9 @@ HUD skill names and the class line update when you switch. A controls hint also 
 - Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, east shrine clearing
 - KayKit Knight warrior + KayKit Mage (GLTF) with Idle / Walk / Run + skill clips via three.js `AnimationMixer`
 - Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, frost slow, death squash
+- **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine
 - Combat feedback: slash arcs, bolts, ground seals, Quake/Nova rings, Shield Bash pulse, Arcane Ward bubble, floating damage numbers, world HP bars
-- Tiny loot loop: defeated blobs drop coins; pickups increment an inventory counter
+- Tiny loot loop: defeated blobs/spitters drop coins; pickups increment an inventory counter
 - HUD: HP, active class + switch hint, skill cooldowns (1/2/3) with class-specific names, loot/kill counts, controls hint, brief model loading overlay
 
 ## Character art (KayKit Adventurers)
@@ -104,7 +105,7 @@ src/
   input/InputManager.ts   Keyboard + pointer
   camera/FollowCamera.ts  Angled follow cam + optional yaw
   world/MeadowBiome.ts    Ground + props, play-area clamp
-  entities/               Player, PlayerVisual, Mob, Loot, Entity
+  entities/               Player, PlayerVisual, Mob, Spitter, SpitProjectile, Loot, Entity
   combat/                 Skills, CombatSystem, damage numbers
   render/stylized.ts      Toon materials, sky, palette, ground helpers
   ui/                     HUD + billboard health bars

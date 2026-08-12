@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { Player } from '../entities/Player';
-import { Mob } from '../entities/Mob';
+import { Enemy } from '../entities/Mob';
+import { Spitter } from '../entities/Spitter';
+import { SpitProjectile } from '../entities/SpitProjectile';
 import { LootPickup } from '../entities/Loot';
 import { SkillId } from './Skills';
 import { DamageNumbers } from './DamageNumbers';
@@ -9,7 +11,7 @@ import { dist2 } from '../utils/math';
 export type CombatHooks = {
   onLootDrop: (loot: LootPickup) => void;
   onPlayerDamaged: () => void;
-  onKill: () => void;
+  onKill: (enemy: Enemy) => void;
   /** Optional: subtle camera punch when Quake connects. */
   onQuakeImpact?: (hitCount: number) => void;
   /** Optional: lighter punch when Shield Bash connects. */
@@ -344,12 +346,18 @@ export class CombatSystem {
   readonly damageNumbers: DamageNumbers;
   private readonly fx: SkillFx;
   private readonly tmp = new THREE.Vector3();
+  private readonly spitOrigin = new THREE.Vector3();
+  private readonly spitDir = new THREE.Vector3();
+  private readonly spits: SpitProjectile[] = [];
   /** Brief i-frames after a player hit so stacked bites don't delete you. */
   private readonly playerHitIFrames = 0.55;
   /** Remaining real-time hit-stop (seconds). Countdown uses raw dt. */
   private hitStopRemain = 0;
 
-  constructor(scene: THREE.Scene, private readonly hooks: CombatHooks) {
+  constructor(
+    private readonly scene: THREE.Scene,
+    private readonly hooks: CombatHooks,
+  ) {
     this.damageNumbers = new DamageNumbers(scene);
     this.fx = new SkillFx(scene);
   }
@@ -365,12 +373,13 @@ export class CombatSystem {
     return rawDt * 0.1;
   }
 
-  update(dt: number): void {
+  update(dt: number, player?: Player): void {
     this.damageNumbers.update(dt);
     this.fx.update(dt);
+    if (player) this.updateSpitProjectiles(dt, player);
   }
 
-  tryPlayerSkill(player: Player, skillId: SkillId, mobs: Mob[]): boolean {
+  tryPlayerSkill(player: Player, skillId: SkillId, mobs: Enemy[]): boolean {
     if (!player.canUse(skillId)) return false;
     player.startCooldown(skillId);
     player.markCombat();
@@ -381,7 +390,7 @@ export class CombatSystem {
     return this.tryWarriorSkill(player, skillId, mobs);
   }
 
-  private tryWarriorSkill(player: Player, skillId: SkillId, mobs: Mob[]): boolean {
+  private tryWarriorSkill(player: Player, skillId: SkillId, mobs: Enemy[]): boolean {
     const skill = player.skills[skillId].def;
 
     if (skillId === 'basic') {
@@ -474,7 +483,7 @@ export class CombatSystem {
     return true;
   }
 
-  private tryMageSkill(player: Player, skillId: SkillId, mobs: Mob[]): boolean {
+  private tryMageSkill(player: Player, skillId: SkillId, mobs: Enemy[]): boolean {
     const skill = player.skills[skillId].def;
 
     if (skillId === 'basic') {
@@ -534,10 +543,32 @@ export class CombatSystem {
     return true;
   }
 
-  updateMobCombat(mobs: Mob[], player: Player): void {
+  updateMobCombat(mobs: Enemy[], player: Player): void {
     for (const mob of mobs) {
       mob.think(player.position, player.alive);
-      if (mob.tryAttack() && player.alive && player.invuln <= 0) {
+      if (!mob.tryAttack()) continue;
+
+      if (mob instanceof Spitter) {
+        if (mob.consumeSpitRequest()) {
+          mob.getSpitOrigin(this.spitOrigin);
+          mob.getFacingXZ(this.spitDir);
+          const spit = new SpitProjectile(
+            this.spitOrigin,
+            this.spitDir.x,
+            this.spitDir.z,
+            mob.attackDamage,
+            mob.spitSpeed,
+          );
+          this.scene.add(spit.mesh);
+          this.spits.push(spit);
+          // Tiny muzzle flash at the snout.
+          this.fx.spawnSeal(this.spitOrigin, 0xb8ff4a);
+        }
+        continue;
+      }
+
+      // Melee blob bite
+      if (player.alive && player.invuln <= 0) {
         const dealt = player.takeDamage(mob.attackDamage);
         if (dealt > 0) {
           player.invuln = this.playerHitIFrames;
@@ -549,12 +580,39 @@ export class CombatSystem {
     }
   }
 
+  private updateSpitProjectiles(dt: number, player: Player): void {
+    for (let i = this.spits.length - 1; i >= 0; i--) {
+      const spit = this.spits[i]!;
+      spit.update(dt);
+      if (!spit.alive) {
+        this.scene.remove(spit.mesh);
+        spit.dispose();
+        this.spits.splice(i, 1);
+        continue;
+      }
+      if (!player.alive || player.invuln > 0) continue;
+      if (!spit.hits(player.position.x, player.position.z, player.radius)) continue;
+
+      const dealt = player.takeDamage(spit.damage);
+      spit.alive = false;
+      this.scene.remove(spit.mesh);
+      spit.dispose();
+      this.spits.splice(i, 1);
+      if (dealt > 0) {
+        player.invuln = this.playerHitIFrames;
+        player.markCombat();
+        this.damageNumbers.spawn(player.position, dealt, false);
+        this.hooks.onPlayerDamaged();
+      }
+    }
+  }
+
   /**
    * Soft-lock assist: prefer the nearest living mob in a forward cone,
    * but allow a short all-around grab so standing still still feels fair.
    */
-  private pickSlashTarget(player: Player, mobs: Mob[], range: number): Mob | null {
-    let best: Mob | null = null;
+  private pickSlashTarget(player: Player, mobs: Enemy[], range: number): Enemy | null {
+    let best: Enemy | null = null;
     let bestScore = Infinity;
 
     for (const mob of mobs) {
@@ -583,13 +641,13 @@ export class CombatSystem {
     return best;
   }
 
-  private applyDamageToMob(mob: Mob, damage: number, crit: boolean): void {
+  private applyDamageToMob(mob: Enemy, damage: number, crit: boolean): void {
     const dealt = mob.takeDamage(damage + (crit ? 4 : 0));
     if (dealt <= 0) return;
     mob.playHitReact();
     this.damageNumbers.spawn(mob.position, dealt, crit);
     if (!mob.alive) {
-      this.hooks.onKill();
+      this.hooks.onKill(mob);
       const loot = new LootPickup(mob.position);
       this.hooks.onLootDrop(loot);
     }
