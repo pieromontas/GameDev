@@ -6,6 +6,7 @@ import { MeadowBiome } from '../world/MeadowBiome';
 import { WorldPropLibrary } from '../world/WorldPropLibrary';
 import { ShrineObjective } from '../world/ShrineObjective';
 import { TreasureChests } from '../world/TreasureChests';
+import { HealingSprings } from '../world/HealingSprings';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
@@ -26,6 +27,7 @@ export class Game {
   private readonly meadow: MeadowBiome;
   private readonly shrine: ShrineObjective;
   private readonly chests: TreasureChests;
+  private readonly springs: HealingSprings;
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
   private readonly mobs: Enemy[];
@@ -151,6 +153,10 @@ export class Game {
       onXpGranted: (amount, worldPos) => this.grantChestXp(amount, worldPos),
     });
 
+    this.springs = new HealingSprings(this.meadow, {
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+    });
+
     this.loop = new GameLoop({
       update: (dt) => this.update(dt),
       render: () => this.render(),
@@ -182,12 +188,12 @@ export class Game {
       this.hud.showToast(`${failed.join(' + ')} model failed — others still playable (C)`, 3.2);
     } else if (propsOk) {
       this.hud.showToast(
-        'Welcome — KayKit meadow · 3 classes · chests · four pocket paths',
+        'Welcome — KayKit meadow · chests · healing spring in north ruins',
         2.8,
       );
     } else {
       this.hud.showToast(
-        'Welcome — 3 classes · chests · east shrine · west grove · north ruins · south ford',
+        'Welcome — chests · east shrine · west grove · north ruins spring · south ford',
         2.8,
       );
     }
@@ -323,6 +329,7 @@ export class Game {
 
     this.shrine.update(dt, this.player);
     this.chests.update(dt);
+    this.springs.update(dt);
     this.syncInteractHud();
 
     for (let i = this.loot.length - 1; i >= 0; i--) {
@@ -453,22 +460,30 @@ export class Game {
     }
   }
 
-  /** E key: prefer closed chests, then the east shrine awaken. */
+  /** E key: closed chests → healing spring → east shrine awaken. */
   private handleInteract(): void {
     if (!this.input.wasPressed('KeyE')) return;
     if (this.chests.tryInteract(this.player)) return;
+    if (this.springs.tryInteract(this.player)) return;
     this.shrine.tryInteract(this.player);
   }
 
-  /** Merge shrine objective HUD with chest / shrine interact prompts. */
+  /** Merge shrine objective HUD with chest / spring / shrine interact prompts. */
   private syncInteractHud(): void {
     const shrineHud = this.shrine.getHudState(this.player);
     const chestPrompt = this.chests.getInteractPrompt(this.player);
+    const springPrompt = this.springs.getInteractPrompt(this.player);
     if (chestPrompt.visible) {
       this.hud.setShrineHud({
         ...shrineHud,
         promptVisible: true,
         promptText: chestPrompt.text,
+      });
+    } else if (springPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: springPrompt.text,
       });
     } else {
       this.hud.setShrineHud(shrineHud);

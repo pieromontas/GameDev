@@ -37,14 +37,14 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **W A S D** / arrows | Move relative to camera |
 | **Shift** | Dodge roll — short burst + brief i-frames (~1.55s cooldown) |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
-| **E** | Interact — awaken east shrine / open treasure chests (when near) |
+| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring (when near) |
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt / Stab) |
 | **2** | Skill 2 (Quake / Frost Nova / Fan of Knives) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
 | **4** | Skill 4 (Leap Strike / Meteor / Shadow Leap) — unlocks at **Level 3** |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests**, the west misty grove path, the **north ruins** path, and the **south river ford** path. A **north-up minimap** (top-right radar) tracks your facing arrow, the four pocket landmarks, chests, and nearby enemies.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring**, the west misty grove path, the **north ruins** path (healing spring), and the **south river ford** path. A **north-up minimap** (top-right radar) tracks your facing arrow, the four pocket landmarks, chests, the healing spring, and nearby enemies.
 
 ## Treasure chests
 
@@ -62,7 +62,16 @@ Follow the dirt path **south** from the main meadow to a fifth reachable clearin
 
 ## North ruins
 
-Follow the dirt path **north** from the main meadow to a fourth reachable clearing. Landmark: a **crumbled gate**, **broken columns**, and a **rubble courtyard** (distinct from the east shrine tower and west fairy ring). **2 blobs + 2 spitters + 1 Armored Brute** patrol the ruins. Play-area clamp includes the north corridor + clearing — fully walkable. No new objective this cycle; explore and fight.
+Follow the dirt path **north** from the main meadow to a fourth reachable clearing. Landmark: a **crumbled gate**, **broken columns**, and a **rubble courtyard** (distinct from the east shrine tower and west fairy ring). **2 blobs + 2 spitters + 1 Armored Brute** patrol the ruins. Play-area clamp includes the north corridor + clearing — fully walkable.
+
+### Healing spring
+
+A stylized **healing spring / fountain** sits in the ruins courtyard. Walk up and press **E** (“Press E — Drink from Spring”):
+
+- **Heal** — full HP restore (Warrior, Mage, and Rogue)
+- **Feedback** — rising sparkle / glow burst + HUD toast with HP gained
+- **Cooldown** — **60s** rest; prompt shows `Healing Spring cooling… Xs` while unavailable; basin glow stays muted until ready
+- Clear of the east shrine and treasure chests; E-priority is chest → spring → shrine if prompts ever overlap
 
 ## West misty grove
 
