@@ -210,7 +210,7 @@ export class Player extends Entity {
 
     // Light out-of-combat regen so mistakes are recoverable without a full wipe
     if (this.alive && this.outOfCombat > 2.4 && this.hp < this.maxHp) {
-      this.heal(10 * dt);
+      this.heal(8 * dt);
     }
   }
 

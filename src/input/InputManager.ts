@@ -106,7 +106,7 @@ export class InputManager {
     // Camera yaw is RMB / MMB only — LMB must stay a clean attack click.
     const rightOrMiddleHeld = (e.buttons & 2) !== 0 || (e.buttons & 4) !== 0;
     if (this.yawDragging || rightOrMiddleHeld) {
-      this.yawDelta += e.movementX * 0.006;
+      this.yawDelta += e.movementX * 0.0075;
     }
   };
 }

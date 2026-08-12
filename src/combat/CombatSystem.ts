@@ -44,7 +44,7 @@ class SkillFx {
     this.scene.add(mesh);
     // RingGeometry outer ~0.55 → scale so visual ≈ skill radius
     const targetScale = (finalRadius / 0.55) * 1.05;
-    this.items.push({ mesh, age: 0, life: 0.38, grow: targetScale });
+    this.items.push({ mesh, age: 0, life: 0.48, grow: targetScale });
   }
 
   spawnSlash(pos: THREE.Vector3, facing: THREE.Vector3, color: number): void {
