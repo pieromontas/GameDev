@@ -7,6 +7,7 @@ import { WorldPropLibrary } from '../world/WorldPropLibrary';
 import { ShrineObjective } from '../world/ShrineObjective';
 import { TreasureChests } from '../world/TreasureChests';
 import { HealingSprings } from '../world/HealingSprings';
+import { CottageMerchant } from '../world/CottageMerchant';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
@@ -28,6 +29,7 @@ export class Game {
   private readonly shrine: ShrineObjective;
   private readonly chests: TreasureChests;
   private readonly springs: HealingSprings;
+  private readonly merchant: CottageMerchant;
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
   private readonly mobs: Enemy[];
@@ -155,6 +157,22 @@ export class Game {
 
     this.springs = new HealingSprings(this.meadow, {
       onToast: (message, duration) => this.hud.showToast(message, duration),
+    });
+
+    this.merchant = new CottageMerchant({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+      getGold: () => this.lootCount,
+      trySpend: (amount) => {
+        if (this.lootCount < amount) return false;
+        this.lootCount -= amount;
+        return true;
+      },
+      onShopChanged: (open) => this.hud.setShopOpen(open, this.lootCount),
+    });
+    this.hud.bindShopHandlers({
+      onBuyPotion: () => this.merchant.buyHealthPotion(this.player),
+      onBuyCharm: () => this.merchant.buyDamageCharm(this.player),
+      onClose: () => this.merchant.close(),
     });
 
     this.loop = new GameLoop({
@@ -330,6 +348,10 @@ export class Game {
     this.shrine.update(dt, this.player);
     this.chests.update(dt);
     this.springs.update(dt);
+    this.merchant.update(this.player);
+    if (this.input.wasPressed('Escape') && this.merchant.isOpen) {
+      this.merchant.close();
+    }
     this.syncInteractHud();
 
     for (let i = this.loot.length - 1; i >= 0; i--) {
@@ -343,7 +365,7 @@ export class Game {
       }
       if (this.player.alive && pickup.tryCollect(this.player.position, 1.7)) {
         this.lootCount += 1;
-        this.hud.showToast(`+1 loot  ·  ${this.lootCount}`, 0.85);
+        this.hud.showToast(`+1 gold  ·  ${this.lootCount}`, 0.85);
         this.scene.remove(pickup.mesh);
         pickup.dispose();
         this.loot.splice(i, 1);
@@ -460,19 +482,28 @@ export class Game {
     }
   }
 
-  /** E key: closed chests → healing spring → east shrine awaken. */
+  /**
+   * E key: closed chests → healing spring → east shrine → cottage merchant.
+   * Open shop always closes on E first so it never blocks other interactables.
+   */
   private handleInteract(): void {
     if (!this.input.wasPressed('KeyE')) return;
+    if (this.merchant.isOpen) {
+      this.merchant.close();
+      return;
+    }
     if (this.chests.tryInteract(this.player)) return;
     if (this.springs.tryInteract(this.player)) return;
-    this.shrine.tryInteract(this.player);
+    if (this.shrine.tryInteract(this.player)) return;
+    this.merchant.tryInteract(this.player);
   }
 
-  /** Merge shrine objective HUD with chest / spring / shrine interact prompts. */
+  /** Merge shrine objective HUD with chest / spring / shrine / merchant prompts. */
   private syncInteractHud(): void {
     const shrineHud = this.shrine.getHudState(this.player);
     const chestPrompt = this.chests.getInteractPrompt(this.player);
     const springPrompt = this.springs.getInteractPrompt(this.player);
+    const merchantPrompt = this.merchant.getInteractPrompt(this.player);
     if (chestPrompt.visible) {
       this.hud.setShrineHud({
         ...shrineHud,
@@ -484,6 +515,14 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: springPrompt.text,
+      });
+    } else if (shrineHud.promptVisible) {
+      this.hud.setShrineHud(shrineHud);
+    } else if (merchantPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: merchantPrompt.text,
       });
     } else {
       this.hud.setShrineHud(shrineHud);

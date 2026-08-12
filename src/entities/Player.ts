@@ -49,7 +49,7 @@ export class Player extends Entity {
   invuln = 0;
   /** Seconds since last combat event; regen starts after a short delay. */
   outOfCombat = 0;
-  /** Temporary shrine blessing — multiplies outgoing skill damage. */
+  /** Temporary shrine / charm blessing — multiplies outgoing skill damage. */
   damageBuffMult = 1;
   /** Temporary shrine blessing — multiplies move speed cap. */
   moveBuffMult = 1;
@@ -62,6 +62,8 @@ export class Player extends Entity {
   /** True after the Level-3 skill-unlock toast has fired once this session. */
   private skill4UnlockAnnounced = false;
   private buffRemain = 0;
+  /** HUD chip label while a combat buff is active. */
+  private buffLabel = 'Shrine Blessing';
   private classId: PlayerClass = 'warrior';
   /** While > 0, Leap / Shadow Leap owns horizontal position (blocks WASD drift). */
   private leapLockRemain = 0;
@@ -193,6 +195,11 @@ export class Player extends Entity {
     return this.buffRemain;
   }
 
+  /** Active combat buff chip text (shrine blessing or merchant damage charm). */
+  get activeBuffLabel(): string {
+    return this.buffLabel;
+  }
+
   /** XP needed for the current level → next. */
   get xpToNext(): number {
     return xpToReachNext(this.level);
@@ -256,12 +263,25 @@ export class Player extends Entity {
     this.buffRemain = Math.max(this.buffRemain, duration);
     this.damageBuffMult = damageMult;
     this.moveBuffMult = moveMult;
+    this.buffLabel = 'Shrine Blessing';
+  }
+
+  /**
+   * Merchant damage charm — outgoing skill damage for a short window (all classes).
+   * Damage-only; does not grant shrine move speed.
+   */
+  applyDamageCharm(duration: number, damageMult = 1.35): void {
+    this.buffRemain = Math.max(this.buffRemain, duration);
+    this.damageBuffMult = damageMult;
+    this.moveBuffMult = 1;
+    this.buffLabel = 'Damage Charm';
   }
 
   clearShrineBuff(): void {
     this.buffRemain = 0;
     this.damageBuffMult = 1;
     this.moveBuffMult = 1;
+    this.buffLabel = 'Shrine Blessing';
   }
 
   get animState(): PlayerAnim {

@@ -8,6 +8,11 @@ import {
 } from '../render/stylized';
 import { CHEST_SPOTS } from '../world/TreasureChests';
 import { SPRING_SPOT } from '../world/HealingSprings';
+import {
+  COTTAGE_SPOT,
+  DAMAGE_CHARM_COST,
+  HEALTH_POTION_COST,
+} from '../world/CottageMerchant';
 
 /** World half-extent projected onto the radar (covers clearings + a little padding). */
 const MINIMAP_EXTENT = 70;
@@ -28,6 +33,7 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
   { x: SouthRiverFordClearing.x, z: SouthRiverFordClearing.z, color: '#4aa8e8', r: 4.5 },
   ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3 })),
   { x: SPRING_SPOT.x, z: SPRING_SPOT.z, color: '#5ed4ef', r: 3.2 },
+  { x: COTTAGE_SPOT.x, z: COTTAGE_SPOT.z, color: '#c4784a', r: 3.2 },
 ];
 
 export class HUD {
@@ -69,6 +75,14 @@ export class HUD {
   private readonly dodgePip: HTMLElement;
   private readonly dodgeOverlay: HTMLElement;
   private readonly dodgeNum: HTMLElement;
+  private readonly shopPanel: HTMLElement;
+  private readonly shopGold: HTMLElement;
+  private shopOpen = false;
+  private shopHandlers: {
+    onBuyPotion: () => void;
+    onBuyCharm: () => void;
+    onClose: () => void;
+  } | null = null;
   private prevDodgeReady = true;
   private shownClass: PlayerClass | null = null;
   /** North-up radar canvas (world +Z = up). */
@@ -99,8 +113,27 @@ export class HUD {
         <p class="meta class-line" id="class-text">Class: Warrior · <kbd>C</kbd>/<kbd>Tab</kbd> cycle</p>
       </div>
       <div class="hud-panel hud-top-right">
-        <p class="meta" id="loot-text">Loot: 0</p>
+        <p class="meta" id="loot-text">Gold: 0</p>
         <p class="meta" id="kills-text">Kills: 0</p>
+      </div>
+      <div class="hud-panel shop-panel" id="shop-panel" hidden>
+        <div class="shop-head">
+          <p class="shop-title">Cottage Merchant</p>
+          <button type="button" class="shop-close" id="shop-close" aria-label="Close shop">✕</button>
+        </div>
+        <p class="shop-gold" id="shop-gold">Gold: 0</p>
+        <p class="shop-blurb">Spend chest gold on supplies.</p>
+        <button type="button" class="shop-item" id="shop-buy-potion">
+          <span class="shop-item-name">Health Potion</span>
+          <span class="shop-item-desc">Instant heal · +50 HP</span>
+          <span class="shop-item-price">${HEALTH_POTION_COST} gold</span>
+        </button>
+        <button type="button" class="shop-item" id="shop-buy-charm">
+          <span class="shop-item-name">Damage Charm</span>
+          <span class="shop-item-desc">+35% damage · 45s</span>
+          <span class="shop-item-price">${DAMAGE_CHARM_COST} gold</span>
+        </button>
+        <p class="shop-hint"><kbd>E</kbd> / <kbd>Esc</kbd> close</p>
       </div>
       <div class="hud-panel hud-minimap" id="minimap-panel" title="Minimap · north up">
         <div class="minimap-head">
@@ -113,6 +146,7 @@ export class HUD {
           <span><i class="lg grove"></i>Grove</span>
           <span><i class="lg ruins"></i>Ruins</span>
           <span><i class="lg ford"></i>Ford</span>
+          <span><i class="lg cottage"></i>Shop</span>
         </div>
       </div>
       <div class="hud-panel hud-bottom" id="skills"></div>
@@ -124,10 +158,11 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / chests / healing spring<br/>
+        <kbd>E</kbd> — shrine / chests / spring / cottage merchant<br/>
         Follow the dirt path west to the misty grove<br/>
         Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>
+        NW cottage — spend gold at the merchant<br/>
         RMB drag — rotate camera
       </div>
       <div class="interact-prompt" id="interact-prompt" hidden></div>
@@ -150,6 +185,18 @@ export class HUD {
     this.interactPrompt = this.root.querySelector('#interact-prompt')!;
     this.objectiveBanner = this.root.querySelector('#objective-banner')!;
     this.buffChip = this.root.querySelector('#buff-chip')!;
+    this.shopPanel = this.root.querySelector('#shop-panel')!;
+    this.shopGold = this.root.querySelector('#shop-gold')!;
+
+    this.root.querySelector('#shop-close')!.addEventListener('click', () => {
+      this.shopHandlers?.onClose();
+    });
+    this.root.querySelector('#shop-buy-potion')!.addEventListener('click', () => {
+      this.shopHandlers?.onBuyPotion();
+    });
+    this.root.querySelector('#shop-buy-charm')!.addEventListener('click', () => {
+      this.shopHandlers?.onBuyCharm();
+    });
 
     const skillsHost = this.root.querySelector('#skills')!;
     this.skillEls = {
@@ -241,8 +288,11 @@ export class HUD {
     this.xpFill.style.transform = `scaleX(${player.xpRatio})`;
     this.levelText.textContent = `Level ${player.level} · XP ${player.xp}/${player.xpToNext}`;
 
-    this.lootText.textContent = `Loot: ${lootCount}`;
+    this.lootText.textContent = `Gold: ${lootCount}`;
     this.killsText.textContent = `Kills: ${kills}`;
+    if (this.shopOpen) {
+      this.shopGold.textContent = `Gold: ${lootCount}`;
+    }
 
     this.syncSkill('basic', player);
     this.syncSkill('slam', player);
@@ -288,10 +338,26 @@ export class HUD {
 
     if (player.hasShrineBuff) {
       this.buffChip.hidden = false;
-      this.buffChip.textContent = `Shrine Blessing  ·  ${Math.ceil(player.shrineBuffRemain)}s`;
+      this.buffChip.textContent = `${player.activeBuffLabel}  ·  ${Math.ceil(player.shrineBuffRemain)}s`;
     } else {
       this.buffChip.hidden = true;
     }
+  }
+
+  /** Wire shop buy / close callbacks once after Game constructs the merchant. */
+  bindShopHandlers(handlers: {
+    onBuyPotion: () => void;
+    onBuyCharm: () => void;
+    onClose: () => void;
+  }): void {
+    this.shopHandlers = handlers;
+  }
+
+  setShopOpen(open: boolean, gold: number): void {
+    this.shopOpen = open;
+    this.shopGold.textContent = `Gold: ${gold}`;
+    if (open) this.shopPanel.removeAttribute('hidden');
+    else this.shopPanel.setAttribute('hidden', '');
   }
 
   /**

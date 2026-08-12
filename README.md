@@ -37,14 +37,14 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **W A S D** / arrows | Move relative to camera |
 | **Shift** | Dodge roll — short burst + brief i-frames (~1.55s cooldown) |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
-| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring (when near) |
+| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / talk to cottage merchant (when near) |
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt / Stab) |
 | **2** | Skill 2 (Quake / Frost Nova / Fan of Knives) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
 | **4** | Skill 4 (Leap Strike / Meteor / Shadow Leap) — unlocks at **Level 3** |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring**, the west misty grove path, the **north ruins** path (healing spring), and the **south river ford** path. A **north-up minimap** (top-right radar) tracks your facing arrow, the four pocket landmarks, chests, the healing spring, and nearby enemies.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / cottage merchant**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the four pocket landmarks, chests, the healing spring, the cottage shop, and nearby enemies.
 
 ## Treasure chests
 
@@ -55,6 +55,18 @@ Three one-shot **low-poly treasure chests** sit in readable spots: meadow pond e
 - **No farming** — opened chests stay open for the session
 
 Works for Warrior, Mage, and Rogue. Chests are clear of the east shrine interactable.
+
+## Cottage Merchant
+
+A simple spend-gold shop at the **NW cottage** (rim landmark near the well). Walk up to the door / front and press **E** (“Press E — Cottage Merchant”):
+
+- **Health Potion** — **6 gold**, instant **+50 HP** heal
+- **Damage Charm** — **11 gold**, **+35% damage** for **45s** (HUD buff chip)
+- **Feedback** — can’t-afford toast, purchase toast, top-right **Gold** counter updates
+- **Close** — **E**, **Esc**, or the panel ✕; shop also closes if you walk away
+- **E-priority** — chest → spring → shrine → merchant (merchant never blocks closer interactables)
+
+Works for Warrior, Mage, and Rogue. Prices are reachable after opening a couple of chests.
 
 ## South river ford
 
@@ -71,7 +83,7 @@ A stylized **healing spring / fountain** sits in the ruins courtyard. Walk up an
 - **Heal** — full HP restore (Warrior, Mage, and Rogue)
 - **Feedback** — rising sparkle / glow burst + HUD toast with HP gained
 - **Cooldown** — **60s** rest; prompt shows `Healing Spring cooling… Xs` while unavailable; basin glow stays muted until ready
-- Clear of the east shrine and treasure chests; E-priority is chest → spring → shrine if prompts ever overlap
+- Clear of the east shrine and treasure chests; E-priority is chest → spring → shrine → merchant if prompts ever overlap
 
 ## West misty grove
 
@@ -136,10 +148,11 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 - **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine + west grove + north ruins
 - **Armored Brute** enemies (rust/bronze tank) with slow chase, high HP, telegraphed ground-slam AoE — east shrine + west grove + north ruins only
 - Combat feedback: slash arcs, bolts, ground seals, Quake/Nova/Fan rings, Shield Bash pulse, Arcane Ward / Smoke Bomb bubbles, Leap / Shadow Leap trail/landing, Meteor telegraph + sky drop, Brute slam shockwaves, floating damage numbers, world HP bars
-- Tiny loot loop: defeated blobs/spitters drop coins; **brutes drop 3**; pickups increment an inventory counter
+- Tiny loot loop: defeated blobs/spitters drop coins; **brutes drop 3**; pickups increment **Gold**; spend at the **NW cottage merchant**
+- **Cottage Merchant**: E at the NW cottage door → HUD shop (Health Potion / Damage Charm)
 - **XP / leveling**: kills grant XP (blob 8 / spitter 14 / **brute 28**); HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent); **Level 3 unlocks skill 4**
 - **Dodge roll** (Shift): shared by Warrior / Mage / Rogue — short burst in move/facing direction, brief i-frames, ~1.55s cooldown + HUD pip
-- HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3/4) with locked Lv 3 state, dodge cooldown pip, loot/kill counts, **north-up minimap** (player arrow + pocket/chest markers + enemy dots), shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
+- HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3/4) with locked Lv 3 state, dodge cooldown pip, gold/kill counts, **north-up minimap** (player arrow + pocket/chest/cottage markers + enemy dots), shrine prompt/objective banner, blessing / charm chip, cottage shop panel, controls hint, brief model loading overlay
 
 ## World props (KayKit Forest + Medieval Hexagon)
 
@@ -208,6 +221,10 @@ src/
   camera/FollowCamera.ts  Angled follow cam + optional yaw
   world/MeadowBiome.ts    Ground + props, play-area clamp
   world/WorldPropLibrary.ts  KayKit prop GLTF loader + toon remap
+  world/CottageMerchant.ts   NW cottage spend-gold shop (E interact)
+  world/TreasureChests.ts Treasure chest interact + rewards
+  world/HealingSprings.ts Healing spring interact
+  world/ShrineObjective.ts East shrine defend objective
   entities/               Player, PlayerVisual, Mob, Spitter, ArmoredBrute, SpitProjectile, Loot, Entity
   combat/                 Skills, CombatSystem, damage numbers
   render/stylized.ts      Toon materials, sky, palette, ground helpers
