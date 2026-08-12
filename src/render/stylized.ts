@@ -242,12 +242,20 @@ export const WestMistyGrove = {
   radius: 11.5,
 } as const;
 
-/** Smooth 0–1 influence of dirt paths (main S-curve + east/west branches). */
+/** Fourth playable pocket north of the main meadow (ruins courtyard). */
+export const NorthRuinsClearing = {
+  x: 2,
+  z: 40,
+  radius: 11.5,
+} as const;
+
+/** Smooth 0–1 influence of dirt paths (main S-curve + east/west/north branches). */
 export function meadowPathInfluence(x: number, z: number): number {
   return Math.max(
     mainMeadowPathInfluence(x, z),
     eastBranchPathInfluence(x, z),
     westBranchPathInfluence(x, z),
+    northBranchPathInfluence(x, z),
   );
 }
 
@@ -326,6 +334,41 @@ function westBranchPathInfluence(x: number, z: number): number {
 
   const cdx = x - WestMistyGrove.x;
   const cdz = z - WestMistyGrove.z;
+  const cr = Math.hypot(cdx, cdz);
+  let pad = 0;
+  if (cr < 5.0) {
+    pad = cr < 2.6 ? 0.95 : 0.95 * (1 - (cr - 2.6) / 2.4);
+  }
+
+  return Math.max(branch, pad);
+}
+
+/**
+ * Dirt path branch from the main meadow north into the ruins clearing.
+ * Includes a soft dirt pad around the courtyard center so the path “arrives”.
+ */
+function northBranchPathInfluence(x: number, z: number): number {
+  // Branch leaves the main path near (+2, +12) and runs to the ruins center.
+  const ax = 2;
+  const az = 12;
+  const bx = NorthRuinsClearing.x;
+  const bz = NorthRuinsClearing.z;
+  const abx = bx - ax;
+  const abz = bz - az;
+  const abLen2 = abx * abx + abz * abz;
+  const t = abLen2 > 1e-8 ? THREE.MathUtils.clamp(((x - ax) * abx + (z - az) * abz) / abLen2, 0, 1) : 0;
+  const px = ax + abx * t;
+  const pz = az + abz * t;
+  const dist = Math.hypot(x - px, z - pz);
+  const halfW = 2.45 + Math.sin(t * Math.PI) * 0.35;
+  let branch = 0;
+  const d = dist / halfW;
+  if (d < 1.35) {
+    branch = d <= 0.75 ? 1 : 1 - (d - 0.75) / 0.6;
+  }
+
+  const cdx = x - NorthRuinsClearing.x;
+  const cdz = z - NorthRuinsClearing.z;
   const cr = Math.hypot(cdx, cdz);
   let pad = 0;
   if (cr < 5.0) {
