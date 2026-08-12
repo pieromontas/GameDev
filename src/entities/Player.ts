@@ -3,14 +3,19 @@ import { Entity } from './Entity';
 import { SkillId, SkillState, createWarriorSkills } from '../combat/Skills';
 
 export class Player extends Entity {
-  readonly moveSpeed = 7.5;
+  readonly maxSpeed = 7.8;
+  readonly accel = 52;
+  readonly friction = 64;
   readonly skills: Record<SkillId, SkillState>;
   facing = new THREE.Vector3(0, 0, -1);
   invuln = 0;
+  /** Seconds since last combat event; regen starts after a short delay. */
+  outOfCombat = 0;
   private bob = 0;
   private readonly body: THREE.Mesh;
   private readonly bodyMat: THREE.MeshLambertMaterial;
   private readonly baseColor = 0x3b7ddd;
+  private readonly velocity = new THREE.Vector3();
 
   constructor() {
     const group = new THREE.Group();
@@ -44,12 +49,16 @@ export class Player extends Entity {
     sword.rotation.z = -0.35;
     group.add(sword);
 
-    super(group, 'player', 120, 0.55);
+    super(group, 'player', 120, 0.5);
     this.body = body;
     this.bodyMat = bodyMat;
     this.skills = createWarriorSkills();
     this.position.set(0, 0, 6);
     this.syncMesh();
+  }
+
+  get moveSpeed(): number {
+    return this.maxSpeed;
   }
 
   tickSkills(dt: number): void {
@@ -70,6 +79,10 @@ export class Player extends Entity {
     skill.cooldownRemaining = skill.def.cooldown;
   }
 
+  markCombat(): void {
+    this.outOfCombat = 0;
+  }
+
   faceDirection(dir: THREE.Vector3): void {
     if (dir.lengthSq() < 1e-6) return;
     this.facing.copy(dir).normalize();
@@ -77,24 +90,74 @@ export class Player extends Entity {
     this.mesh.rotation.y = yaw;
   }
 
+  /**
+   * Accelerate toward a camera-relative wish direction; apply friction when idle.
+   * Returns true if the player has meaningful horizontal velocity.
+   */
+  applyMovement(wishDir: THREE.Vector3, dt: number): boolean {
+    if (wishDir.lengthSq() > 1e-6) {
+      this.velocity.x += wishDir.x * this.accel * dt;
+      this.velocity.z += wishDir.z * this.accel * dt;
+      const speed = Math.hypot(this.velocity.x, this.velocity.z);
+      if (speed > this.maxSpeed) {
+        const s = this.maxSpeed / speed;
+        this.velocity.x *= s;
+        this.velocity.z *= s;
+      }
+      this.faceDirection(wishDir);
+    } else {
+      const speed = Math.hypot(this.velocity.x, this.velocity.z);
+      if (speed > 0) {
+        const newSpeed = Math.max(0, speed - this.friction * dt);
+        if (newSpeed <= 1e-4) {
+          this.velocity.set(0, 0, 0);
+        } else {
+          const s = newSpeed / speed;
+          this.velocity.x *= s;
+          this.velocity.z *= s;
+        }
+      }
+    }
+
+    this.position.x += this.velocity.x * dt;
+    this.position.z += this.velocity.z * dt;
+    return this.velocity.lengthSq() > 1e-4;
+  }
+
   update(dt: number): void {
     this.bob += dt * 8;
+    this.outOfCombat += dt;
+
     if (this.hitFlash > 0) {
       this.hitFlash -= dt;
       this.bodyMat.color.setHex(0xffffff);
+    } else if (this.invuln > 0) {
+      // Soft blink while i-framed after a hit / respawn
+      const blink = Math.sin(this.invuln * 28) > 0;
+      this.bodyMat.color.setHex(blink ? 0xa8d4ff : this.baseColor);
     } else {
       this.bodyMat.color.setHex(this.baseColor);
     }
-    // subtle idle bob on body
-    this.body.position.y = 0.9 + Math.sin(this.bob) * 0.02;
+
+    // subtle idle / run bob on body
+    const speed = Math.hypot(this.velocity.x, this.velocity.z);
+    const bobAmp = 0.02 + Math.min(0.05, speed * 0.008);
+    this.body.position.y = 0.9 + Math.sin(this.bob) * bobAmp;
+
+    // Light out-of-combat regen so mistakes are recoverable without a full wipe
+    if (this.alive && this.outOfCombat > 2.4 && this.hp < this.maxHp) {
+      this.heal(10 * dt);
+    }
   }
 
   respawn(): void {
     this.alive = true;
     this.hp = this.maxHp;
     this.position.set(0, 0, 6);
+    this.velocity.set(0, 0, 0);
     this.mesh.visible = true;
-    this.invuln = 1.5;
+    this.invuln = 1.6;
+    this.outOfCombat = 0;
     this.syncMesh();
   }
 }
