@@ -7,6 +7,7 @@ import {
   SouthRiverFordClearing,
 } from '../render/stylized';
 import { CHEST_SPOTS } from '../world/TreasureChests';
+import { SPRING_SPOT } from '../world/HealingSprings';
 
 /** World half-extent projected onto the radar (covers clearings + a little padding). */
 const MINIMAP_EXTENT = 70;
@@ -26,6 +27,7 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
   { x: NorthRuinsClearing.x, z: NorthRuinsClearing.z, color: '#c4a574', r: 4.5 },
   { x: SouthRiverFordClearing.x, z: SouthRiverFordClearing.z, color: '#4aa8e8', r: 4.5 },
   ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3 })),
+  { x: SPRING_SPOT.x, z: SPRING_SPOT.z, color: '#5ed4ef', r: 3.2 },
 ];
 
 export class HUD {
@@ -122,9 +124,9 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / open treasure chests<br/>
+        <kbd>E</kbd> — shrine / chests / healing spring<br/>
         Follow the dirt path west to the misty grove<br/>
-        Follow the dirt path north to the ruins<br/>
+        Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>
         RMB drag — rotate camera
       </div>
