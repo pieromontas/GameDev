@@ -46,6 +46,7 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight, false);
     this.renderer.shadowMap.enabled = true;
+    // Soft contact shadows — closer to the style-target meadow lighting
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -74,8 +75,8 @@ export class Game {
     this.input = new InputManager(canvas);
     this.hud = new HUD(hudHost);
     this.healthBars = new HealthBars(this.scene);
-    this.healthBars.track(this.player, 2.3);
-    for (const mob of this.mobs) this.healthBars.track(mob, 1.5);
+    this.healthBars.track(this.player, 2.45);
+    for (const mob of this.mobs) this.healthBars.track(mob, 1.55);
 
     this.combat = new CombatSystem(this.scene, {
       onLootDrop: (pickup) => {
@@ -116,12 +117,13 @@ export class Game {
     const hemi = new THREE.HemisphereLight(Palette.hemiSky, Palette.hemiGround, 0.55);
     this.scene.add(hemi);
 
-    const sun = new THREE.DirectionalLight(Palette.sun, 2.15);
+    const sun = new THREE.DirectionalLight(Palette.sun, 2.0);
     sun.position.set(22, 34, 14);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.bias = -0.0008;
-    sun.shadow.normalBias = 0.04;
+    sun.shadow.bias = -0.0006;
+    sun.shadow.normalBias = 0.05;
+    sun.shadow.radius = 3;
     sun.shadow.camera.near = 2;
     sun.shadow.camera.far = 72;
     sun.shadow.camera.left = -28;

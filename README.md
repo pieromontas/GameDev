@@ -33,10 +33,10 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 
 ## What’s in the slice
 
-- Bright meadow playground with stylized trees, rocks, and flowers (procedural meshes — no binary assets)
-- Capsule-style Warrior with hit flashes and cooldowns
-- Cute blob AI: aggro → chase → attack, death + respawn
-- Combat feedback: skill FX rings/slashes, floating damage numbers, world HP bars
+- Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks
+- Articulated low-poly Warrior (leather + steel trim) with procedural idle / walk / Slash / Quake poses
+- Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, death squash
+- Combat feedback: slash arcs, ground seals, Quake rings, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs drop coins; pickups increment an inventory counter
 - HUD: HP, skill cooldowns, loot/kill counts, controls hint
 
@@ -46,6 +46,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 src/
   main.ts                 Entry — boots Game
   style.css               HUD styles
+  anim/ease.ts            Shared easing for procedural poses
   game/
     Game.ts               Scene wiring + systems orchestration
     loop.ts               rAF loop with fixed 60 Hz update
@@ -54,16 +55,18 @@ src/
   world/MeadowBiome.ts    Ground + props, play-area clamp
   entities/               Player, Mob, Loot, base Entity
   combat/                 Skills, CombatSystem, damage numbers
+  render/stylized.ts      Toon materials, sky, palette, ground helpers
   ui/                     HUD + billboard health bars
   utils/math.ts           Small helpers
 ```
 
-Stack: **Vite + TypeScript + three r170+**, ESM, modest draw-call reuse (shared geometries/materials).
+Stack: **Vite + TypeScript + three r170+**, ESM, modest draw-call reuse (shared geometries/materials + instanced grass).
 
 ## Design notes
 
 - Camera stays locked behind/above the player (isometric-ish), never first-person
 - Semi-fixed timestep (`1/60`) keeps combat timing stable under frame hitches
+- Art is procedural / code-driven (no binary asset packs) so the slice stays portable
 - Architecture is split so new classes, skills, or biomes can grow without a giant `main.ts`
 - Intentionally single-player — polish the core loop before inventing multiplayer
 
