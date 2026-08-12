@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** Warrior + Mage starter classes (switchable), one meadow biome, blob + **Spitter** mobs, loot pickups, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage starter classes (switchable), one meadow biome, blob + **Spitter** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -47,6 +47,12 @@ Follow the dirt path east to the ancient shrine clearing. Walk up to the crystal
 
 Ignoring the shrine leaves meadow combat fully playable. Works for Warrior and Mage.
 
+## XP & leveling
+
+Defeat blobs (**+8 XP**) and spitters (**+14 XP**) to level up. The HUD shows **Level** and an XP bar (e.g. `Level 1 · XP 0/20`). Floating **+XP** appears on kills; every few kills also flashes a toast.
+
+On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** and **+1–2 damage** (alternating). Level, XP, and bonuses persist through respawn and class swaps for the session. Works for Warrior and Mage — higher levels feel a bit stronger against spitters without a full rebalance.
+
 ## Classes
 
 ### Warrior
@@ -68,7 +74,8 @@ Ignoring the shrine leaves meadow combat fully playable. Works for Warrior and M
 - **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine
 - Combat feedback: slash arcs, bolts, ground seals, Quake/Nova rings, Shield Bash pulse, Arcane Ward bubble, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs/spitters drop coins; pickups increment an inventory counter
-- HUD: HP, active class + switch hint, skill cooldowns (1/2/3) with class-specific names, loot/kill counts, shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
+- **XP / leveling**: kills grant XP; HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent)
+- HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3) with class-specific names, loot/kill counts, shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
 
 ## Character art (KayKit Adventurers)
 

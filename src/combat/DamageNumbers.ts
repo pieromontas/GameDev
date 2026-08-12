@@ -11,19 +11,21 @@ type Floater = {
 
 function makeDamageTexture(text: string, color: string): THREE.CanvasTexture {
   // Fresh canvas per number — shared canvas was overwriting older sprites.
+  const wide = text.length > 3;
   const canvas = document.createElement('canvas');
-  canvas.width = 128;
+  canvas.width = wide ? 192 : 128;
   canvas.height = 64;
   const ctx = canvas.getContext('2d')!;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.font = 'bold 42px Nunito, sans-serif';
+  ctx.font = wide ? 'bold 34px Nunito, sans-serif' : 'bold 42px Nunito, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineWidth = 7;
   ctx.strokeStyle = 'rgba(20,30,24,0.85)';
-  ctx.strokeText(text, 64, 32);
+  const cx = canvas.width / 2;
+  ctx.strokeText(text, cx, 32);
   ctx.fillStyle = color;
-  ctx.fillText(text, 64, 32);
+  ctx.fillText(text, cx, 32);
   const tex = new THREE.CanvasTexture(canvas);
   tex.needsUpdate = true;
   return tex;
@@ -40,7 +42,21 @@ export class DamageNumbers {
 
   spawn(position: THREE.Vector3, amount: number, critical = false): void {
     const color = critical ? '#ffd166' : '#fff8f0';
-    const map = makeDamageTexture(String(amount), color);
+    this.spawnLabel(position, String(amount), color, {
+      critical,
+      yOffset: 1.55,
+    });
+  }
+
+  /** Floating world text — used for XP pickups ("+12 XP") and similar beats. */
+  spawnLabel(
+    position: THREE.Vector3,
+    text: string,
+    color: string,
+    opts?: { critical?: boolean; yOffset?: number; life?: number },
+  ): void {
+    const critical = opts?.critical ?? false;
+    const map = makeDamageTexture(text, color);
     const mat = new THREE.SpriteMaterial({
       map,
       transparent: true,
@@ -48,20 +64,29 @@ export class DamageNumbers {
     });
     const sprite = new THREE.Sprite(mat);
     sprite.position.copy(position);
-    sprite.position.y += 1.55;
+    sprite.position.y += opts?.yOffset ?? 1.55;
     sprite.position.x += (Math.random() - 0.5) * 0.35;
-    const baseX = critical ? 1.85 : 1.42;
-    const baseY = critical ? 0.95 : 0.72;
+    const wide = text.length > 3;
+    const baseX = critical ? 1.85 : wide ? 1.95 : 1.42;
+    const baseY = critical ? 0.95 : wide ? 0.78 : 0.72;
     // Start slightly undersized so the pop reads as a snap.
     sprite.scale.set(baseX * 0.55, baseY * 0.55, 1);
     this.root.add(sprite);
     this.active.push({
       sprite,
       age: 0,
-      life: critical ? 0.82 : 0.68,
+      life: opts?.life ?? (critical ? 0.82 : 0.68),
       velocity: new THREE.Vector3((Math.random() - 0.5) * 0.45, 3.1, (Math.random() - 0.5) * 0.45),
       baseX,
       baseY,
+    });
+  }
+
+  /** Readable XP floater above a slain enemy. */
+  spawnXp(position: THREE.Vector3, amount: number): void {
+    this.spawnLabel(position, `+${amount} XP`, '#7dff9a', {
+      yOffset: 1.85,
+      life: 0.95,
     });
   }
 

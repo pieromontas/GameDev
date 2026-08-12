@@ -149,6 +149,47 @@ kbd {
   background: linear-gradient(90deg, #d64545, #ef7a7a);
 }
 
+.xp-row {
+  margin-top: 4px;
+}
+
+.bar-fill.xp-fill {
+  background: linear-gradient(90deg, #2f8f5b, #7dff9a);
+}
+
+.bar-fill.xp-fill.level-flash {
+  animation: xp-flash 700ms ease-out;
+}
+
+#level-text.level-flash {
+  animation: level-text-pop 700ms ease-out;
+  color: #1f7a4a;
+}
+
+@keyframes xp-flash {
+  0% {
+    filter: brightness(1);
+  }
+  35% {
+    filter: brightness(1.55);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+@keyframes level-text-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 .meta {
   margin: 6px 0 0;
   font-size: 13px;
@@ -276,6 +317,25 @@ kbd {
 
 .toast.show {
   opacity: 1;
+}
+
+.toast.level-up {
+  border-color: rgba(255, 200, 80, 0.75);
+  background: linear-gradient(90deg, rgba(255, 248, 220, 0.96), rgba(210, 255, 220, 0.96));
+  box-shadow: 0 8px 28px rgba(80, 140, 60, 0.28);
+  animation: level-toast-pop 420ms ease-out;
+}
+
+@keyframes level-toast-pop {
+  0% {
+    transform: translateX(-50%) scale(0.88);
+  }
+  55% {
+    transform: translateX(-50%) scale(1.05);
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
 }
 
 .interact-prompt {

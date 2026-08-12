@@ -355,6 +355,8 @@ export class CombatSystem {
   private hitStopRemain = 0;
   /** Cached from player buffs at skill cast time. */
   private playerDamageMult = 1;
+  /** Flat damage from session leveling — applied before shrine mult. */
+  private playerBonusDamage = 0;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -375,6 +377,14 @@ export class CombatSystem {
     return rawDt * 0.1;
   }
 
+  /** Golden burst around the hero — readable level-up beat for Warrior and Mage. */
+  playLevelUpFx(player: Player): void {
+    this.fx.spawnRing(player.position, 0xffe08a, 3.1);
+    this.fx.spawnRing(player.position, 0x7dff9a, 1.85);
+    this.fx.spawnSeal(player.position, 0xffd76a);
+    this.pulseHitStop(0.07);
+  }
+
   update(dt: number, player?: Player): void {
     this.damageNumbers.update(dt);
     this.fx.update(dt);
@@ -386,6 +396,7 @@ export class CombatSystem {
     player.startCooldown(skillId);
     player.markCombat();
     this.playerDamageMult = player.damageBuffMult;
+    this.playerBonusDamage = player.bonusDamage;
 
     if (player.playerClass === 'mage') {
       return this.tryMageSkill(player, skillId, mobs);
@@ -645,8 +656,10 @@ export class CombatSystem {
   }
 
   private applyDamageToMob(mob: Enemy, damage: number, crit: boolean): void {
-    // Shrine blessing (and future buffs) scale outgoing skill damage for both classes.
-    const scaled = Math.round(damage * this.playerDamageMult);
+    // Flat level bonus + shrine blessing scale outgoing skill damage for both classes.
+    // Zero-damage skills (Arcane Ward) never reach here.
+    const withLevel = damage + this.playerBonusDamage;
+    const scaled = Math.round(withLevel * this.playerDamageMult);
     const dealt = mob.takeDamage(scaled + (crit ? 4 : 0));
     if (dealt <= 0) return;
     mob.playHitReact();
