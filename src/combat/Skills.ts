@@ -1,6 +1,9 @@
-export type SkillId = 'basic' | 'slam' | 'bash';
+export type SkillId = 'basic' | 'slam' | 'bash' | 'burst';
 
 export type PlayerClass = 'warrior' | 'mage';
+
+/** Slot-4 skills unlock at this session level (existing XP curve). */
+export const SKILL4_UNLOCK_LEVEL = 3;
 
 export type SkillDef = {
   id: SkillId;
@@ -50,9 +53,20 @@ export const WARRIOR_SKILLS: Record<SkillId, SkillDef> = {
     radius: 1.35,
     color: 0x7ec8ff,
   },
+  burst: {
+    id: 'burst',
+    name: 'Leap Strike',
+    keyHint: '4',
+    // Gap-closer — longer CD than Quake; smaller landing AoE; mobility is the payoff.
+    cooldown: 5.6,
+    damage: 22,
+    range: 5.2,
+    radius: 2.35,
+    color: 0xffb040,
+  },
 };
 
-/** Mage kit — ranged bolt, AoE frost nova (slow), personal arcane ward. */
+/** Mage kit — ranged bolt, AoE frost nova (slow), personal arcane ward, delayed meteor. */
 export const MAGE_SKILLS: Record<SkillId, SkillDef> = {
   basic: {
     id: 'basic',
@@ -85,6 +99,17 @@ export const MAGE_SKILLS: Record<SkillId, SkillDef> = {
     radius: 1.6,
     color: 0xa78bff,
   },
+  burst: {
+    id: 'burst',
+    name: 'Meteor',
+    keyHint: '4',
+    // Delayed sky drop — longer CD than Nova; punchier hit, tighter radius, needs aim.
+    cooldown: 6.2,
+    damage: 30,
+    range: 4.6,
+    radius: 2.7,
+    color: 0xff6a3d,
+  },
 };
 
 export const CLASS_LABEL: Record<PlayerClass, string> = {
@@ -97,6 +122,7 @@ export function createWarriorSkills(): Record<SkillId, SkillState> {
     basic: { def: WARRIOR_SKILLS.basic, cooldownRemaining: 0 },
     slam: { def: WARRIOR_SKILLS.slam, cooldownRemaining: 0 },
     bash: { def: WARRIOR_SKILLS.bash, cooldownRemaining: 0 },
+    burst: { def: WARRIOR_SKILLS.burst, cooldownRemaining: 0 },
   };
 }
 
@@ -105,9 +131,15 @@ export function createMageSkills(): Record<SkillId, SkillState> {
     basic: { def: MAGE_SKILLS.basic, cooldownRemaining: 0 },
     slam: { def: MAGE_SKILLS.slam, cooldownRemaining: 0 },
     bash: { def: MAGE_SKILLS.bash, cooldownRemaining: 0 },
+    burst: { def: MAGE_SKILLS.burst, cooldownRemaining: 0 },
   };
 }
 
 export function createSkillsForClass(cls: PlayerClass): Record<SkillId, SkillState> {
   return cls === 'mage' ? createMageSkills() : createWarriorSkills();
+}
+
+export function isSkillUnlocked(id: SkillId, level: number): boolean {
+  if (id === 'burst') return level >= SKILL4_UNLOCK_LEVEL;
+  return true;
 }

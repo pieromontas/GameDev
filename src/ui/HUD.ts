@@ -1,5 +1,5 @@
 import { Player } from '../entities/Player';
-import { CLASS_LABEL, PlayerClass, SkillId } from '../combat/Skills';
+import { CLASS_LABEL, PlayerClass, SKILL4_UNLOCK_LEVEL, SkillId } from '../combat/Skills';
 
 export class HUD {
   private readonly root: HTMLElement;
@@ -18,7 +18,21 @@ export class HUD {
   private hintAge = 0;
   private hintHidden = false;
   private levelFlashTimer = 0;
-  private readonly prevReady: Record<SkillId, boolean> = { basic: true, slam: true, bash: true };
+  /** Delay before swapping the Level Up toast for the skill-4 unlock line. */
+  private skill4ToastDelay = -1;
+  private skill4ToastMsg: string | null = null;
+  private readonly prevReady: Record<SkillId, boolean> = {
+    basic: true,
+    slam: true,
+    bash: true,
+    burst: false,
+  };
+  private readonly prevLocked: Record<SkillId, boolean> = {
+    basic: false,
+    slam: false,
+    bash: false,
+    burst: true,
+  };
   private readonly loading: HTMLElement;
   private readonly interactPrompt: HTMLElement;
   private readonly objectiveBanner: HTMLElement;
@@ -57,7 +71,8 @@ export class HUD {
         <strong>Controls</strong><br/>
         WASD — move<br/>
         LMB / 1 — skill 1<br/>
-        2 / 3 — skills 2 &amp; 3<br/>
+        2 / 3 / 4 — skills 2–4<br/>
+        Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> — switch Warrior / Mage<br/>
         <kbd>E</kbd> — awaken east shrine<br/>
         Follow the dirt path west to the misty grove<br/>
@@ -89,6 +104,7 @@ export class HUD {
       basic: this.makeSkillSlot(skillsHost, 'basic', 'Slash', '1'),
       slam: this.makeSkillSlot(skillsHost, 'slam', 'Quake', '2'),
       bash: this.makeSkillSlot(skillsHost, 'bash', 'Bash', '3'),
+      burst: this.makeSkillSlot(skillsHost, 'burst', 'Leap', '4'),
     };
   }
 
@@ -113,6 +129,7 @@ export class HUD {
       <span class="name">${name}</span>
       <div class="cd-overlay"></div>
       <span class="cd-num"></span>
+      <span class="lock-hint">Lv ${SKILL4_UNLOCK_LEVEL}</span>
     `;
     host.appendChild(el);
     return {
@@ -139,7 +156,8 @@ export class HUD {
       el.root.title = `${def.name} (${def.keyHint})`;
       el.root.dataset.class = cls;
       // Force ready-pop refresh after rename.
-      this.prevReady[id] = player.skills[id].cooldownRemaining <= 0;
+      this.prevReady[id] = player.skills[id].cooldownRemaining <= 0 && !player.isSkillLocked(id);
+      this.prevLocked[id] = player.isSkillLocked(id);
     }
   }
 
@@ -160,6 +178,22 @@ export class HUD {
     this.syncSkill('basic', player);
     this.syncSkill('slam', player);
     this.syncSkill('bash', player);
+    this.syncSkill('burst', player);
+
+    // Slot-4 unlock toast — works for kill XP and any other gainXp path.
+    const unlock = player.consumeSkill4UnlockToast();
+    if (unlock) {
+      this.skill4ToastMsg = unlock;
+      this.skill4ToastDelay = 0.85;
+    }
+    if (this.skill4ToastDelay >= 0) {
+      this.skill4ToastDelay -= dt;
+      if (this.skill4ToastDelay <= 0 && this.skill4ToastMsg) {
+        this.showToast(this.skill4ToastMsg, 2.4);
+        this.skill4ToastMsg = null;
+        this.skill4ToastDelay = -1;
+      }
+    }
 
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
@@ -220,8 +254,37 @@ export class HUD {
   private syncSkill(id: SkillId, player: Player): void {
     const state = player.skills[id];
     const el = this.skillEls[id];
+    const locked = player.isSkillLocked(id);
     const cd = state.cooldownRemaining;
     const num = el.root.querySelector('.cd-num') as HTMLElement | null;
+    const lockHint = el.root.querySelector('.lock-hint') as HTMLElement | null;
+
+    el.root.classList.toggle('locked', locked);
+    if (lockHint) {
+      lockHint.textContent = `Lv ${SKILL4_UNLOCK_LEVEL}`;
+      lockHint.classList.toggle('show', locked);
+    }
+
+    if (locked) {
+      el.root.classList.remove('ready', 'pop');
+      el.overlay.style.transform = 'translateY(0%)';
+      if (num) {
+        num.textContent = '';
+        num.classList.remove('show');
+      }
+      this.prevReady[id] = false;
+      this.prevLocked[id] = true;
+      return;
+    }
+
+    if (this.prevLocked[id]) {
+      // Just unlocked — brief ready pop so the new slot is obvious.
+      el.root.classList.remove('pop');
+      void el.root.offsetWidth;
+      el.root.classList.add('pop');
+    }
+    this.prevLocked[id] = false;
+
     const ready = cd <= 0;
     if (ready) {
       el.root.classList.add('ready');
@@ -250,7 +313,7 @@ export class HUD {
   showToast(message: string, duration = 1.4): void {
     this.toast.textContent = message;
     this.toast.classList.add('show');
-    this.toast.classList.toggle('level-up', /Level Up/i.test(message));
+    this.toast.classList.toggle('level-up', /Level Up|Unlocked:/i.test(message));
     this.toastTimer = duration;
   }
 
@@ -271,5 +334,7 @@ function shortSkillName(name: string): string {
   if (name === 'Arcane Bolt') return 'Bolt';
   if (name === 'Frost Nova') return 'Nova';
   if (name === 'Arcane Ward') return 'Ward';
+  if (name === 'Leap Strike') return 'Leap';
+  if (name === 'Meteor') return 'Meteor';
   return name;
 }

@@ -32,9 +32,10 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt) |
 | **2** | Skill 2 (Quake / Frost Nova) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward) |
+| **4** | Skill 4 (Leap Strike / Meteor) — unlocks at **Level 3** |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. A controls hint also lists **C — switch Warrior / Mage**, **E — awaken east shrine**, and the west misty grove path.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A controls hint also lists **C — switch Warrior / Mage**, **E — awaken east shrine**, and the west misty grove path.
 
 ## West misty grove
 
@@ -55,7 +56,7 @@ Ignoring the shrine leaves meadow combat fully playable. Works for Warrior and M
 
 Defeat blobs (**+8 XP**) and spitters (**+14 XP**) to level up. The HUD shows **Level** and an XP bar (e.g. `Level 1 · XP 0/20`). Floating **+XP** appears on kills; every few kills also flashes a toast.
 
-On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** and **+1–2 damage** (alternating). Level, XP, and bonuses persist through respawn and class swaps for the session. Works for Warrior and Mage — higher levels feel a bit stronger against spitters without a full rebalance.
+On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** and **+1–2 damage** (alternating). Reaching **Level 3** unlocks skill 4 for both kits (toast announces Leap Strike / Meteor). Level, XP, and bonuses persist through respawn and class swaps for the session. Works for Warrior and Mage — higher levels feel a bit stronger against spitters without a full rebalance.
 
 ## Classes
 
@@ -63,11 +64,13 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 - **Slash** — short-range melee
 - **Quake** — short-cooldown ground AoE
 - **Shield Bash** — forward stun + knockback
+- **Leap Strike** *(Lv 3)* — gap-closer leap toward aim/facing + landing AoE
 
 ### Mage
 - **Arcane Bolt** — longer-range single-target bolt
 - **Frost Nova** — AoE burst that chills (slows) blobs
 - **Arcane Ward** — personal bubble (brief i-frames + small heal)
+- **Meteor** *(Lv 3)* — delayed sky-drop AoE in front of you (telegraph circle)
 
 ## What’s in the slice
 
@@ -77,10 +80,10 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 - KayKit Knight warrior + KayKit Mage (GLTF) with Idle / Walk / Run + skill clips via three.js `AnimationMixer`
 - Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, frost slow, death squash
 - **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine + west grove
-- Combat feedback: slash arcs, bolts, ground seals, Quake/Nova rings, Shield Bash pulse, Arcane Ward bubble, floating damage numbers, world HP bars
+- Combat feedback: slash arcs, bolts, ground seals, Quake/Nova rings, Shield Bash pulse, Arcane Ward bubble, Leap Strike trail/landing, Meteor telegraph + sky drop, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs/spitters drop coins; pickups increment an inventory counter
-- **XP / leveling**: kills grant XP; HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent)
-- HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3) with class-specific names, loot/kill counts, shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
+- **XP / leveling**: kills grant XP; HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent); **Level 3 unlocks skill 4**
+- HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3/4) with locked Lv 3 state, loot/kill counts, shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
 
 ## Character art (KayKit Adventurers)
 
@@ -101,6 +104,7 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 | Skill 1 | `1H_Melee_Attack_Slice_Horizontal` | `Spellcast_Shoot` |
 | Skill 2 | `Jump_Full_Short` + stomp juice | `Spellcast_Long` + cast lift |
 | Skill 3 | `Block_Attack` + shield shove | `Spellcast_Raise` + ward bubble |
+| Skill 4 | `Jump_Full_Long` + leap arc | `Spellcasting` + Meteor telegraph |
 
 Warrior props: `1H_Sword`, `Round_Shield`, `Knight_Helmet`, `Knight_Cape`.  
 Mage props: `1H_Wand`, `Spellbook`, `Mage_Hat`, `Mage_Cape` (staff / open book hidden).
@@ -110,7 +114,7 @@ Mage props: `1H_Wand`, `Spellbook`, `Mage_Hat`, `Mage_Cape` (staff / open book h
 1. Drop a new GLB under `public/models/<pack>/`.
 2. Add a `VisualConfig` in `src/entities/PlayerVisual.ts` and wire it in `Player`.
 3. Add skill defs in `src/combat/Skills.ts` and combat branches in `CombatSystem`.
-4. Keep `Player` gameplay APIs (`applyMovement`, `playSlash` / `playQuake` / `playBash`, skills, radius) stable so HUD/combat stay intact.
+4. Keep `Player` gameplay APIs (`applyMovement`, `playSlash` / `playQuake` / `playBash` / `playBurst`, skills, radius) stable so HUD/combat stay intact.
 5. Document the pack + license next to the files (mirror the Knight/Mage folders).
 
 If a GLB fails to load, the game still boots (contact shadow / other class) and logs a clear console error — no softlock.

@@ -10,6 +10,7 @@ export type ClipMap = {
   slash: string;
   quake: string;
   bash: string;
+  burst: string;
 };
 
 export type VisualConfig = {
@@ -44,6 +45,8 @@ export const WARRIOR_VISUAL: VisualConfig = {
     slash: '1H_Melee_Attack_Slice_Horizontal',
     quake: 'Jump_Full_Short',
     bash: 'Block_Attack',
+    // Longer jump for Leap Strike — distinct from Quake's short hop.
+    burst: 'Jump_Full_Long',
   },
   attackMotion: 'warrior',
 };
@@ -62,6 +65,8 @@ export const MAGE_VISUAL: VisualConfig = {
     slash: 'Spellcast_Shoot',
     quake: 'Spellcast_Long',
     bash: 'Spellcast_Raise',
+    // Channel cast for Meteor — distinct from Bolt / Nova / Ward clips.
+    burst: 'Spellcasting',
   },
   attackMotion: 'mage',
 };
@@ -258,6 +263,7 @@ export class PlayerVisual {
     if (state === 'slash') desired = 'slash';
     else if (state === 'quake') desired = 'quake';
     else if (state === 'bash') desired = 'bash';
+    else if (state === 'burst') desired = 'burst';
     else if (state === 'move') {
       if (this.locoGate === 'walk' && speed > maxSpeed * 0.78) this.locoGate = 'run';
       else if (this.locoGate === 'run' && speed < maxSpeed * 0.58) this.locoGate = 'walk';
@@ -269,12 +275,15 @@ export class PlayerVisual {
     if (desired !== this.current) {
       const fade = this.fadeFor(this.current, desired);
       this.crossfade(desired, fade);
-      if (desired === 'slash' || desired === 'quake' || desired === 'bash') {
+      if (desired === 'slash' || desired === 'quake' || desired === 'bash' || desired === 'burst') {
         this.attackSynced = null;
       }
     }
 
-    if ((desired === 'slash' || desired === 'quake' || desired === 'bash') && animDur > 1e-4) {
+    if (
+      (desired === 'slash' || desired === 'quake' || desired === 'bash' || desired === 'burst') &&
+      animDur > 1e-4
+    ) {
       const action = this.actions.get(desired);
       const clip = action?.getClip();
       if (action && clip && clip.duration > 1e-4) {
@@ -317,6 +326,17 @@ export class PlayerVisual {
       this.root.position.y = -down + hop - squash;
       this.root.position.x = 0;
       this.root.position.z = 0;
+    } else if (state === 'burst' && animDur > 1e-4) {
+      // Higher, longer arc than Quake so Leap Strike reads as a real gap-closer.
+      const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
+      const launch = smooth01(t / 0.2);
+      const hang = Math.sin(Math.min(1, (t - 0.12) / 0.55) * Math.PI);
+      const land = easeOut((t - 0.62) / 0.38);
+      const hop = launch * hang * (1 - land * 0.85) * 0.42;
+      const squash = land * 0.08 * (1 - smooth01((t - 0.85) / 0.15));
+      this.root.position.y = hop - squash;
+      this.root.position.x = 0;
+      this.root.position.z = 0;
     } else if (state === 'bash' && animDur > 1e-4) {
       const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
       const surge = Math.sin(Math.min(1, t / 0.35) * Math.PI);
@@ -333,7 +353,16 @@ export class PlayerVisual {
   }
 
   private applyMageMotion(state: PlayerAnim, animT: number, animDur: number): void {
-    if ((state === 'slash' || state === 'quake' || state === 'bash') && animDur > 1e-4) {
+    if (state === 'burst' && animDur > 1e-4) {
+      // Slow channel rise — Meteor telegraph window, not a quick Bolt flick.
+      const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
+      const rise = smooth01(t / 0.35) * 0.16;
+      const hold = Math.sin(Math.min(1, t / 0.7) * Math.PI) * 0.05;
+      const settle = smooth01((t - 0.7) / 0.3);
+      this.root.position.y = (rise + hold) * (1 - settle);
+      this.root.position.x = 0;
+      this.root.position.z = 0;
+    } else if ((state === 'slash' || state === 'quake' || state === 'bash') && animDur > 1e-4) {
       const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
       const lift = Math.sin(Math.min(1, t / 0.45) * Math.PI) * (state === 'quake' ? 0.12 : 0.07);
       const settle = smooth01((t - 0.55) / 0.45);
@@ -348,8 +377,8 @@ export class PlayerVisual {
   }
 
   private fadeFor(from: ClipKey | null, to: ClipKey): number {
-    const toAttack = to === 'slash' || to === 'quake' || to === 'bash';
-    const fromAttack = from === 'slash' || from === 'quake' || from === 'bash';
+    const toAttack = to === 'slash' || to === 'quake' || to === 'bash' || to === 'burst';
+    const fromAttack = from === 'slash' || from === 'quake' || from === 'bash' || from === 'burst';
     if (toAttack) return FADE.attackIn;
     if (fromAttack) return FADE.attackOut;
     return FADE.loco;

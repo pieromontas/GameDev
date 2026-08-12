@@ -16,7 +16,44 @@ export type CombatHooks = {
   onQuakeImpact?: (hitCount: number) => void;
   /** Optional: lighter punch when Shield Bash connects. */
   onBashImpact?: (hitCount: number) => void;
+  /** Clamp / sync player after Leap Strike displaces them. */
+  onPlayerDisplace?: (player: Player) => void;
+  /** Optional: punch when Leap Strike lands or Meteor impacts. */
+  onBurstImpact?: (hitCount: number) => void;
 };
+
+type PendingLeap = {
+  kind: 'leap';
+  player: Player;
+  fromX: number;
+  fromZ: number;
+  toX: number;
+  toZ: number;
+  age: number;
+  travel: number;
+  damage: number;
+  radius: number;
+  color: number;
+  damageMult: number;
+  bonusDamage: number;
+  landed: boolean;
+};
+
+type PendingMeteor = {
+  kind: 'meteor';
+  x: number;
+  z: number;
+  age: number;
+  delay: number;
+  damage: number;
+  radius: number;
+  color: number;
+  damageMult: number;
+  bonusDamage: number;
+  resolved: boolean;
+};
+
+type PendingCast = PendingLeap | PendingMeteor;
 
 /** Lightweight VFX rings / slash arcs / seals / bash pulses / mage spells using shared geometry. */
 class SkillFx {
@@ -25,7 +62,7 @@ class SkillFx {
     age: number;
     life: number;
     grow: number;
-    kind: 'ring' | 'slash' | 'seal' | 'bash' | 'bolt' | 'ward';
+    kind: 'ring' | 'slash' | 'seal' | 'bash' | 'bolt' | 'ward' | 'telegraph' | 'meteor' | 'leap';
     startScale: number;
     vel?: THREE.Vector3;
   }> = [];
@@ -36,6 +73,8 @@ class SkillFx {
   private readonly bashRingGeo = new THREE.RingGeometry(0.35, 0.72, 24, 1, 0, Math.PI * 1.15);
   private readonly boltGeo = new THREE.SphereGeometry(0.16, 10, 8);
   private readonly wardGeo = new THREE.SphereGeometry(0.95, 18, 14);
+  private readonly meteorGeo = new THREE.SphereGeometry(0.32, 12, 10);
+  private readonly leapStreakGeo = new THREE.SphereGeometry(0.12, 8, 6);
 
   constructor(private readonly scene: THREE.Scene) {
     this.ringGeo.rotateX(-Math.PI / 2);
@@ -205,6 +244,167 @@ class SkillFx {
     this.spawnSeal(pos, 0xd8c4ff);
   }
 
+  /** Amber leap trail streak along the gap-closer path. */
+  spawnLeapTrail(from: THREE.Vector3, to: THREE.Vector3, color: number): void {
+    const midX = (from.x + to.x) * 0.5;
+    const midZ = (from.z + to.z) * 0.5;
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(this.leapStreakGeo, mat);
+    mesh.position.set(from.x, 1.1, from.z);
+    mesh.scale.set(0.8, 0.8, 0.8);
+    mesh.renderOrder = 4;
+    this.scene.add(mesh);
+    const life = 0.42;
+    this.items.push({
+      mesh,
+      age: 0,
+      life,
+      grow: 0,
+      kind: 'leap',
+      startScale: 1,
+      vel: new THREE.Vector3((to.x - from.x) / life, 0, (to.z - from.z) / life),
+    });
+
+    // Soft path marker so the landing zone is readable mid-air.
+    const markMat = new THREE.MeshBasicMaterial({
+      color: 0xffe0a0,
+      transparent: true,
+      opacity: 0.75,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const mark = new THREE.Mesh(this.ringGeo, markMat);
+    mark.position.set(midX, 0.1, midZ);
+    mark.scale.setScalar(0.35);
+    mark.renderOrder = 2;
+    this.scene.add(mark);
+    this.items.push({
+      mesh: mark,
+      age: 0,
+      life: 0.5,
+      grow: 1.1,
+      kind: 'leap',
+      startScale: 0.35,
+    });
+  }
+
+  /** Landing crater — tighter amber rings + upright impact disc (not Quake's red bloom). */
+  spawnLeapLand(pos: THREE.Vector3, color: number, radius: number): void {
+    this.spawnRing(pos, color, radius);
+    const discMat = new THREE.MeshBasicMaterial({
+      color: 0xfff2c8,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const disc = new THREE.Mesh(this.bashDiscGeo, discMat);
+    disc.position.set(pos.x, 0.95, pos.z);
+    disc.rotation.x = -Math.PI / 2;
+    disc.scale.setScalar(0.4);
+    disc.renderOrder = 3;
+    this.scene.add(disc);
+    this.items.push({
+      mesh: disc,
+      age: 0,
+      life: 0.32,
+      grow: 1.8,
+      kind: 'leap',
+      startScale: 0.4,
+    });
+    this.spawnSeal(pos, 0xffc86a);
+  }
+
+  /**
+   * Persistent danger circle under a pending Meteor.
+   * Pulses in place until `life` elapses (matched to cast delay).
+   */
+  spawnMeteorTelegraph(pos: THREE.Vector3, color: number, radius: number, life: number): void {
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.95,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(this.ringGeo, mat);
+    mesh.position.set(pos.x, 0.14, pos.z);
+    const scale = (radius / 0.62) * 0.95;
+    mesh.scale.setScalar(scale);
+    mesh.renderOrder = 3;
+    this.scene.add(mesh);
+    this.items.push({
+      mesh,
+      age: 0,
+      life,
+      grow: scale,
+      kind: 'telegraph',
+      startScale: scale,
+    });
+
+    const fillMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.22,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const fill = new THREE.Mesh(this.bashDiscGeo, fillMat);
+    fill.position.set(pos.x, 0.08, pos.z);
+    fill.rotation.x = -Math.PI / 2;
+    fill.scale.setScalar(radius * 0.95);
+    fill.renderOrder = 2;
+    this.scene.add(fill);
+    this.items.push({
+      mesh: fill,
+      age: 0,
+      life,
+      grow: radius * 0.95,
+      kind: 'telegraph',
+      startScale: radius * 0.95,
+    });
+  }
+
+  /** Falling fireball from sky into the telegraph, then a tight impact bloom. */
+  spawnMeteorImpact(pos: THREE.Vector3, color: number, radius: number): void {
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 1,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(this.meteorGeo, mat);
+    mesh.position.set(pos.x, 6.2, pos.z);
+    mesh.scale.setScalar(1.1);
+    mesh.renderOrder = 5;
+    this.scene.add(mesh);
+    this.items.push({
+      mesh,
+      age: 0,
+      life: 0.28,
+      grow: 0,
+      kind: 'meteor',
+      startScale: 1.1,
+      vel: new THREE.Vector3(0, -22, 0),
+    });
+
+    // Impact bloom — orange/ember, distinct from cyan Frost Nova rings.
+    this.spawnRing(pos, color, radius);
+    this.spawnRing(pos, 0xffd090, radius * 0.55);
+    this.spawnSeal(pos, 0xff8a4a);
+  }
+
   /** Forward shield pulse — distinct from Slash arcs and Quake rings. */
   spawnBash(pos: THREE.Vector3, facing: THREE.Vector3, color: number): void {
     const yaw = Math.atan2(facing.x, facing.z);
@@ -286,15 +486,32 @@ class SkillFx {
       const item = this.items[i]!;
       item.age += dt;
       const t = item.age / item.life;
-      if (item.kind === 'bolt' && item.vel) {
+      if ((item.kind === 'bolt' || item.kind === 'leap' || item.kind === 'meteor') && item.vel) {
         item.mesh.position.x += item.vel.x * dt;
+        item.mesh.position.y += (item.vel.y ?? 0) * dt;
         item.mesh.position.z += item.vel.z * dt;
-        item.mesh.scale.set(0.7 + t * 0.2, 0.7 + t * 0.2, 1.4 + t * 0.6);
-      } else if (item.kind === 'ring' || item.kind === 'seal' || item.kind === 'bash' || item.kind === 'ward') {
+        if (item.kind === 'bolt') {
+          item.mesh.scale.set(0.7 + t * 0.2, 0.7 + t * 0.2, 1.4 + t * 0.6);
+        } else if (item.kind === 'meteor') {
+          item.mesh.scale.setScalar(1.1 + t * 0.55);
+        } else {
+          item.mesh.scale.setScalar(0.8 + t * 0.4);
+        }
+      } else if (
+        item.kind === 'ring' ||
+        item.kind === 'seal' ||
+        item.kind === 'bash' ||
+        item.kind === 'ward' ||
+        item.kind === 'leap' ||
+        item.kind === 'telegraph'
+      ) {
         const s = item.startScale + t * (item.grow - item.startScale);
         if (item.kind === 'bash') {
           // Expand mostly on X/Y so the upright disc reads as a shove, not a balloon.
           item.mesh.scale.set(s * (1 + t * 0.35), s, s * (1 + t * 0.15));
+        } else if (item.kind === 'telegraph') {
+          const pulse = 1 + Math.sin(item.age * 10) * 0.06;
+          item.mesh.scale.setScalar(item.startScale * pulse);
         } else {
           item.mesh.scale.setScalar(s);
         }
@@ -312,14 +529,16 @@ class SkillFx {
         const mesh = obj as THREE.Mesh;
         if (mesh.material && (mesh.material as THREE.Material).opacity !== undefined) {
           // Hold opacity a beat longer so rings stay readable mid-expand.
-          const fade =
-            item.kind === 'ring'
-              ? Math.max(0, 1 - t * t)
-              : item.kind === 'bash' || item.kind === 'bolt'
-                ? Math.max(0, 1 - t * 1.15)
-                : item.kind === 'ward'
-                  ? Math.max(0, 0.55 * (1 - t * t))
-                  : Math.max(0, 1 - t);
+          let fade: number;
+          if (item.kind === 'ring') fade = Math.max(0, 1 - t * t);
+          else if (item.kind === 'bash' || item.kind === 'bolt' || item.kind === 'leap') {
+            fade = Math.max(0, 1 - t * 1.15);
+          } else if (item.kind === 'ward') fade = Math.max(0, 0.55 * (1 - t * t));
+          else if (item.kind === 'telegraph') {
+            // Stay readable for the full delay; flicker slightly near impact.
+            fade = t > 0.75 ? 0.55 + Math.sin(item.age * 22) * 0.35 : 0.85;
+          } else if (item.kind === 'meteor') fade = Math.max(0, 1 - t * 0.6);
+          else fade = Math.max(0, 1 - t);
           (mesh.material as THREE.MeshBasicMaterial).opacity = fade;
         }
       });
@@ -349,6 +568,7 @@ export class CombatSystem {
   private readonly spitOrigin = new THREE.Vector3();
   private readonly spitDir = new THREE.Vector3();
   private readonly spits: SpitProjectile[] = [];
+  private readonly pending: PendingCast[] = [];
   /** Brief i-frames after a player hit so stacked bites don't delete you. */
   private readonly playerHitIFrames = 0.55;
   /** Remaining real-time hit-stop (seconds). Countdown uses raw dt. */
@@ -357,6 +577,10 @@ export class CombatSystem {
   private playerDamageMult = 1;
   /** Flat damage from session leveling — applied before shrine mult. */
   private playerBonusDamage = 0;
+  /** Leap travel time — synced with Jump_Full_Long feel. */
+  private readonly leapTravel = 0.36;
+  /** Meteor sky-drop delay — telegraph stays up the whole window. */
+  private readonly meteorDelay = 0.62;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -385,9 +609,10 @@ export class CombatSystem {
     this.pulseHitStop(0.07);
   }
 
-  update(dt: number, player?: Player): void {
+  update(dt: number, player?: Player, mobs: Enemy[] = []): void {
     this.damageNumbers.update(dt);
     this.fx.update(dt);
+    this.updatePendingCasts(dt, mobs);
     if (player) this.updateSpitProjectiles(dt, player);
   }
 
@@ -476,6 +701,10 @@ export class CombatSystem {
       return true;
     }
 
+    if (skillId === 'burst') {
+      return this.castLeapStrike(player, skill, mobs);
+    }
+
     // AoE slam centered on player — ring matches gameplay radius
     player.playQuake();
     this.fx.spawnRing(player.position, skill.color, skill.radius);
@@ -535,6 +764,10 @@ export class CombatSystem {
       return true;
     }
 
+    if (skillId === 'burst') {
+      return this.castMeteor(player, skill, mobs);
+    }
+
     // Frost Nova — AoE damage + slow (distinct from Warrior Quake).
     player.playQuake();
     this.fx.spawnRing(player.position, skill.color, skill.radius);
@@ -555,6 +788,203 @@ export class CombatSystem {
       this.hooks.onQuakeImpact?.(hits);
     }
     return true;
+  }
+
+  /** Warrior Leap Strike — gap-closer toward aim/facing, AoE damage on landing. */
+  private castLeapStrike(
+    player: Player,
+    skill: { damage: number; range: number; radius: number; color: number },
+    mobs: Enemy[],
+  ): boolean {
+    const focus = this.pickSlashTarget(player, mobs, skill.range + 0.8);
+    if (focus) {
+      this.tmp.set(
+        focus.position.x - player.position.x,
+        0,
+        focus.position.z - player.position.z,
+      );
+      player.faceDirection(this.tmp);
+    }
+
+    const fx = player.facing.x;
+    const fz = player.facing.z;
+    let leapDist = skill.range;
+    if (focus) {
+      const dist = Math.hypot(
+        focus.position.x - player.position.x,
+        focus.position.z - player.position.z,
+      );
+      // Stop just inside melee so the landing AoE still covers the soft-lock target.
+      leapDist = Math.max(1.2, Math.min(skill.range, dist - 0.85));
+    }
+
+    const fromX = player.position.x;
+    const fromZ = player.position.z;
+    const toX = fromX + fx * leapDist;
+    const toZ = fromZ + fz * leapDist;
+
+    player.playBurst();
+    player.beginLeapLock(this.leapTravel + 0.05);
+    this.tmp.set(fromX, 0, fromZ);
+    const landTmp = new THREE.Vector3(toX, 0, toZ);
+    this.fx.spawnLeapTrail(this.tmp, landTmp, skill.color);
+    this.fx.spawnSeal(this.tmp, 0xffc86a);
+
+    this.pending.push({
+      kind: 'leap',
+      player,
+      fromX,
+      fromZ,
+      toX,
+      toZ,
+      age: 0,
+      travel: this.leapTravel,
+      damage: skill.damage,
+      radius: skill.radius,
+      color: skill.color,
+      damageMult: this.playerDamageMult,
+      bonusDamage: this.playerBonusDamage,
+      landed: false,
+    });
+    return true;
+  }
+
+  /** Mage Meteor — delayed AoE sky drop in front of the caster with a telegraph. */
+  private castMeteor(
+    player: Player,
+    skill: { damage: number; range: number; radius: number; color: number },
+    mobs: Enemy[],
+  ): boolean {
+    const focus = this.pickSlashTarget(player, mobs, skill.range + 1.2);
+    if (focus) {
+      this.tmp.set(
+        focus.position.x - player.position.x,
+        0,
+        focus.position.z - player.position.z,
+      );
+      player.faceDirection(this.tmp);
+    }
+
+    let impactX = player.position.x + player.facing.x * skill.range;
+    let impactZ = player.position.z + player.facing.z * skill.range;
+    if (focus) {
+      // Bias toward the soft-lock so the telegraph feels aimed, not random.
+      impactX = focus.position.x;
+      impactZ = focus.position.z;
+      const dist = Math.hypot(impactX - player.position.x, impactZ - player.position.z);
+      if (dist > skill.range) {
+        const s = skill.range / dist;
+        impactX = player.position.x + (impactX - player.position.x) * s;
+        impactZ = player.position.z + (impactZ - player.position.z) * s;
+      }
+    }
+
+    player.playBurst();
+    this.tmp.set(impactX, 0, impactZ);
+    this.fx.spawnMeteorTelegraph(this.tmp, skill.color, skill.radius, this.meteorDelay + 0.05);
+    this.fx.spawnSeal(player.position, 0xffa070);
+
+    this.pending.push({
+      kind: 'meteor',
+      x: impactX,
+      z: impactZ,
+      age: 0,
+      delay: this.meteorDelay,
+      damage: skill.damage,
+      radius: skill.radius,
+      color: skill.color,
+      damageMult: this.playerDamageMult,
+      bonusDamage: this.playerBonusDamage,
+      resolved: false,
+    });
+    return true;
+  }
+
+  private updatePendingCasts(dt: number, mobs: Enemy[]): void {
+    for (let i = this.pending.length - 1; i >= 0; i--) {
+      const cast = this.pending[i]!;
+      cast.age += dt;
+
+      if (cast.kind === 'leap') {
+        if (!cast.landed) {
+          const t = Math.min(1, cast.age / cast.travel);
+          // Ease-out so the leap covers ground fast, then settles into the landing.
+          const e = 1 - (1 - t) * (1 - t);
+          const px = cast.fromX + (cast.toX - cast.fromX) * e;
+          const pz = cast.fromZ + (cast.toZ - cast.fromZ) * e;
+          if (cast.player.alive) {
+            cast.player.position.x = px;
+            cast.player.position.z = pz;
+            this.hooks.onPlayerDisplace?.(cast.player);
+          }
+          if (t >= 1) {
+            cast.landed = true;
+            this.tmp.set(cast.toX, 0, cast.toZ);
+            this.fx.spawnLeapLand(this.tmp, cast.color, cast.radius);
+            const hits = this.withCastDamage(cast, () =>
+              this.applyRadiusDamage(cast.toX, cast.toZ, cast.radius, cast.damage, mobs, true),
+            );
+            if (hits > 0) {
+              this.pulseHitStop(0.055);
+              this.hooks.onBurstImpact?.(hits);
+            }
+          }
+        }
+        if (cast.age >= cast.travel + 0.05) this.pending.splice(i, 1);
+        continue;
+      }
+
+      // Meteor
+      if (!cast.resolved && cast.age >= cast.delay) {
+        cast.resolved = true;
+        this.tmp.set(cast.x, 0, cast.z);
+        this.fx.spawnMeteorImpact(this.tmp, cast.color, cast.radius);
+        const hits = this.withCastDamage(cast, () =>
+          this.applyRadiusDamage(cast.x, cast.z, cast.radius, cast.damage, mobs, true),
+        );
+        if (hits > 0) {
+          this.pulseHitStop(0.06);
+          this.hooks.onBurstImpact?.(hits);
+        }
+      }
+      if (cast.age >= cast.delay + 0.05) this.pending.splice(i, 1);
+    }
+  }
+
+  /** Apply delayed skill damage using the buffs/bonus captured at cast time. */
+  private withCastDamage(
+    cast: { damageMult: number; bonusDamage: number },
+    fn: () => number,
+  ): number {
+    const prevMult = this.playerDamageMult;
+    const prevBonus = this.playerBonusDamage;
+    this.playerDamageMult = cast.damageMult;
+    this.playerBonusDamage = cast.bonusDamage;
+    const result = fn();
+    this.playerDamageMult = prevMult;
+    this.playerBonusDamage = prevBonus;
+    return result;
+  }
+
+  private applyRadiusDamage(
+    x: number,
+    z: number,
+    radius: number,
+    damage: number,
+    mobs: Enemy[],
+    crit: boolean,
+  ): number {
+    let hits = 0;
+    for (const mob of mobs) {
+      if (!mob.alive) continue;
+      const reach = radius + mob.radius * 0.35;
+      const d2 = dist2(x, z, mob.position.x, mob.position.z);
+      if (d2 <= reach * reach) {
+        this.applyDamageToMob(mob, damage, crit);
+        hits += 1;
+      }
+    }
+    return hits;
   }
 
   updateMobCombat(mobs: Enemy[], player: Player): void {
