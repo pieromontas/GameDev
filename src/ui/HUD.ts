@@ -76,6 +76,7 @@ export class HUD {
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
         <kbd>E</kbd> — awaken east shrine<br/>
         Follow the dirt path west to the misty grove<br/>
+        Follow the dirt path north to the ruins<br/>
         RMB drag — rotate camera
       </div>
       <div class="interact-prompt" id="interact-prompt" hidden></div>

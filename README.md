@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine** and **west misty grove** clearings, blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine**, **west misty grove**, and **north ruins** clearings, blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -35,7 +35,11 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **4** | Skill 4 (Leap Strike / Meteor / Shadow Leap) — unlocks at **Level 3** |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A controls hint also lists **C / Tab — cycle Warrior → Mage → Rogue**, **E — awaken east shrine**, and the west misty grove path.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A controls hint also lists **C / Tab — cycle Warrior → Mage → Rogue**, **E — awaken east shrine**, the west misty grove path, and the **north ruins** path.
+
+## North ruins
+
+Follow the dirt path **north** from the main meadow to a fourth reachable clearing. Landmark: a **crumbled gate**, **broken columns**, and a **rubble courtyard** (distinct from the east shrine tower and west fairy ring). **2 blobs + 2 spitters + 1 Armored Brute** patrol the ruins. Play-area clamp includes the north corridor + clearing — fully walkable. No new objective this cycle; explore and fight.
 
 ## West misty grove
 
@@ -46,7 +50,7 @@ Follow the dirt path **west** from the main meadow to a second reachable clearin
 A third enemy type — large rust/bronze armored silhouette (procedural toon mesh), clearly distinct from purple meadow blobs and acid-green Spitters.
 
 - **Behavior** — slow chase, high HP tank; telegraphed **ground slam** (crouch wind-up + growing AoE ring → shockwave)
-- **Spawn** — **1** in the east shrine clearing and **1** in the west misty grove (none in the starter meadow)
+- **Spawn** — **1** in the east shrine clearing, **1** in the west misty grove, and **1** in the north ruins (none in the starter meadow)
 - **Rewards** — **3 loot coins** and **+28 XP** on kill (richer than blobs / spitters); distinct toast: *“Armored Brute crushed!”*
 - **CC** — Warrior Shield Bash stun/knockback, Mage Frost Nova slow, and Rogue skills all apply as with other mobs
 
@@ -91,13 +95,14 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 
 ## What’s in the slice
 
-- Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** clearings
+- Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** + **north ruins** clearings
+- **North ruins**: dirt path north → crumbled gate + broken columns + rubble courtyard; blobs/spitters/**Armored Brute**; play clamp extended
 - **West misty grove**: dirt path west → fallen giant tree + fairy ring + mist; blobs/spitters/**Armored Brute**; play clamp extended
 - **East shrine mini-objective**: interact (E) → defend 3 waves → temporary damage/speed blessing + loot; crystal activates with cooldown; static **Armored Brute** also patrols the clearing
 - KayKit Knight / Mage / **Rogue** (GLTF) with Idle / Walk / Run + skill clips via three.js `AnimationMixer`
 - Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, frost slow, death squash
-- **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine + west grove
-- **Armored Brute** enemies (rust/bronze tank) with slow chase, high HP, telegraphed ground-slam AoE — east shrine + west grove only
+- **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine + west grove + north ruins
+- **Armored Brute** enemies (rust/bronze tank) with slow chase, high HP, telegraphed ground-slam AoE — east shrine + west grove + north ruins only
 - Combat feedback: slash arcs, bolts, ground seals, Quake/Nova/Fan rings, Shield Bash pulse, Arcane Ward / Smoke Bomb bubbles, Leap / Shadow Leap trail/landing, Meteor telegraph + sky drop, Brute slam shockwaves, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs/spitters drop coins; **brutes drop 3**; pickups increment an inventory counter
 - **XP / leveling**: kills grant XP (blob 8 / spitter 14 / **brute 28**); HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent); **Level 3 unlocks skill 4**
