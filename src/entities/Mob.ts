@@ -443,14 +443,29 @@ export class Mob extends Entity {
 }
 
 export function createStarterMobs(): Mob[] {
-  const colors = [0xff5fa8, 0x5eb8ff, 0xffc23a, 0x6ef0d2, 0xff8a4c, 0xc58cff];
+  const colors = [
+    0xff5fa8,
+    0x5eb8ff,
+    0xffc23a,
+    0x6ef0d2,
+    0xff8a4c,
+    0xc58cff,
+    0xff7eb6,
+    0x7dffb2,
+    0xffb347,
+  ];
   const spots = [
+    // Main meadow
     new THREE.Vector3(8, 0, -4),
     new THREE.Vector3(-7, 0, -8),
     new THREE.Vector3(12, 0, 8),
     new THREE.Vector3(-10, 0, 4),
     new THREE.Vector3(2, 0, -14),
     new THREE.Vector3(-4, 0, 14),
+    // East shrine clearing (second playable pocket)
+    new THREE.Vector3(36, 0, 2),
+    new THREE.Vector3(44, 0, 10),
+    new THREE.Vector3(42, 0, 1),
   ];
   return spots.map((p, i) => new Mob(p, colors[i % colors.length]));
 }

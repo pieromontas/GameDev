@@ -226,9 +226,20 @@ export function hash2(x: number, z: number): number {
   return s - Math.floor(s);
 }
 
-/** Smooth 0–1 influence of a winding dirt path through the meadow. */
+/** Second playable pocket east of the main meadow (shrine clearing). */
+export const EastShrineClearing = {
+  x: 40,
+  z: 6,
+  radius: 11.5,
+} as const;
+
+/** Smooth 0–1 influence of dirt paths (main S-curve + east branch to shrine clearing). */
 export function meadowPathInfluence(x: number, z: number): number {
-  // Approximate a soft S-curve path from south toward north-west.
+  return Math.max(mainMeadowPathInfluence(x, z), eastBranchPathInfluence(x, z));
+}
+
+/** Soft S-curve path from south toward north-west through the main meadow. */
+function mainMeadowPathInfluence(x: number, z: number): number {
   const t = THREE.MathUtils.clamp((z + 18) / 36, 0, 1);
   const cx = Math.sin(t * Math.PI * 1.35) * 4.2 + Math.sin(t * Math.PI * 0.5) * 1.5;
   const dx = x - cx;
@@ -237,4 +248,40 @@ export function meadowPathInfluence(x: number, z: number): number {
   if (d >= 1.35) return 0;
   if (d <= 0.75) return 1;
   return 1 - (d - 0.75) / 0.6;
+}
+
+/**
+ * Dirt path branch from the main meadow east into the shrine clearing.
+ * Includes a soft dirt pad around the clearing center so the path “arrives”.
+ */
+function eastBranchPathInfluence(x: number, z: number): number {
+  // Branch leaves the main path near (+10, +4) and runs to the clearing center.
+  const ax = 10;
+  const az = 4;
+  const bx = EastShrineClearing.x;
+  const bz = EastShrineClearing.z;
+  const abx = bx - ax;
+  const abz = bz - az;
+  const abLen2 = abx * abx + abz * abz;
+  const t = abLen2 > 1e-8 ? THREE.MathUtils.clamp(((x - ax) * abx + (z - az) * abz) / abLen2, 0, 1) : 0;
+  const px = ax + abx * t;
+  const pz = az + abz * t;
+  const dist = Math.hypot(x - px, z - pz);
+  const halfW = 2.05 + Math.sin(t * Math.PI) * 0.25;
+  let branch = 0;
+  const d = dist / halfW;
+  if (d < 1.35) {
+    branch = d <= 0.75 ? 1 : 1 - (d - 0.75) / 0.6;
+  }
+
+  // Arrival pad — readable dirt around the shrine without covering the whole clearing.
+  const cdx = x - EastShrineClearing.x;
+  const cdz = z - EastShrineClearing.z;
+  const cr = Math.hypot(cdx, cdz);
+  let pad = 0;
+  if (cr < 4.2) {
+    pad = cr < 2.2 ? 0.85 : 0.85 * (1 - (cr - 2.2) / 2);
+  }
+
+  return Math.max(branch, pad);
 }
