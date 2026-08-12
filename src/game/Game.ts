@@ -25,6 +25,7 @@ export class Game {
   private readonly hud: HUD;
   private readonly healthBars: HealthBars;
   private readonly sun: THREE.DirectionalLight;
+  private readonly sky: THREE.Object3D;
 
   private readonly moveDir = new THREE.Vector3();
   private readonly forward = new THREE.Vector3();
@@ -52,8 +53,9 @@ export class Game {
 
     // Fallback clear color under the sky dome; fog tints distance into meadow air.
     this.scene.background = new THREE.Color(Palette.skyHorizon);
-    this.scene.fog = new THREE.Fog(Palette.fog, 26, 68);
-    this.scene.add(createSkyDome(110));
+    this.scene.fog = new THREE.Fog(Palette.fog, 22, 62);
+    this.sky = createSkyDome(110);
+    this.scene.add(this.sky);
 
     this.sun = this.addLights();
 
@@ -214,6 +216,8 @@ export class Game {
       34,
       this.player.position.z + 14,
     );
+    // Sky follows the camera so the gradient always fills the backdrop.
+    this.sky.position.copy(this.cameraRig.camera.position);
     this.healthBars.update(this.cameraRig.camera);
     this.hud.update(this.player, this.lootCount, this.kills, dt);
     this.input.endFrame();

@@ -2,10 +2,10 @@ import * as THREE from 'three';
 
 /** Shared SpiritVale-ish palette — saturated, readable against meadow greens. */
 export const Palette = {
-  skyZenith: 0x5eb8ff,
-  skyHorizon: 0xd9f0ff,
-  skyWarm: 0xffe2b8,
-  fog: 0xc5e8ff,
+  skyZenith: 0x4aaeff,
+  skyHorizon: 0xd4ecff,
+  skyWarm: 0xffd9a8,
+  fog: 0xc8e6ff,
   hemiSky: 0xfff0d2,
   hemiGround: 0x6dbf55,
   sun: 0xfff1c8,
@@ -96,10 +96,10 @@ export function createSkyDome(radius = 120): THREE.Mesh {
       bottomColor: { value: new THREE.Color(Palette.skyWarm) },
     },
     vertexShader: /* glsl */ `
-      varying vec3 vWorldPos;
+      varying vec3 vLocalDir;
       void main() {
-        vec4 world = modelMatrix * vec4(position, 1.0);
-        vWorldPos = world.xyz;
+        // Local sphere direction stays correct even if the dome follows the camera.
+        vLocalDir = normalize(position);
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         // Keep sky behind everything in depth
         gl_Position.z = gl_Position.w;
@@ -109,9 +109,9 @@ export function createSkyDome(radius = 120): THREE.Mesh {
       uniform vec3 topColor;
       uniform vec3 midColor;
       uniform vec3 bottomColor;
-      varying vec3 vWorldPos;
+      varying vec3 vLocalDir;
       void main() {
-        float h = normalize(vWorldPos).y;
+        float h = vLocalDir.y;
         vec3 col = mix(bottomColor, midColor, smoothstep(-0.15, 0.18, h));
         col = mix(col, topColor, smoothstep(0.18, 0.9, h));
         gl_FragColor = vec4(col, 1.0);
