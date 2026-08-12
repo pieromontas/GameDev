@@ -234,3 +234,41 @@ body,
 .toast.show {
   opacity: 1;
 }
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at 50% 40%, rgba(142, 207, 122, 0.55), rgba(40, 70, 48, 0.72));
+  z-index: 20;
+}
+
+.loading-overlay[hidden] {
+  display: none;
+}
+
+.loading-card {
+  background: rgba(255, 252, 245, 0.92);
+  border: 2px solid rgba(47, 143, 91, 0.4);
+  border-radius: 16px;
+  padding: 18px 28px;
+  box-shadow: var(--hud-shadow);
+  text-align: center;
+  min-width: 220px;
+}
+
+.loading-title {
+  margin: 0;
+  font-weight: 800;
+  color: var(--hud-accent);
+  letter-spacing: 0.02em;
+}
+
+.loading-msg {
+  margin: 8px 0 0;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--hud-ink);
+}

@@ -34,26 +34,57 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 ## What’s in the slice
 
 - Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks
-- Articulated low-poly Warrior (leather + steel trim) with procedural idle / walk / Slash / Quake poses
+- KayKit Knight warrior (GLTF) with Idle / Walk / Run / Slash / Quake clips via three.js `AnimationMixer`
 - Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, death squash
 - Combat feedback: slash arcs, ground seals, Quake rings, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs drop coins; pickups increment an inventory counter
-- HUD: HP, skill cooldowns, loot/kill counts, controls hint
+- HUD: HP, skill cooldowns, loot/kill counts, controls hint, brief model loading overlay
+
+## Character art (KayKit Knight)
+
+| | |
+| --- | --- |
+| **Pack** | [KayKit – Character Pack: Adventurers](https://kaylousberg.itch.io/kaykit-adventurers) |
+| **Author** | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)) |
+| **License** | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain; free for personal & commercial use) |
+| **Files** | `public/models/kaykit-knight/Knight.glb` (+ `LICENSE.txt`, `ATTRIBUTION.md`) |
+| **Integration** | `src/entities/PlayerVisual.ts` loads the GLB, attaches under `Player`, maps clips to gameplay anim states |
+
+**Clip mapping**
+
+| Gameplay | KayKit clip |
+| --- | --- |
+| Idle | `Idle` |
+| Walk / Run | `Walking_A` / `Running_A` |
+| Slash | `1H_Melee_Attack_Slice_Horizontal` (time-scaled to the skill window) |
+| Quake | `Jump_Full_Short` + light procedural root stomp |
+
+Visible props: `1H_Sword`, `Round_Shield`, `Knight_Helmet`, `Knight_Cape`. Extra bundled weapons/shields are hidden.
+
+### Swapping the hero later
+
+1. Drop a new GLB under `public/models/<pack>/`.
+2. Update `MODEL_URL`, `CLIP`, `SHOW_PROPS` / `HIDE_PROPS`, and scale in `src/entities/PlayerVisual.ts`.
+3. Keep `Player` gameplay APIs (`applyMovement`, `playSlash`, `playQuake`, skills, radius) unchanged so combat/HUD stay intact.
+4. Document the new pack + license next to the files (mirror this section).
+
+If the GLB fails to load, the game still boots (contact shadow only) and logs a clear console error — no softlock.
 
 ## Project structure
 
 ```
+public/models/kaykit-knight/  KayKit Knight.glb + license/attribution
 src/
-  main.ts                 Entry — boots Game
-  style.css               HUD styles
-  anim/ease.ts            Shared easing for procedural poses
+  main.ts                 Entry — boots Game (awaits warrior load)
+  style.css               HUD + loading overlay styles
+  anim/ease.ts            Shared easing (mobs / VFX)
   game/
     Game.ts               Scene wiring + systems orchestration
     loop.ts               rAF loop with fixed 60 Hz update
   input/InputManager.ts   Keyboard + pointer
   camera/FollowCamera.ts  Angled follow cam + optional yaw
   world/MeadowBiome.ts    Ground + props, play-area clamp
-  entities/               Player, Mob, Loot, base Entity
+  entities/               Player, PlayerVisual, Mob, Loot, Entity
   combat/                 Skills, CombatSystem, damage numbers
   render/stylized.ts      Toon materials, sky, palette, ground helpers
   ui/                     HUD + billboard health bars
@@ -66,10 +97,12 @@ Stack: **Vite + TypeScript + three r170+**, ESM, modest draw-call reuse (shared 
 
 - Camera stays locked behind/above the player (isometric-ish), never first-person
 - Semi-fixed timestep (`1/60`) keeps combat timing stable under frame hitches
-- Art is procedural / code-driven (no binary asset packs) so the slice stays portable
+- Meadow / mobs stay procedural; the Warrior visual is a single free CC0 GLTF pack
 - Architecture is split so new classes, skills, or biomes can grow without a giant `main.ts`
 - Intentionally single-player — polish the core loop before inventing multiplayer
 
 ## License
 
 Prototype / learning project. SpiritVale is a trademark of its respective owners; this is an independent fan-inspired tech demo, not affiliated with the original game.
+
+Third-party character art: KayKit Adventurers Knight by Kay Lousberg, CC0 — see `public/models/kaykit-knight/`.

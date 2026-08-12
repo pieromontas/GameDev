@@ -9,7 +9,7 @@ if (!canvas || !hud) {
 }
 
 const game = new Game(canvas, hud);
-game.start();
+void game.start();
 
 // Helpful for manual debugging in Chromium DevTools
 declare global {
