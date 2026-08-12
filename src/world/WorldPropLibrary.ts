@@ -69,19 +69,19 @@ const BASE_HEIGHT = {
  * the KayKit cottage roof starts high on the mesh, so eaves need extra headroom.
  *
  * Effective heights (cottage includes createCottage’s ×1.15 instance scale):
- * - cottage peak ~8.8 → eaves clearly above head; door ~character-accessible
- * - well full ~3.6 → stone rim ~chest/upper-torso (not waist)
- * - windmill ~14 → landmark bulk
- * - trees ~10 → clearly taller than the knight
+ * - cottage peak ~8.1 → eaves clearly above head; door ~character-accessible
+ * - well full ~3.0 → stone rim ~chest/upper-torso (not waist)
+ * - windmill ~13 → landmark bulk
+ * - trees ~9.6 → clearly taller than the knight
  * - rocks / bushes scale with the larger forest dressing
  */
 export const PROP_SCALE = {
-  tree: 2.85,
-  rock: 1.85,
-  bush: 1.65,
-  cottage: 3.0,
-  windmill: 3.2,
-  well: 2.7,
+  tree: 2.7,
+  rock: 1.75,
+  bush: 1.55,
+  cottage: 2.75,
+  windmill: 3.0,
+  well: 2.25,
 } as const;
 
 /** World-space target heights after `PROP_SCALE` (fed into template `baseScale`). */
