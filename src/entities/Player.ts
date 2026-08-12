@@ -4,7 +4,7 @@ import { SkillId, SkillState, createWarriorSkills } from '../combat/Skills';
 import { createToonMaterial } from '../render/stylized';
 import { PlayerVisual } from './PlayerVisual';
 
-export type PlayerAnim = 'idle' | 'move' | 'slash' | 'quake';
+export type PlayerAnim = 'idle' | 'move' | 'slash' | 'quake' | 'bash';
 
 /**
  * Warrior player — gameplay capsule + facing/skills on the Entity root.
@@ -108,6 +108,13 @@ export class Player extends Entity {
     this.animDur = 0.55;
   }
 
+  /** Trigger Shield Bash — Block_Attack clip window. */
+  playBash(): void {
+    this.anim = 'bash';
+    this.animT = 0;
+    this.animDur = 0.42;
+  }
+
   /**
    * Set desired facing from a movement vector. Visual yaw lerps in `updateYaw`
    * so A/D strafes and quick redirects don't snap the skeleton.
@@ -124,7 +131,7 @@ export class Player extends Entity {
    */
   applyMovement(wishDir: THREE.Vector3, dt: number): boolean {
     // Lock locomotion facing during attack poses, but still allow small drift.
-    const attacking = this.anim === 'slash' || this.anim === 'quake';
+    const attacking = this.anim === 'slash' || this.anim === 'quake' || this.anim === 'bash';
     if (wishDir.lengthSq() > 1e-6) {
       const accelScale = attacking ? 0.35 : 1;
       this.velocity.x += wishDir.x * this.accel * accelScale * dt;
@@ -176,7 +183,7 @@ export class Player extends Entity {
     this.outOfCombat += dt;
     const speed = Math.hypot(this.velocity.x, this.velocity.z);
 
-    if (this.anim === 'slash' || this.anim === 'quake') {
+    if (this.anim === 'slash' || this.anim === 'quake' || this.anim === 'bash') {
       this.animT += dt;
       if (this.animT >= this.animDur) {
         this.anim = speed > 0.4 ? 'move' : 'idle';
@@ -199,9 +206,9 @@ export class Player extends Entity {
     }
   }
 
-  /** Smoothly rotate mesh yaw toward target; freeze during Slash/Quake. */
+  /** Smoothly rotate mesh yaw toward target; freeze during attack poses. */
   private updateYaw(dt: number): void {
-    if (this.anim === 'slash' || this.anim === 'quake') {
+    if (this.anim === 'slash' || this.anim === 'quake' || this.anim === 'bash') {
       this.mesh.rotation.y = this.yaw;
       return;
     }

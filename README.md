@@ -29,16 +29,17 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **W A S D** / arrows | Move relative to camera |
 | **LMB** or **1** | Slash (basic attack) |
 | **2** | Quake (short-cooldown AoE) |
+| **3** | Shield Bash (forward stun + knockback) |
 | **RMB drag** | Rotate camera yaw |
 
 ## What’s in the slice
 
 - Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks
-- KayKit Knight warrior (GLTF) with Idle / Walk / Run / Slash / Quake clips via three.js `AnimationMixer`
-- Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, death squash
-- Combat feedback: slash arcs, ground seals, Quake rings, floating damage numbers, world HP bars
+- KayKit Knight warrior (GLTF) with Idle / Walk / Run / Slash / Quake / Shield Bash clips via three.js `AnimationMixer`
+- Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, death squash
+- Combat feedback: slash arcs, ground seals, Quake rings, Shield Bash pulse, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs drop coins; pickups increment an inventory counter
-- HUD: HP, skill cooldowns, loot/kill counts, controls hint, brief model loading overlay
+- HUD: HP, skill cooldowns (1/2/3), loot/kill counts, controls hint, brief model loading overlay
 
 ## Character art (KayKit Knight)
 
@@ -58,6 +59,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | Walk / Run | `Walking_A` / `Running_A` |
 | Slash | `1H_Melee_Attack_Slice_Horizontal` (time-scaled to the skill window) |
 | Quake | `Jump_Full_Short` + light procedural root stomp |
+| Shield Bash | `Block_Attack` + short forward root shove |
 
 Visible props: `1H_Sword`, `Round_Shield`, `Knight_Helmet`, `Knight_Cape`. Extra bundled weapons/shields are hidden.
 
@@ -65,7 +67,7 @@ Visible props: `1H_Sword`, `Round_Shield`, `Knight_Helmet`, `Knight_Cape`. Extra
 
 1. Drop a new GLB under `public/models/<pack>/`.
 2. Update `MODEL_URL`, `CLIP`, `SHOW_PROPS` / `HIDE_PROPS`, and scale in `src/entities/PlayerVisual.ts`.
-3. Keep `Player` gameplay APIs (`applyMovement`, `playSlash`, `playQuake`, skills, radius) unchanged so combat/HUD stay intact.
+3. Keep `Player` gameplay APIs (`applyMovement`, `playSlash`, `playQuake`, `playBash`, skills, radius) unchanged so combat/HUD stay intact.
 4. Document the new pack + license next to the files (mirror this section).
 
 If the GLB fails to load, the game still boots (contact shadow only) and logs a clear console error — no softlock.
