@@ -51,6 +51,8 @@ export class Mob extends Entity {
   attackTimer = 0;
   /** Remaining stun from Shield Bash (seconds). Blocks chase / attack. */
   stunRemain = 0;
+  /** Remaining Frost Nova slow (seconds). Reduces chase/leash speed. */
+  slowRemain = 0;
   private respawnTimer = 0;
   readonly home: THREE.Vector3;
   private readonly bodyMat: THREE.MeshToonMaterial;
@@ -189,6 +191,12 @@ export class Mob extends Entity {
       this.bodyMat.color.offsetHSL(0.02, 0.12, 0.08 + pulse * 0.1);
       this.bodyMat.emissive.setHex(0xff6644);
       this.bodyMat.emissiveIntensity = 0.22 + pulse * 0.38;
+    } else if (this.slowRemain > 0) {
+      // Frost Nova chill — icy body tint while slowed.
+      this.bodyMat.color.setHex(this.baseColor);
+      this.bodyMat.color.lerp(new THREE.Color(0x8ad8ff), 0.55);
+      this.bodyMat.emissive.setHex(0x3aa8e8);
+      this.bodyMat.emissiveIntensity = 0.22;
     } else {
       this.bodyMat.color.setHex(this.baseColor);
       this.bodyMat.emissive.setHex(0x000000);
@@ -197,6 +205,7 @@ export class Mob extends Entity {
 
     if (this.attackTimer > 0) this.attackTimer -= dt;
     if (this.stunRemain > 0) this.stunRemain = Math.max(0, this.stunRemain - dt);
+    if (this.slowRemain > 0) this.slowRemain = Math.max(0, this.slowRemain - dt);
     if (this.hitReactT > 0) this.hitReactT = Math.max(0, this.hitReactT - dt);
     if (this.lungeT >= 0) {
       this.lungeT += dt;
@@ -211,6 +220,10 @@ export class Mob extends Entity {
   /** True while Shield Bash (or similar) stun is active. */
   get isStunned(): boolean {
     return this.stunRemain > 0;
+  }
+
+  get isSlowed(): boolean {
+    return this.slowRemain > 0;
   }
 
   /**
@@ -229,6 +242,13 @@ export class Mob extends Entity {
     this.attackTimer = Math.max(this.attackTimer, stunSeconds);
     this.hitReactT = Math.max(this.hitReactT, 0.32);
     this.syncMesh();
+  }
+
+  /** Frost Nova chill — cuts move speed without hard-locking AI. */
+  applySlow(seconds = 2.4): void {
+    if (!this.alive) return;
+    this.slowRemain = Math.max(this.slowRemain, seconds);
+    this.hitReactT = Math.max(this.hitReactT, 0.18);
   }
 
   think(playerPos: THREE.Vector3, playerAlive: boolean): void {
@@ -283,7 +303,8 @@ export class Mob extends Entity {
   moveToward(target: THREE.Vector3, dt: number, clampFn: (p: THREE.Vector3) => void): void {
     this.velocity.set(target.x - this.position.x, 0, target.z - this.position.z);
     if (this.velocity.lengthSq() < 1e-4) return;
-    this.velocity.normalize().multiplyScalar(this.moveSpeed * dt);
+    const speedMul = this.slowRemain > 0 ? 0.42 : 1;
+    this.velocity.normalize().multiplyScalar(this.moveSpeed * speedMul * dt);
     this.position.add(this.velocity);
     clampFn(this.position);
     this.mesh.rotation.y = Math.atan2(this.velocity.x, this.velocity.z);
@@ -321,6 +342,7 @@ export class Mob extends Entity {
     this.ai = 'idle';
     this.attackTimer = 0.55;
     this.stunRemain = 0;
+    this.slowRemain = 0;
     this.hitReactT = 0;
     this.lungeT = -1;
     this.deathT = -1;

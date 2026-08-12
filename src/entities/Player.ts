@@ -1,30 +1,39 @@
 import * as THREE from 'three';
 import { Entity } from './Entity';
-import { SkillId, SkillState, createWarriorSkills } from '../combat/Skills';
+import {
+  CLASS_LABEL,
+  PlayerClass,
+  SkillId,
+  SkillState,
+  createSkillsForClass,
+} from '../combat/Skills';
 import { createToonMaterial } from '../render/stylized';
-import { PlayerVisual } from './PlayerVisual';
+import { MAGE_VISUAL, PlayerVisual, WARRIOR_VISUAL } from './PlayerVisual';
 
 export type PlayerAnim = 'idle' | 'move' | 'slash' | 'quake' | 'bash';
 
 /**
- * Warrior player — gameplay capsule + facing/skills on the Entity root.
- * Visuals come from KayKit Knight GLTF via PlayerVisual (AnimationMixer).
+ * Playable hero — gameplay capsule + facing/skills on the Entity root.
+ * Visuals swap between KayKit Knight (Warrior) and KayKit Mage via PlayerVisual.
  */
 export class Player extends Entity {
   readonly maxSpeed = 7.8;
   readonly accel = 52;
   readonly friction = 64;
-  readonly skills: Record<SkillId, SkillState>;
+  skills: Record<SkillId, SkillState>;
   facing = new THREE.Vector3(0, 0, -1);
   invuln = 0;
   /** Seconds since last combat event; regen starts after a short delay. */
   outOfCombat = 0;
+  private classId: PlayerClass = 'warrior';
 
   private readonly velocity = new THREE.Vector3();
   private anim: PlayerAnim = 'idle';
   private animT = 0;
   private animDur = 0;
-  private readonly visual: PlayerVisual;
+  private readonly warriorVisual: PlayerVisual;
+  private readonly mageVisual: PlayerVisual;
+  private visual: PlayerVisual;
 
   /** Smoothed visual yaw (radians). Snapping this was the main side-strafe choppiness. */
   private yaw = Math.PI;
@@ -48,20 +57,68 @@ export class Player extends Entity {
     shadow.name = 'ContactShadow';
     group.add(shadow);
 
-    const visual = new PlayerVisual();
-    group.add(visual.root);
+    const warriorVisual = new PlayerVisual(WARRIOR_VISUAL);
+    const mageVisual = new PlayerVisual(MAGE_VISUAL);
+    group.add(warriorVisual.root);
+    group.add(mageVisual.root);
 
     super(group, 'player', 120, 0.5);
-    this.visual = visual;
-    this.skills = createWarriorSkills();
+    this.warriorVisual = warriorVisual;
+    this.mageVisual = mageVisual;
+    this.visual = warriorVisual;
+    this.warriorVisual.setActive(true);
+    this.mageVisual.setActive(false);
+    this.skills = createSkillsForClass('warrior');
     this.position.set(0, 0, 6);
     this.mesh.rotation.y = this.yaw;
     this.syncMesh();
   }
 
-  /** Begin GLTF load; safe to call once from Game boot. */
+  get playerClass(): PlayerClass {
+    return this.classId;
+  }
+
+  get classLabel(): string {
+    return CLASS_LABEL[this.classId];
+  }
+
+  /** Begin GLTF loads for both kits; safe to call once from Game boot. */
+  async loadVisuals(): Promise<{ warrior: boolean; mage: boolean }> {
+    const [warrior, mage] = await Promise.all([
+      this.warriorVisual.load(),
+      this.mageVisual.load(),
+    ]);
+    return { warrior, mage };
+  }
+
+  /** @deprecated Prefer loadVisuals — kept for call-site clarity during migration. */
   loadVisual(): Promise<boolean> {
-    return this.visual.load();
+    return this.loadVisuals().then((r) => r.warrior);
+  }
+
+  /**
+   * Swap active class kit (model + skills). Returns false if already that class.
+   * Cooldowns reset so HUD labels match a fresh kit.
+   */
+  switchClass(next: PlayerClass): boolean {
+    if (next === this.classId) return false;
+
+    this.classId = next;
+    this.skills = createSkillsForClass(next);
+    this.visual.setActive(false);
+    this.visual = next === 'mage' ? this.mageVisual : this.warriorVisual;
+    this.visual.setActive(true);
+
+    this.anim = 'idle';
+    this.animT = 0;
+    this.animDur = 0;
+    return true;
+  }
+
+  /** Toggle Warrior ↔ Mage. */
+  toggleClass(): PlayerClass {
+    this.switchClass(this.classId === 'warrior' ? 'mage' : 'warrior');
+    return this.classId;
   }
 
   get moveSpeed(): number {
@@ -94,25 +151,25 @@ export class Player extends Entity {
     this.outOfCombat = 0;
   }
 
-  /** Trigger Slash swing — duration synced to ~0.4s basic CD window. */
+  /** Trigger basic skill pose (Slash / Arcane Bolt). */
   playSlash(): void {
     this.anim = 'slash';
     this.animT = 0;
-    this.animDur = 0.38;
+    this.animDur = this.classId === 'mage' ? 0.42 : 0.38;
   }
 
-  /** Trigger Quake stomp / impact pose. */
+  /** Trigger AoE pose (Quake / Frost Nova). */
   playQuake(): void {
     this.anim = 'quake';
     this.animT = 0;
-    this.animDur = 0.55;
+    this.animDur = this.classId === 'mage' ? 0.62 : 0.55;
   }
 
-  /** Trigger Shield Bash — Block_Attack clip window. */
+  /** Trigger utility pose (Shield Bash / Arcane Ward). */
   playBash(): void {
     this.anim = 'bash';
     this.animT = 0;
-    this.animDur = 0.42;
+    this.animDur = this.classId === 'mage' ? 0.5 : 0.42;
   }
 
   /**
@@ -144,12 +201,9 @@ export class Player extends Entity {
         this.velocity.z *= s;
       }
       if (!attacking) {
-        // Prefer wishDir for responsive redirects; blend toward velocity when
-        // already moving sideways so feet stay aligned with travel sooner.
         if (speed > 1.2) {
           const vx = this.velocity.x / speed;
           const vz = this.velocity.z / speed;
-          // Weighted blend: mostly stick, a bit of current velocity heading.
           const bx = wishDir.x * 0.72 + vx * 0.28;
           const bz = wishDir.z * 0.72 + vz * 0.28;
           this.faceTmp.set(bx, 0, bz);
@@ -222,7 +276,6 @@ export class Player extends Entity {
       return;
     }
 
-    // Quicker turn on large redirects (strafe / 180°) so body catches velocity.
     const rate = abs > 1.1 ? this.turnSpeedSnap : this.turnSpeed;
     const step = rate * dt;
     if (abs <= step) this.yaw = this.targetYaw;

@@ -108,17 +108,21 @@ export class Game {
   }
 
   /**
-   * Load the KayKit warrior GLTF, then start the sim.
-   * On failure: logs clearly and still starts (soft shadow only).
+   * Load KayKit Warrior + Mage GLTFs, then start the sim.
+   * On failure: logs clearly and still starts (soft shadow only / other class).
    */
   async start(): Promise<void> {
-    this.hud.setLoading(true, 'Loading warrior…');
-    const ok = await this.player.loadVisual();
+    this.hud.setLoading(true, 'Loading Warrior & Mage…');
+    const result = await this.player.loadVisuals();
     this.hud.setLoading(false);
-    if (!ok) {
-      this.hud.showToast('Warrior model failed to load — check console', 3.5);
+    if (!result.warrior && !result.mage) {
+      this.hud.showToast('Hero models failed to load — check console', 3.5);
+    } else if (!result.warrior) {
+      this.hud.showToast('Warrior model failed — Mage still available (press C)', 3.2);
+    } else if (!result.mage) {
+      this.hud.showToast('Mage model failed — Warrior still playable', 3.2);
     } else {
-      this.hud.showToast('Welcome to the meadow — a path leads east to the shrine', 2.4);
+      this.hud.showToast('Welcome — press C to switch Warrior / Mage', 2.6);
     }
     this.loop.start();
   }
@@ -174,6 +178,7 @@ export class Game {
 
     if (this.player.alive) {
       this.updatePlayerMovement(dt);
+      this.handleClassSwitch();
       this.handlePlayerSkills();
     } else if (this.playerRespawnTimer >= 0) {
       this.playerRespawnTimer -= dt;
@@ -302,6 +307,20 @@ export class Game {
         a.syncMesh();
         b.syncMesh();
       }
+    }
+  }
+
+  private handleClassSwitch(): void {
+    if (this.input.wasPressed('KeyC') || this.input.wasPressed('Tab')) {
+      // Tab is a common class-swap habit — prevent browser focus stealing.
+      // (keydown default isn't cancelable here; Tab still works via wasPressed.)
+      const next = this.player.toggleClass();
+      const label = next === 'mage' ? 'Mage' : 'Warrior';
+      const kit =
+        next === 'mage'
+          ? 'Bolt / Frost Nova / Arcane Ward'
+          : 'Slash / Quake / Shield Bash';
+      this.hud.showToast(`${label} ready — ${kit}`, 1.8);
     }
   }
 

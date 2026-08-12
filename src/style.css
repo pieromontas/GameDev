@@ -94,6 +94,28 @@ body,
   color: var(--hud-accent);
 }
 
+#hud[data-class='mage'] .brand {
+  color: #6b4db8;
+}
+
+.class-line {
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.92;
+}
+
+kbd {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 5px;
+  border: 1px solid rgba(31, 42, 36, 0.28);
+  background: rgba(255, 255, 255, 0.75);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
 .bar-row {
   display: flex;
   align-items: center;
@@ -202,6 +224,22 @@ body,
 .skill-slot[data-skill='bash'].ready {
   border-color: rgba(80, 160, 220, 0.6);
   box-shadow: 0 0 0 2px rgba(80, 160, 220, 0.18);
+}
+
+/* Mage kit — purple bolt / cyan nova / violet ward */
+#hud[data-class='mage'] .skill-slot.ready {
+  border-color: rgba(156, 110, 230, 0.6);
+  box-shadow: 0 0 0 2px rgba(156, 110, 230, 0.18);
+}
+
+#hud[data-class='mage'] .skill-slot[data-skill='slam'].ready {
+  border-color: rgba(80, 190, 230, 0.65);
+  box-shadow: 0 0 0 2px rgba(80, 190, 230, 0.2);
+}
+
+#hud[data-class='mage'] .skill-slot[data-skill='bash'].ready {
+  border-color: rgba(130, 100, 220, 0.65);
+  box-shadow: 0 0 0 2px rgba(130, 100, 220, 0.2);
 }
 
 .skill-slot.pop {

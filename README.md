@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** one Warrior starter class, one meadow biome, blob mobs, loot pickups, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage starter classes (switchable), one meadow biome, blob mobs, loot pickups, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -27,57 +27,75 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | Input | Action |
 | --- | --- |
 | **W A S D** / arrows | Move relative to camera |
-| **LMB** or **1** | Slash (basic attack) |
-| **2** | Quake (short-cooldown AoE) |
-| **3** | Shield Bash (forward stun + knockback) |
+| **C** or **Tab** | Switch class (Warrior ↔ Mage) |
+| **LMB** or **1** | Skill 1 (Slash / Arcane Bolt) |
+| **2** | Skill 2 (Quake / Frost Nova) |
+| **3** | Skill 3 (Shield Bash / Arcane Ward) |
 | **RMB drag** | Rotate camera yaw |
+
+HUD skill names and the class line update when you switch. A controls hint also lists **C — switch Warrior / Mage**.
+
+## Classes
+
+### Warrior
+- **Slash** — short-range melee
+- **Quake** — short-cooldown ground AoE
+- **Shield Bash** — forward stun + knockback
+
+### Mage
+- **Arcane Bolt** — longer-range single-target bolt
+- **Frost Nova** — AoE burst that chills (slows) blobs
+- **Arcane Ward** — personal bubble (brief i-frames + small heal)
 
 ## What’s in the slice
 
-- Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks
-- KayKit Knight warrior (GLTF) with Idle / Walk / Run / Slash / Quake / Shield Bash clips via three.js `AnimationMixer`
-- Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, death squash
-- Combat feedback: slash arcs, ground seals, Quake rings, Shield Bash pulse, floating damage numbers, world HP bars
+- Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, east shrine clearing
+- KayKit Knight warrior + KayKit Mage (GLTF) with Idle / Walk / Run + skill clips via three.js `AnimationMixer`
+- Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, frost slow, death squash
+- Combat feedback: slash arcs, bolts, ground seals, Quake/Nova rings, Shield Bash pulse, Arcane Ward bubble, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs drop coins; pickups increment an inventory counter
-- HUD: HP, skill cooldowns (1/2/3), loot/kill counts, controls hint, brief model loading overlay
+- HUD: HP, active class + switch hint, skill cooldowns (1/2/3) with class-specific names, loot/kill counts, controls hint, brief model loading overlay
 
-## Character art (KayKit Knight)
+## Character art (KayKit Adventurers)
 
-| | |
-| --- | --- |
-| **Pack** | [KayKit – Character Pack: Adventurers](https://kaylousberg.itch.io/kaykit-adventurers) |
-| **Author** | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)) |
-| **License** | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain; free for personal & commercial use) |
-| **Files** | `public/models/kaykit-knight/Knight.glb` (+ `LICENSE.txt`, `ATTRIBUTION.md`) |
-| **Integration** | `src/entities/PlayerVisual.ts` loads the GLB, attaches under `Player`, maps clips to gameplay anim states |
+| | Warrior | Mage |
+| --- | --- | --- |
+| **Pack** | [KayKit – Character Pack: Adventurers](https://kaylousberg.itch.io/kaykit-adventurers) | same |
+| **Author** | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)) | same |
+| **License** | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | same |
+| **Files** | `public/models/kaykit-knight/Knight.glb` (+ `LICENSE.txt`, `ATTRIBUTION.md`) | `public/models/kaykit-mage/Mage.glb` (+ `LICENSE.txt`, `ATTRIBUTION.md`) |
+| **Integration** | `src/entities/PlayerVisual.ts` (`WARRIOR_VISUAL`) | `src/entities/PlayerVisual.ts` (`MAGE_VISUAL`) |
 
 **Clip mapping**
 
-| Gameplay | KayKit clip |
-| --- | --- |
-| Idle | `Idle` |
-| Walk / Run | `Walking_A` / `Running_A` |
-| Slash | `1H_Melee_Attack_Slice_Horizontal` (time-scaled to the skill window) |
-| Quake | `Jump_Full_Short` + light procedural root stomp |
-| Shield Bash | `Block_Attack` + short forward root shove |
+| Gameplay | Warrior (KayKit) | Mage (KayKit) |
+| --- | --- | --- |
+| Idle | `Idle` | `Idle` |
+| Walk / Run | `Walking_A` / `Running_A` | `Walking_A` / `Running_A` |
+| Skill 1 | `1H_Melee_Attack_Slice_Horizontal` | `Spellcast_Shoot` |
+| Skill 2 | `Jump_Full_Short` + stomp juice | `Spellcast_Long` + cast lift |
+| Skill 3 | `Block_Attack` + shield shove | `Spellcast_Raise` + ward bubble |
 
-Visible props: `1H_Sword`, `Round_Shield`, `Knight_Helmet`, `Knight_Cape`. Extra bundled weapons/shields are hidden.
+Warrior props: `1H_Sword`, `Round_Shield`, `Knight_Helmet`, `Knight_Cape`.  
+Mage props: `1H_Wand`, `Spellbook`, `Mage_Hat`, `Mage_Cape` (staff / open book hidden).
 
-### Swapping the hero later
+### Swapping / adding classes later
 
 1. Drop a new GLB under `public/models/<pack>/`.
-2. Update `MODEL_URL`, `CLIP`, `SHOW_PROPS` / `HIDE_PROPS`, and scale in `src/entities/PlayerVisual.ts`.
-3. Keep `Player` gameplay APIs (`applyMovement`, `playSlash`, `playQuake`, `playBash`, skills, radius) unchanged so combat/HUD stay intact.
-4. Document the new pack + license next to the files (mirror this section).
+2. Add a `VisualConfig` in `src/entities/PlayerVisual.ts` and wire it in `Player`.
+3. Add skill defs in `src/combat/Skills.ts` and combat branches in `CombatSystem`.
+4. Keep `Player` gameplay APIs (`applyMovement`, `playSlash` / `playQuake` / `playBash`, skills, radius) stable so HUD/combat stay intact.
+5. Document the pack + license next to the files (mirror the Knight/Mage folders).
 
-If the GLB fails to load, the game still boots (contact shadow only) and logs a clear console error — no softlock.
+If a GLB fails to load, the game still boots (contact shadow / other class) and logs a clear console error — no softlock.
 
 ## Project structure
 
 ```
 public/models/kaykit-knight/  KayKit Knight.glb + license/attribution
+public/models/kaykit-mage/    KayKit Mage.glb + license/attribution
 src/
-  main.ts                 Entry — boots Game (awaits warrior load)
+  main.ts                 Entry — boots Game (awaits hero loads)
   style.css               HUD + loading overlay styles
   anim/ease.ts            Shared easing (mobs / VFX)
   game/
@@ -99,7 +117,7 @@ Stack: **Vite + TypeScript + three r170+**, ESM, modest draw-call reuse (shared 
 
 - Camera stays locked behind/above the player (isometric-ish), never first-person
 - Semi-fixed timestep (`1/60`) keeps combat timing stable under frame hitches
-- Meadow / mobs stay procedural; the Warrior visual is a single free CC0 GLTF pack
+- Meadow / mobs stay procedural; hero visuals are free CC0 KayKit GLTF packs
 - Architecture is split so new classes, skills, or biomes can grow without a giant `main.ts`
 - Intentionally single-player — polish the core loop before inventing multiplayer
 
@@ -107,4 +125,4 @@ Stack: **Vite + TypeScript + three r170+**, ESM, modest draw-call reuse (shared 
 
 Prototype / learning project. SpiritVale is a trademark of its respective owners; this is an independent fan-inspired tech demo, not affiliated with the original game.
 
-Third-party character art: KayKit Adventurers Knight by Kay Lousberg, CC0 — see `public/models/kaykit-knight/`.
+Third-party character art: KayKit Adventurers Knight + Mage by Kay Lousberg, CC0 — see `public/models/kaykit-knight/` and `public/models/kaykit-mage/`.

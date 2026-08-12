@@ -66,6 +66,8 @@ export class InputManager {
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
+    // Keep Tab for in-game class switch instead of browser focus cycling.
+    if (e.code === 'Tab') e.preventDefault();
     if (e.repeat) return;
     this.keys.add(e.code);
     this.justPressed.add(e.code);

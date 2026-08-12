@@ -16,21 +16,24 @@ export type CombatHooks = {
   onBashImpact?: (hitCount: number) => void;
 };
 
-/** Lightweight VFX rings / slash arcs / seals / bash pulses using shared geometry. */
+/** Lightweight VFX rings / slash arcs / seals / bash pulses / mage spells using shared geometry. */
 class SkillFx {
   private readonly items: Array<{
     mesh: THREE.Object3D;
     age: number;
     life: number;
     grow: number;
-    kind: 'ring' | 'slash' | 'seal' | 'bash';
+    kind: 'ring' | 'slash' | 'seal' | 'bash' | 'bolt' | 'ward';
     startScale: number;
+    vel?: THREE.Vector3;
   }> = [];
   private readonly ringGeo = new THREE.RingGeometry(0.18, 0.62, 32);
   private readonly slashGeo = new THREE.RingGeometry(0.9, 1.45, 22, 1, 0, Math.PI * 0.85);
   private readonly sealGeo = new THREE.RingGeometry(0.5, 0.78, 6);
   private readonly bashDiscGeo = new THREE.CircleGeometry(0.55, 20);
   private readonly bashRingGeo = new THREE.RingGeometry(0.35, 0.72, 24, 1, 0, Math.PI * 1.15);
+  private readonly boltGeo = new THREE.SphereGeometry(0.16, 10, 8);
+  private readonly wardGeo = new THREE.SphereGeometry(0.95, 18, 14);
 
   constructor(private readonly scene: THREE.Scene) {
     this.ringGeo.rotateX(-Math.PI / 2);
@@ -144,6 +147,62 @@ class SkillFx {
     });
   }
 
+  /** Arcane Bolt projectile streak toward a hit point (or max range). */
+  spawnBolt(from: THREE.Vector3, facing: THREE.Vector3, color: number, travel: number): void {
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 1,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(this.boltGeo, mat);
+    mesh.position.set(from.x + facing.x * 0.7, 1.25, from.z + facing.z * 0.7);
+    mesh.scale.set(0.7, 0.7, 1.4);
+    mesh.renderOrder = 4;
+    this.scene.add(mesh);
+    const speed = Math.max(travel, 1.5) / 0.18;
+    this.items.push({
+      mesh,
+      age: 0,
+      life: 0.22,
+      grow: 0,
+      kind: 'bolt',
+      startScale: 1,
+      vel: new THREE.Vector3(facing.x * speed, 0, facing.z * speed),
+    });
+
+    // Soft ground seal at cast origin.
+    this.spawnSeal(from, color);
+  }
+
+  /** Personal ward bubble around the mage. */
+  spawnWard(pos: THREE.Vector3, color: number): void {
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      wireframe: false,
+    });
+    const mesh = new THREE.Mesh(this.wardGeo, mat);
+    mesh.position.set(pos.x, 1.05, pos.z);
+    mesh.scale.setScalar(0.55);
+    mesh.renderOrder = 3;
+    this.scene.add(mesh);
+    this.items.push({
+      mesh,
+      age: 0,
+      life: 0.55,
+      grow: 1.35,
+      kind: 'ward',
+      startScale: 0.55,
+    });
+    this.spawnSeal(pos, 0xd8c4ff);
+  }
+
   /** Forward shield pulse — distinct from Slash arcs and Quake rings. */
   spawnBash(pos: THREE.Vector3, facing: THREE.Vector3, color: number): void {
     const yaw = Math.atan2(facing.x, facing.z);
@@ -225,7 +284,11 @@ class SkillFx {
       const item = this.items[i]!;
       item.age += dt;
       const t = item.age / item.life;
-      if (item.kind === 'ring' || item.kind === 'seal' || item.kind === 'bash') {
+      if (item.kind === 'bolt' && item.vel) {
+        item.mesh.position.x += item.vel.x * dt;
+        item.mesh.position.z += item.vel.z * dt;
+        item.mesh.scale.set(0.7 + t * 0.2, 0.7 + t * 0.2, 1.4 + t * 0.6);
+      } else if (item.kind === 'ring' || item.kind === 'seal' || item.kind === 'bash' || item.kind === 'ward') {
         const s = item.startScale + t * (item.grow - item.startScale);
         if (item.kind === 'bash') {
           // Expand mostly on X/Y so the upright disc reads as a shove, not a balloon.
@@ -235,6 +298,9 @@ class SkillFx {
         }
         if (item.kind === 'seal') {
           item.mesh.rotation.y += dt * 2.8;
+        }
+        if (item.kind === 'ward') {
+          item.mesh.rotation.y += dt * 1.8;
         }
       } else {
         item.mesh.scale.set(1 + t * 0.45, 1 + t * 0.2, 1 + t * 0.45);
@@ -247,9 +313,11 @@ class SkillFx {
           const fade =
             item.kind === 'ring'
               ? Math.max(0, 1 - t * t)
-              : item.kind === 'bash'
+              : item.kind === 'bash' || item.kind === 'bolt'
                 ? Math.max(0, 1 - t * 1.15)
-                : Math.max(0, 1 - t);
+                : item.kind === 'ward'
+                  ? Math.max(0, 0.55 * (1 - t * t))
+                  : Math.max(0, 1 - t);
           (mesh.material as THREE.MeshBasicMaterial).opacity = fade;
         }
       });
@@ -304,9 +372,17 @@ export class CombatSystem {
 
   tryPlayerSkill(player: Player, skillId: SkillId, mobs: Mob[]): boolean {
     if (!player.canUse(skillId)) return false;
-    const skill = player.skills[skillId].def;
     player.startCooldown(skillId);
     player.markCombat();
+
+    if (player.playerClass === 'mage') {
+      return this.tryMageSkill(player, skillId, mobs);
+    }
+    return this.tryWarriorSkill(player, skillId, mobs);
+  }
+
+  private tryWarriorSkill(player: Player, skillId: SkillId, mobs: Mob[]): boolean {
+    const skill = player.skills[skillId].def;
 
     if (skillId === 'basic') {
       const target = this.pickSlashTarget(player, mobs, skill.range);
@@ -393,6 +469,66 @@ export class CombatSystem {
     }
     if (hits > 0) {
       this.pulseHitStop(0.055);
+      this.hooks.onQuakeImpact?.(hits);
+    }
+    return true;
+  }
+
+  private tryMageSkill(player: Player, skillId: SkillId, mobs: Mob[]): boolean {
+    const skill = player.skills[skillId].def;
+
+    if (skillId === 'basic') {
+      // Arcane Bolt — longer-range soft-lock single target.
+      const target = this.pickSlashTarget(player, mobs, skill.range);
+      if (target) {
+        this.tmp.set(
+          target.position.x - player.position.x,
+          0,
+          target.position.z - player.position.z,
+        );
+        player.faceDirection(this.tmp);
+      }
+      player.playSlash();
+      const travel = target
+        ? Math.hypot(
+            target.position.x - player.position.x,
+            target.position.z - player.position.z,
+          )
+        : skill.range * 0.85;
+      this.fx.spawnBolt(player.position, player.facing, skill.color, travel);
+      if (target) {
+        this.applyDamageToMob(target, skill.damage, false);
+        this.pulseHitStop(0.04);
+      }
+      return true;
+    }
+
+    if (skillId === 'bash') {
+      // Arcane Ward — personal bubble: i-frames + small heal (no damage).
+      player.playBash();
+      this.fx.spawnWard(player.position, skill.color);
+      player.invuln = Math.max(player.invuln, 1.35);
+      player.heal(14);
+      return true;
+    }
+
+    // Frost Nova — AoE damage + slow (distinct from Warrior Quake).
+    player.playQuake();
+    this.fx.spawnRing(player.position, skill.color, skill.radius);
+    this.fx.spawnSeal(player.position, 0xb8f0ff);
+    let hits = 0;
+    for (const mob of mobs) {
+      if (!mob.alive) continue;
+      const reach = skill.radius + mob.radius * 0.35;
+      const d2 = dist2(player.position.x, player.position.z, mob.position.x, mob.position.z);
+      if (d2 <= reach * reach) {
+        this.applyDamageToMob(mob, skill.damage, true);
+        mob.applySlow(2.6);
+        hits += 1;
+      }
+    }
+    if (hits > 0) {
+      this.pulseHitStop(0.05);
       this.hooks.onQuakeImpact?.(hits);
     }
     return true;
