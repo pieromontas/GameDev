@@ -230,30 +230,30 @@ export function hash2(x: number, z: number): number {
 
 /** Second playable pocket east of the main meadow (shrine clearing). */
 export const EastShrineClearing = {
-  x: 40,
-  z: 6,
-  radius: 11.5,
+  x: 52,
+  z: 8,
+  radius: 14,
 } as const;
 
 /** Third playable pocket west of the main meadow (misty grove clearing). */
 export const WestMistyGrove = {
-  x: -40,
-  z: -2,
-  radius: 11.5,
+  x: -52,
+  z: -3,
+  radius: 14,
 } as const;
 
 /** Fourth playable pocket north of the main meadow (ruins courtyard). */
 export const NorthRuinsClearing = {
-  x: 2,
-  z: 40,
-  radius: 11.5,
+  x: 3,
+  z: 52,
+  radius: 14,
 } as const;
 
 /** Fifth playable pocket south of the main meadow (river ford clearing). */
 export const SouthRiverFordClearing = {
-  x: -2,
-  z: -40,
-  radius: 11.5,
+  x: -3,
+  z: -52,
+  radius: 14,
 } as const;
 
 /** Smooth 0–1 influence of dirt paths (main S-curve + east/west/north/south branches). */
@@ -269,8 +269,8 @@ export function meadowPathInfluence(x: number, z: number): number {
 
 /** Soft S-curve path from south toward north-west through the main meadow. */
 function mainMeadowPathInfluence(x: number, z: number): number {
-  const t = THREE.MathUtils.clamp((z + 18) / 36, 0, 1);
-  const cx = Math.sin(t * Math.PI * 1.35) * 4.2 + Math.sin(t * Math.PI * 0.5) * 1.5;
+  const t = THREE.MathUtils.clamp((z + 23) / 46, 0, 1);
+  const cx = Math.sin(t * Math.PI * 1.35) * 5.2 + Math.sin(t * Math.PI * 0.5) * 1.8;
   const dx = x - cx;
   const halfW = 1.85 + Math.sin(t * Math.PI * 2) * 0.3;
   const d = Math.abs(dx) / halfW;
@@ -284,9 +284,9 @@ function mainMeadowPathInfluence(x: number, z: number): number {
  * Includes a soft dirt pad around the clearing center so the path “arrives”.
  */
 function eastBranchPathInfluence(x: number, z: number): number {
-  // Branch leaves the main path near (+10, +4) and runs to the clearing center.
-  const ax = 10;
-  const az = 4;
+  // Branch leaves the main path near (+13, +5) and runs to the clearing center.
+  const ax = 13;
+  const az = 5;
   const bx = EastShrineClearing.x;
   const bz = EastShrineClearing.z;
   const abx = bx - ax;
@@ -321,8 +321,8 @@ function eastBranchPathInfluence(x: number, z: number): number {
  * Includes a soft dirt pad around the grove center so the path “arrives”.
  */
 function westBranchPathInfluence(x: number, z: number): number {
-  // Branch leaves the main path near (−8, +1) and runs to the grove center.
-  const ax = -8;
+  // Branch leaves the main path near (−10, +1) and runs to the grove center.
+  const ax = -10;
   const az = 1;
   const bx = WestMistyGrove.x;
   const bz = WestMistyGrove.z;
@@ -356,9 +356,9 @@ function westBranchPathInfluence(x: number, z: number): number {
  * Includes a soft dirt pad around the courtyard center so the path “arrives”.
  */
 function northBranchPathInfluence(x: number, z: number): number {
-  // Branch leaves the main path near (+2, +12) and runs to the ruins center.
-  const ax = 2;
-  const az = 12;
+  // Branch leaves the main path near (+3, +15) and runs to the ruins center.
+  const ax = 3;
+  const az = 15;
   const bx = NorthRuinsClearing.x;
   const bz = NorthRuinsClearing.z;
   const abx = bx - ax;
@@ -391,9 +391,9 @@ function northBranchPathInfluence(x: number, z: number): number {
  * Includes a soft dirt pad around the riverside center so the path “arrives”.
  */
 function southBranchPathInfluence(x: number, z: number): number {
-  // Branch leaves the main path near (−2, −12) and runs to the ford center.
-  const ax = -2;
-  const az = -12;
+  // Branch leaves the main path near (−3, −15) and runs to the ford center.
+  const ax = -3;
+  const az = -15;
   const bx = SouthRiverFordClearing.x;
   const bz = SouthRiverFordClearing.z;
   const abx = bx - ax;

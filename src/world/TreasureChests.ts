@@ -31,7 +31,7 @@ type ChestSpot = {
 };
 
 /** Readable discovery spots — clear of shrine, cart, fairy ring, and gate posts. */
-const CHEST_SPOTS: ChestSpot[] = [
+export const CHEST_SPOTS: ChestSpot[] = [
   // Main meadow, SE of the quiet pond — edge landmark near the path bend
   { x: -14.2, z: -8.2, yaw: 0.55 },
   // South river ford camp, east of the broken cart on the near bank

@@ -66,8 +66,8 @@ export class Game {
     // Fallback clear color under the sky dome; fog tints distance into meadow air.
     this.scene.background = new THREE.Color(Palette.skyHorizon);
     // Far plane nudged out so east/west/north/south clearings stay readable
-    this.scene.fog = new THREE.Fog(Palette.fog, 24, 88);
-    this.sky = createSkyDome(110);
+    this.scene.fog = new THREE.Fog(Palette.fog, 30, 115);
+    this.sky = createSkyDome(145);
     this.scene.add(this.sky);
 
     this.sun = this.addLights();
@@ -225,11 +225,11 @@ export class Game {
     sun.shadow.normalBias = 0.05;
     sun.shadow.radius = 3;
     sun.shadow.camera.near = 2;
-    sun.shadow.camera.far = 72;
-    sun.shadow.camera.left = -28;
-    sun.shadow.camera.right = 28;
-    sun.shadow.camera.top = 28;
-    sun.shadow.camera.bottom = -28;
+    sun.shadow.camera.far = 95;
+    sun.shadow.camera.left = -40;
+    sun.shadow.camera.right = 40;
+    sun.shadow.camera.top = 40;
+    sun.shadow.camera.bottom = -40;
     sun.shadow.camera.updateProjectionMatrix();
     this.scene.add(sun);
     this.scene.add(sun.target);
@@ -347,6 +347,7 @@ export class Game {
     this.sky.position.copy(this.cameraRig.camera.position);
     this.healthBars.update(this.cameraRig.camera);
     this.hud.update(this.player, this.lootCount, this.kills, dt);
+    this.hud.updateMinimap(this.player, this.mobs);
     this.input.endFrame();
   }
 
