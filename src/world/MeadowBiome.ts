@@ -16,6 +16,7 @@ import {
 import type { WorldPropLibrary } from './WorldPropLibrary';
 import { PROP_COLLISION_SCALE, WELL_OFFSET } from './WorldPropLibrary';
 import {
+  MARKET_ALLEY_SPOT,
   MARKET_BLACKSMITH_SPOT,
   MARKET_FORGE_SPOT,
   MARKET_FOUNTAIN_SPOT,
@@ -1296,6 +1297,12 @@ export class MeadowBiome {
     this.marketWellPlacement = { x: 47.8, z: 55.4 };
     this.addMarketWellStandIn(this.marketWellPlacement.x, this.marketWellPlacement.z);
 
+    // Low curtain walls + corner posts — enclose parts of the rim, link to the gate.
+    // Leave SW (gate approach) and far NE (future districts / street exits) open.
+    this.buildMarketPerimeterWalls();
+    // Short west-rim alley off the plaza (walkable crate lane + E flavor).
+    this.buildMarketSideAlley();
+
     // Sparse rim trees — leave SW open toward the gate, far NE for future districts.
     // Skip blacksmith + inn pads so foliage doesn't swallow the landmark silhouettes.
     const rimTrees = 6;
@@ -1313,6 +1320,10 @@ export class MeadowBiome {
         continue;
       }
       if (Math.hypot(tx - MARKET_INN_SPOT.x, tz - MARKET_INN_SPOT.z) < 5.5) {
+        continue;
+      }
+      // Keep the west-rim alley + curtain-wall walk ring readable.
+      if (Math.hypot(tx - MARKET_ALLEY_SPOT.x, tz - MARKET_ALLEY_SPOT.z) < 5.0) {
         continue;
       }
       this.addTree(tx, tz, 0.86 + (i % 3) * 0.06);
@@ -1746,6 +1757,246 @@ export class MeadowBiome {
       this.bannerTrimMat,
     );
     stripe.position.set(0.45, 2.15, 0.06);
+    group.add(stripe);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.35 });
+  }
+
+  /**
+   * Low curtain walls + corner towers around parts of the market rim.
+   * Matches the city-gate flanking-wall style; does not fully box the district —
+   * SW gate approach and far NE street exits stay open.
+   */
+  private buildMarketPerimeterWalls(): void {
+    // Yaw ≈ tangent to the rim (wall length runs along the curtain).
+    // West / NW chain — links toward the gate's NW flank, outside shop A pack radius.
+    this.addMarketWallTower(41.6, 47.8, true);
+    this.addMarketWallSegment(41.4, 50.2, 0.05, 2.6);
+    this.addMarketWallSegment(41.6, 52.8, -0.08, 2.5);
+    this.addMarketWallTower(42.2, 55.4, false);
+    this.addMarketWallSegment(43.6, 57.6, -0.55, 2.4);
+    this.addMarketWallSegment(46.0, 61.2, -0.85, 2.5);
+    // Sit outside shop A + blacksmith pack radii so no thin softlock pocket forms.
+    this.addMarketWallTower(48.0, 63.5, true);
+
+    // Short north stubs near the blacksmith — stop before the open NE exit.
+    this.addMarketWallSegment(51.4, 62.6, -1.2, 2.3);
+    this.addMarketWallSegment(54.2, 62.2, -1.45, 2.2);
+
+    // South / SE chain — links toward the gate's SE flank, outside the inn footprint.
+    this.addMarketWallTower(46.8, 41.2, false);
+    this.addMarketWallSegment(49.4, 40.4, 1.45, 2.5);
+    this.addMarketWallSegment(52.4, 40.2, 1.55, 2.5);
+    this.addMarketWallTower(55.4, 41.0, true);
+    this.addMarketWallSegment(57.8, 42.4, 1.85, 2.4);
+    this.addMarketWallSegment(60.2, 44.6, 2.05, 2.3);
+    this.addMarketWallTower(61.6, 47.2, false);
+
+    // Light east accent only — leave the far NE approach open for later districts.
+    this.addMarketWallSegment(62.4, 50.6, 2.35, 2.2);
+  }
+
+  /** Low stone curtain segment — same language as the gate flank walls. */
+  private addMarketWallSegment(x: number, z: number, yaw: number, length: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'MarketWallSegment';
+
+    const h = 1.45;
+    const wall = new THREE.Mesh(
+      new THREE.BoxGeometry(length, h, 0.52),
+      this.rockMat,
+    );
+    wall.position.y = h * 0.5;
+    wall.castShadow = true;
+    wall.receiveShadow = true;
+    group.add(wall);
+
+    const coping = new THREE.Mesh(
+      new THREE.BoxGeometry(length + 0.12, 0.2, 0.62),
+      this.cliffMat,
+    );
+    coping.position.y = h + 0.08;
+    coping.castShadow = true;
+    group.add(coping);
+
+    // Occasional merlon nubs for curtain-wall silhouette (readable at iso distance).
+    for (const ox of [-length * 0.28, length * 0.28]) {
+      const merlon = new THREE.Mesh(
+        new THREE.BoxGeometry(0.32, 0.28, 0.48),
+        this.rockLightMat,
+      );
+      merlon.position.set(ox, h + 0.28, 0);
+      merlon.castShadow = true;
+      group.add(merlon);
+    }
+
+    this.root.add(group);
+    // Soft capsule along the segment — keep radii modest so street lanes stay clear.
+    this.obstacles.push({ x, z, radius: Math.min(1.05, 0.45 + length * 0.14) });
+  }
+
+  /** Corner / interval tower post — taller than curtain, optional wall banner. */
+  private addMarketWallTower(x: number, z: number, withBanner: boolean): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'MarketWallTower';
+
+    const towerH = 3.35;
+    const shaft = new THREE.Mesh(
+      new THREE.BoxGeometry(1.05, towerH, 1.05),
+      this.rockLightMat,
+    );
+    shaft.position.y = towerH * 0.5;
+    shaft.castShadow = true;
+    shaft.receiveShadow = true;
+    group.add(shaft);
+
+    const cap = new THREE.Mesh(
+      new THREE.BoxGeometry(1.3, 0.28, 1.3),
+      this.cliffMat,
+    );
+    cap.position.y = towerH + 0.1;
+    cap.castShadow = true;
+    group.add(cap);
+
+    const finial = new THREE.Mesh(
+      new THREE.ConeGeometry(0.22, 0.45, 5),
+      this.bannerTrimMat,
+    );
+    finial.position.y = towerH + 0.48;
+    finial.castShadow = true;
+    group.add(finial);
+
+    if (withBanner) {
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.07, 2.4, 5),
+        this.woodDarkMat,
+      );
+      pole.position.set(0.7, towerH - 0.2, 0.15);
+      pole.castShadow = true;
+      group.add(pole);
+      const banner = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.7, 1.25),
+        this.bannerMat,
+      );
+      banner.position.set(0.7, towerH - 0.75, 0.45);
+      banner.castShadow = true;
+      group.add(banner);
+      const stripe = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.48, 0.11),
+        this.bannerTrimMat,
+      );
+      stripe.position.set(0.7, towerH - 0.45, 0.46);
+      group.add(stripe);
+    }
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.7 });
+  }
+
+  /**
+   * Short west-rim side alley off the plaza — narrow cobble lane between the
+   * curtain wall and crate/barrel stacks. Walkable from iso; E flavor at the bend.
+   */
+  private buildMarketSideAlley(): void {
+    const ax = MARKET_ALLEY_SPOT.x;
+    const az = MARKET_ALLEY_SPOT.z;
+
+    // Cobble ribbon — plaza → west toward the curtain (readable from iso cam).
+    const pathMat = createToonMaterial(Palette.pathDark);
+    const cobbleMat = createToonMaterial(Palette.rock);
+    const pathYaw = -0.15;
+    const path = new THREE.Group();
+    path.position.set(ax + 1.4, 0, az - 0.15);
+    path.rotation.y = pathYaw;
+    path.name = 'MarketAlleyPath';
+
+    const ribbon = new THREE.Mesh(
+      new THREE.BoxGeometry(5.2, 0.05, 2.15),
+      pathMat,
+    );
+    ribbon.position.y = 0.045;
+    ribbon.receiveShadow = true;
+    path.add(ribbon);
+
+    const edge = new THREE.Mesh(
+      new THREE.BoxGeometry(5.35, 0.03, 2.35),
+      cobbleMat,
+    );
+    edge.position.y = 0.03;
+    edge.receiveShadow = true;
+    path.add(edge);
+
+    this.root.add(path);
+
+    // North flank — crates / barrels (soft blockers; leave center lane open).
+    this.addMarketCrates(45.8, 53.55, 0.35);
+    this.addMarketCrates(44.2, 53.7, -0.2);
+    this.addMarketCrates(42.9, 53.35, 0.55);
+
+    // South flank — barrel stack + spare crate (mirrors inn-yard dressing).
+    this.addMarketAlleyBarrels(45.4, 51.05, 0.1);
+    this.addMarketAlleyBarrels(43.5, 51.15, -0.4);
+    this.addMarketCrates(42.4, 51.35, 0.25);
+
+    // Dead-end notice board at the alley bend (E interact via MarketAlley).
+    this.addMarketAlleySign(ax, az);
+  }
+
+  /** Compact barrel cluster for alley flanks (smaller footprint than crate stacks). */
+  private addMarketAlleyBarrels(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'MarketAlleyBarrels';
+
+    for (const [bx, by, bz, s] of [
+      [0, 0.28, 0, 1],
+      [0.45, 0.24, 0.15, 0.88],
+      [0.2, 0.68, 0.05, 0.72],
+    ] as const) {
+      const barrel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.26 * s, 0.28 * s, 0.52 * s, 8),
+        s > 0.9 ? this.woodMat : this.woodDarkMat,
+      );
+      barrel.position.set(bx, by, bz);
+      barrel.castShadow = true;
+      barrel.receiveShadow = true;
+      group.add(barrel);
+    }
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.55 });
+  }
+
+  /** Small alley notice board — soft collision + E flavor interact. */
+  private addMarketAlleySign(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = Math.PI * 0.55;
+    group.name = 'MarketAlleySign';
+
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.1, 2.1, 5),
+      this.woodDarkMat,
+    );
+    post.position.y = 1.05;
+    post.castShadow = true;
+    group.add(post);
+
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.55, 0.08), this.signBoardMat);
+    board.position.set(0, 1.75, 0.04);
+    board.castShadow = true;
+    group.add(board);
+
+    const stripe = new THREE.Mesh(
+      new THREE.BoxGeometry(0.9, 0.08, 0.1),
+      this.bannerMat,
+    );
+    stripe.position.set(0, 1.9, 0.08);
     group.add(stripe);
 
     this.root.add(group);
