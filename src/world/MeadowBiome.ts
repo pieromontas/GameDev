@@ -15,7 +15,12 @@ import {
 } from '../render/stylized';
 import type { WorldPropLibrary } from './WorldPropLibrary';
 import { PROP_COLLISION_SCALE, WELL_OFFSET } from './WorldPropLibrary';
-import { MARKET_SIGN_SPOT } from './MarketDistrict';
+import {
+  MARKET_BLACKSMITH_SPOT,
+  MARKET_FORGE_SPOT,
+  MARKET_FOUNTAIN_SPOT,
+  MARKET_SIGN_SPOT,
+} from './MarketDistrict';
 
 export type Obstacle = { x: number; z: number; radius: number };
 
@@ -85,8 +90,17 @@ export class MeadowBiome {
   private windmillPlacement: { x: number; z: number } | null = null;
   /** Market district KayKit shop cottages (pack-swapped; not the NW merchant cottage). */
   private readonly shopPlacements: ShopPlacement[] = [];
+  /** Market blacksmith KayKit cottage (pack-swapped; forge props stay procedural). */
+  private blacksmithPlacement: ShopPlacement | null = null;
   private marketWellPlacement: { x: number; z: number } | null = null;
   private packApplied = false;
+
+  /** Idle fountain / forge VFX driven by `updateMarketAmbience`. */
+  private marketAmbienceT = 0;
+  private readonly marketFountainSparkles: THREE.Mesh[] = [];
+  private readonly marketForgeSmoke: THREE.Mesh[] = [];
+  private readonly marketForgeEmbers: THREE.Mesh[] = [];
+  private marketForgeLight: THREE.PointLight | null = null;
 
   private readonly canopyLowGeo = new THREE.ConeGeometry(1.15, 1.55, 7);
   private readonly canopyMidGeo = new THREE.ConeGeometry(0.88, 1.35, 7);
@@ -1235,21 +1249,39 @@ export class MeadowBiome {
     // Far-side shop — stay ≥~5 units off the diagonal so pack-scaled cottage r≈4.4 clears the street
     this.addMarketShop(61.0, 53.0, 1.18, -Math.PI * 0.45);
 
+    // Central plaza fountain — soft blocker; leave walk lanes around the cobble.
+    this.addMarketFountain(MARKET_FOUNTAIN_SPOT.x, MARKET_FOUNTAIN_SPOT.z);
+
+    // Blacksmith workshop on the NNE rim (KayKit cottage) + forge/anvil yard toward plaza.
+    // Clear of shop A/C pack radii (~4.4) and the gate→market diagonal.
+    this.addMarketBlacksmith(
+      MARKET_BLACKSMITH_SPOT.x,
+      MARKET_BLACKSMITH_SPOT.z,
+      1.05,
+      Math.atan2(
+        MARKET_FOUNTAIN_SPOT.x - MARKET_BLACKSMITH_SPOT.x,
+        MARKET_FOUNTAIN_SPOT.z - MARKET_BLACKSMITH_SPOT.z,
+      ),
+    );
+    this.addMarketForgeYard(MARKET_FORGE_SPOT.x, MARKET_FORGE_SPOT.z);
+
     // Stylized stall awnings + crates (dense but not a capital).
+    // Crates sit off the fountain footprint so the plaza center stays readable.
     this.addMarketStall(48.0, 54.0, Math.PI * 0.7, Palette.roofTile);
     this.addMarketStall(54.2, 47.8, -Math.PI * 0.28, Palette.flowerYellow);
     this.addMarketStall(55.8, 52.4, -Math.PI * 0.9, Palette.flowerCyan);
 
-    this.addMarketCrates(49.6, 51.8, 0.2);
-    this.addMarketCrates(52.4, 50.2, -0.35);
+    this.addMarketCrates(47.2, 51.4, 0.2);
+    this.addMarketCrates(54.0, 49.2, -0.35);
     this.addMarketBannerPost(47.0, 49.2, 0.1);
     this.addMarketBannerPost(55.0, 52.6, -0.08);
 
-    // KayKit well accent near plaza center — pack-swapped with shops.
-    this.marketWellPlacement = { x: 50.2, z: 53.8 };
+    // KayKit well accent off the fountain — pack-swapped with shops.
+    this.marketWellPlacement = { x: 47.8, z: 55.4 };
     this.addMarketWellStandIn(this.marketWellPlacement.x, this.marketWellPlacement.z);
 
     // Sparse rim trees — leave SW open toward the gate, far NE for future districts.
+    // Skip the blacksmith pad so foliage doesn't swallow the workshop silhouette.
     const rimTrees = 6;
     for (let i = 0; i < rimTrees; i++) {
       const a = (i / rimTrees) * Math.PI * 2 + 0.55;
@@ -1259,6 +1291,11 @@ export class MeadowBiome {
       const tx = cx + Math.cos(a) * r;
       const tz = cz + Math.sin(a) * r;
       if (meadowPathInfluence(tx, tz) > 0.45) continue;
+      if (
+        Math.hypot(tx - MARKET_BLACKSMITH_SPOT.x, tz - MARKET_BLACKSMITH_SPOT.z) < 5.5
+      ) {
+        continue;
+      }
       this.addTree(tx, tz, 0.86 + (i % 3) * 0.06);
     }
   }
@@ -1734,6 +1771,374 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 0.55 });
+  }
+
+  /**
+   * Stylized market fountain at plaza center — KayKit-friendly toon basin + spout.
+   * Soft collision blocks walking through; lanes around the cobble stay open.
+   */
+  private addMarketFountain(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'MarketFountain';
+
+    const plinth = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.55, 1.7, 0.28, 12),
+      this.rockMat,
+    );
+    plinth.position.y = 0.14;
+    plinth.castShadow = true;
+    plinth.receiveShadow = true;
+    group.add(plinth);
+
+    const basin = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.25, 1.4, 0.55, 12),
+      this.rockLightMat,
+    );
+    basin.position.y = 0.5;
+    basin.castShadow = true;
+    basin.receiveShadow = true;
+    group.add(basin);
+
+    const lip = new THREE.Mesh(
+      new THREE.TorusGeometry(1.18, 0.12, 6, 16),
+      this.cliffMat,
+    );
+    lip.rotation.x = Math.PI / 2;
+    lip.position.y = 0.78;
+    lip.castShadow = true;
+    group.add(lip);
+
+    const pedestal = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.32, 0.42, 0.95, 8),
+      this.rockShadowMat,
+    );
+    pedestal.position.y = 0.95;
+    pedestal.castShadow = true;
+    group.add(pedestal);
+
+    const bowl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55, 0.4, 0.22, 10),
+      this.rockLightMat,
+    );
+    bowl.position.y = 1.5;
+    bowl.castShadow = true;
+    group.add(bowl);
+
+    const waterMat = createToonMaterial(Palette.pond, {
+      emissive: Palette.flowerCyan,
+      emissiveIntensity: 0.35,
+      transparent: true,
+      opacity: 0.88,
+    });
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(1.0, 18), waterMat);
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.y = 0.72;
+    group.add(pool);
+
+    const spoutMat = createToonMaterial(Palette.flowerCyan, {
+      emissive: Palette.flowerCyan,
+      emissiveIntensity: 0.7,
+      transparent: true,
+      opacity: 0.7,
+      depthWrite: false,
+    });
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.18, 0.85, 8), spoutMat);
+    spout.position.y = 1.95;
+    group.add(spout);
+
+    const sparkleMat = createToonMaterial(Palette.flowerWhite, {
+      emissive: Palette.flowerCyan,
+      emissiveIntensity: 1.1,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+    });
+    for (let i = 0; i < 6; i++) {
+      const spark = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.06 + (i % 3) * 0.015, 0),
+        sparkleMat.clone(),
+      );
+      spark.userData.phase = (i / 6) * Math.PI * 2;
+      spark.userData.radius = 0.45 + (i % 3) * 0.12;
+      this.marketFountainSparkles.push(spark);
+      group.add(spark);
+    }
+
+    // Gold trim ring — market-readable accent vs the ruins healing spring
+    const trim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.5, 0.05, 5, 14),
+      this.bannerTrimMat,
+    );
+    trim.rotation.x = Math.PI / 2;
+    trim.position.y = 1.58;
+    group.add(trim);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.25 });
+  }
+
+  /** Procedural KayKit-cottage stand-in for the blacksmith workshop (pack-swapped). */
+  private addMarketBlacksmith(x: number, z: number, scale: number, yaw: number): void {
+    this.blacksmithPlacement = { x, z, scale, yaw };
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.scale.setScalar(scale);
+    group.userData.proceduralProp = true;
+    group.name = 'MarketBlacksmithStandIn';
+
+    const walls = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.75, 2.3), this.rockShadowMat);
+    walls.position.y = 0.88;
+    walls.castShadow = true;
+    walls.receiveShadow = true;
+    group.add(walls);
+
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(2.15, 1.35, 4), this.roofMat);
+    roof.position.y = 2.35;
+    roof.rotation.y = Math.PI / 4;
+    roof.castShadow = true;
+    group.add(roof);
+
+    // Wide open workshop mouth (reads as forge bay)
+    const bay = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.15, 0.12), this.woodDarkMat);
+    bay.position.set(0, 0.7, 1.2);
+    group.add(bay);
+
+    const chimney = new THREE.Mesh(
+      new THREE.BoxGeometry(0.45, 1.1, 0.45),
+      this.cliffMat,
+    );
+    chimney.position.set(-0.7, 2.55, -0.35);
+    chimney.castShadow = true;
+    group.add(chimney);
+
+    const soot = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 0.12, 0.55),
+      this.rockShadowMat,
+    );
+    soot.position.set(-0.7, 3.15, -0.35);
+    group.add(soot);
+
+    const emberGlow = new THREE.Mesh(
+      new THREE.BoxGeometry(0.7, 0.35, 0.08),
+      createToonMaterial(Palette.roofTile, {
+        emissive: Palette.roofTile,
+        emissiveIntensity: 0.55,
+      }),
+    );
+    emberGlow.position.set(0.15, 0.55, 1.28);
+    group.add(emberGlow);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.6 });
+  }
+
+  /**
+   * Open forge / anvil yard in front of the blacksmith — landmark props + light VFX.
+   * Soft collisions leave a walk ring; E interact uses MARKET_FORGE_SPOT.
+   */
+  private addMarketForgeYard(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'MarketForgeYard';
+
+    const pad = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.55, 1.65, 0.12, 10),
+      this.rockShadowMat,
+    );
+    pad.position.y = 0.06;
+    pad.receiveShadow = true;
+    group.add(pad);
+
+    // Stone forge hearth
+    const hearth = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.7, 0.95), this.cliffMat);
+    hearth.position.set(-0.35, 0.4, -0.15);
+    hearth.castShadow = true;
+    hearth.receiveShadow = true;
+    group.add(hearth);
+
+    const fireMat = createToonMaterial(Palette.roofTile, {
+      emissive: 0xff6a20,
+      emissiveIntensity: 0.95,
+    });
+    const coals = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.22, 0.55), fireMat);
+    coals.position.set(-0.35, 0.82, -0.15);
+    group.add(coals);
+
+    const hood = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.15, 0.55, 0.7, 6),
+      this.rockMat,
+    );
+    hood.position.set(-0.35, 1.25, -0.15);
+    hood.castShadow = true;
+    group.add(hood);
+
+    // Anvil silhouette (readable at iso distance)
+    const anvilBase = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 0.35, 0.4),
+      this.rockShadowMat,
+    );
+    anvilBase.position.set(0.75, 0.35, 0.2);
+    anvilBase.castShadow = true;
+    group.add(anvilBase);
+
+    const anvilTop = new THREE.Mesh(
+      new THREE.BoxGeometry(0.85, 0.22, 0.32),
+      createToonMaterial(0x6a7270, {
+        emissive: 0x3a4040,
+        emissiveIntensity: 0.15,
+      }),
+    );
+    anvilTop.position.set(0.75, 0.62, 0.2);
+    anvilTop.castShadow = true;
+    group.add(anvilTop);
+
+    const horn = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.14, 0.16),
+      this.rockShadowMat,
+    );
+    horn.position.set(1.25, 0.62, 0.2);
+    group.add(horn);
+
+    // Weapon rack + barrel dressing
+    const rack = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 1.1, 0.7),
+      this.woodDarkMat,
+    );
+    rack.position.set(0.15, 0.7, -0.85);
+    rack.castShadow = true;
+    group.add(rack);
+    for (let i = 0; i < 3; i++) {
+      const blade = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.7, 0.1),
+        this.bannerTrimMat,
+      );
+      blade.position.set(0.22, 0.75, -1.05 + i * 0.22);
+      blade.rotation.z = -0.35;
+      group.add(blade);
+    }
+
+    const barrel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28, 0.3, 0.55, 8),
+      this.woodMat,
+    );
+    barrel.position.set(-0.95, 0.28, 0.65);
+    barrel.castShadow = true;
+    group.add(barrel);
+
+    // Soft ember light + rising smoke puffs (animated in updateMarketAmbience)
+    const light = new THREE.PointLight(0xff7a30, 0.85, 7.5, 2);
+    light.position.set(-0.35, 1.15, -0.1);
+    group.add(light);
+    this.marketForgeLight = light;
+
+    const smokeMat = createToonMaterial(0xb0b0b0, {
+      transparent: true,
+      opacity: 0.28,
+      emissive: 0x666666,
+      emissiveIntensity: 0.12,
+      depthWrite: false,
+    });
+    for (let i = 0; i < 4; i++) {
+      const puff = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22 + i * 0.04, 8, 6),
+        smokeMat.clone(),
+      );
+      puff.position.set(-0.35 + (i % 2) * 0.08, 1.4 + i * 0.25, -0.15);
+      puff.userData.phase = i * 0.9;
+      puff.userData.baseX = puff.position.x;
+      puff.userData.baseY = puff.position.y;
+      puff.userData.baseZ = puff.position.z;
+      this.marketForgeSmoke.push(puff);
+      group.add(puff);
+    }
+
+    // Ember flecks
+    const emberMat = createToonMaterial(0xffaa44, {
+      emissive: 0xff6622,
+      emissiveIntensity: 1.2,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+    });
+    for (let i = 0; i < 5; i++) {
+      const ember = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.04, 0),
+        emberMat.clone(),
+      );
+      ember.position.set(
+        -0.55 + (i % 3) * 0.18,
+        0.95 + (i % 2) * 0.15,
+        -0.35 + (i % 2) * 0.2,
+      );
+      ember.userData.phase = i * 1.2;
+      ember.userData.baseX = ember.position.x;
+      ember.userData.baseY = ember.position.y;
+      ember.userData.baseZ = ember.position.z;
+      this.marketForgeEmbers.push(ember);
+      group.add(ember);
+    }
+
+    this.root.add(group);
+    // Soft blockers — hearth / anvil only; walk ring around the yard stays open
+    this.obstacles.push({ x: x - 0.35, z: z - 0.15, radius: 0.7 });
+    this.obstacles.push({ x: x + 0.75, z: z + 0.2, radius: 0.45 });
+  }
+
+  /** Idle fountain sparkles + forge smoke / ember flicker for the market landmarks. */
+  updateMarketAmbience(dt: number): void {
+    this.marketAmbienceT += dt;
+    const t = this.marketAmbienceT;
+
+    for (let i = 0; i < this.marketFountainSparkles.length; i++) {
+      const spark = this.marketFountainSparkles[i]!;
+      const phase = (spark.userData.phase as number) + t * (1.2 + (i % 3) * 0.25);
+      const r = spark.userData.radius as number;
+      spark.position.set(
+        Math.cos(phase) * r,
+        1.55 + Math.sin(phase * 1.7) * 0.35 + (i % 2) * 0.12,
+        Math.sin(phase) * r,
+      );
+      const mat = spark.material as THREE.MeshToonMaterial;
+      mat.opacity = 0.45 + 0.45 * (0.5 + 0.5 * Math.sin(phase * 2.2));
+    }
+
+    for (let i = 0; i < this.marketForgeSmoke.length; i++) {
+      const puff = this.marketForgeSmoke[i]!;
+      const phase = (puff.userData.phase as number) + t;
+      const baseX = puff.userData.baseX as number;
+      const baseY = puff.userData.baseY as number;
+      const baseZ = puff.userData.baseZ as number;
+      const cycle = (phase * 0.45) % 1;
+      puff.position.set(
+        baseX + Math.sin(phase * 0.7) * 0.12,
+        baseY + cycle * 1.1,
+        baseZ + Math.cos(phase * 0.55) * 0.08,
+      );
+      const mat = puff.material as THREE.MeshToonMaterial;
+      mat.opacity = 0.32 * (1 - cycle);
+      puff.scale.setScalar(0.85 + cycle * 0.7);
+    }
+
+    for (let i = 0; i < this.marketForgeEmbers.length; i++) {
+      const ember = this.marketForgeEmbers[i]!;
+      const phase = (ember.userData.phase as number) + t;
+      const baseX = ember.userData.baseX as number;
+      const baseY = ember.userData.baseY as number;
+      const baseZ = ember.userData.baseZ as number;
+      ember.position.set(
+        baseX + Math.sin(phase * 4.2) * 0.06,
+        baseY + 0.12 + Math.sin(phase * 3.5) * 0.18,
+        baseZ + Math.cos(phase * 3.8) * 0.05,
+      );
+      const mat = ember.material as THREE.MeshToonMaterial;
+      mat.opacity = 0.55 + 0.4 * Math.sin(phase * 5);
+    }
+
+    if (this.marketForgeLight) {
+      this.marketForgeLight.intensity = 0.7 + 0.35 * (0.5 + 0.5 * Math.sin(t * 9.5));
+    }
   }
 
   /**
@@ -2848,6 +3253,23 @@ export class MeadowBiome {
       }
     }
 
+    // Market blacksmith workshop — same KayKit cottage piece, street-facing yaw.
+    if (this.blacksmithPlacement) {
+      const smith = library.createCottage(
+        this.blacksmithPlacement.x,
+        this.blacksmithPlacement.z,
+        {
+          scale: this.blacksmithPlacement.scale,
+          yaw: this.blacksmithPlacement.yaw,
+        },
+      );
+      if (smith) {
+        smith.name = 'MarketBlacksmith';
+        this.root.add(smith);
+        placed += 1;
+      }
+    }
+
     if (this.marketWellPlacement) {
       const well = library.createWell(
         this.marketWellPlacement.x,
@@ -2892,6 +3314,13 @@ export class MeadowBiome {
     }
     for (const shop of this.shopPlacements) {
       bump(shop.x, shop.z, PROP_COLLISION_SCALE.cottage);
+    }
+    if (this.blacksmithPlacement) {
+      bump(
+        this.blacksmithPlacement.x,
+        this.blacksmithPlacement.z,
+        PROP_COLLISION_SCALE.cottage,
+      );
     }
     if (this.marketWellPlacement) {
       bump(
