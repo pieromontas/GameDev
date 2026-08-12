@@ -68,16 +68,18 @@ export class Player extends Entity {
     group.add(hips);
 
     // Pelvis / skirt flap for silhouette
-    const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.28, 0.4), leatherDark);
+    const pelvis = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.18, 3, 8), leatherDark);
+    pelvis.scale.set(1.15, 1, 0.85);
     pelvis.position.y = -0.02;
     pelvis.castShadow = true;
     hips.add(pelvis);
 
-    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.1, 0.44), gold);
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 6, 14), gold);
+    belt.rotation.x = Math.PI / 2;
     belt.position.y = 0.12;
     hips.add(belt);
     const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.08), trim);
-    buckle.position.set(0, 0.12, 0.2);
+    buckle.position.set(0, 0.12, 0.22);
     hips.add(buckle);
 
     // Legs
@@ -132,17 +134,21 @@ export class Player extends Entity {
     torso.position.y = 0.18;
     hips.add(torso);
 
-    const chest = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.7, 0.46), leather);
-    chest.position.y = 0.38;
+    // Rounded cuirass — reads as armor mass, not a crate, at iso distance
+    const chest = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.42, 4, 10), leather);
+    chest.scale.set(1.15, 1, 0.85);
+    chest.position.y = 0.4;
     chest.castShadow = true;
     torso.add(chest);
 
-    const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.12), leatherLight);
-    chestPlate.position.set(0, 0.4, 0.2);
+    const chestPlate = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), leatherLight);
+    chestPlate.scale.set(1.15, 1.05, 0.55);
+    chestPlate.position.set(0, 0.42, 0.18);
     torso.add(chestPlate);
 
-    const collar = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.12, 0.4), cloth);
-    collar.position.y = 0.74;
+    const collar = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), cloth);
+    collar.scale.set(1.35, 0.45, 1.1);
+    collar.position.y = 0.78;
     torso.add(collar);
 
     // Head
@@ -150,36 +156,40 @@ export class Player extends Entity {
     head.position.y = 0.95;
     torso.add(head);
 
-    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), skin);
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), skin);
     skull.scale.set(1, 1.05, 0.95);
     skull.castShadow = true;
     head.add(skull);
 
-    // Messy brown hair clumps
-    const hairMain = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 8), hair);
-    hairMain.position.set(0, 0.08, -0.02);
-    hairMain.scale.set(1.05, 0.85, 1.1);
+    // Messy brown hair clumps — oversized for iso readability
+    const hairMain = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), hair);
+    hairMain.position.set(0, 0.1, -0.04);
+    hairMain.scale.set(1.1, 0.9, 1.15);
     head.add(hairMain);
-    const bangL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), hair);
-    bangL.position.set(-0.14, 0.06, 0.18);
-    bangL.scale.set(0.8, 1.1, 0.7);
+    const bangL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), hair);
+    bangL.position.set(-0.16, 0.08, 0.2);
+    bangL.scale.set(0.85, 1.2, 0.75);
     head.add(bangL);
-    const bangR = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), hair);
-    bangR.position.set(0.12, 0.1, 0.16);
-    bangR.scale.set(0.75, 1.2, 0.7);
+    const bangR = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), hair);
+    bangR.position.set(0.14, 0.12, 0.18);
+    bangR.scale.set(0.8, 1.35, 0.75);
     head.add(bangR);
-    const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), hair);
-    tuft.position.set(0.05, 0.26, -0.05);
-    tuft.scale.set(0.7, 1.3, 0.7);
+    const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), hair);
+    tuft.position.set(0.06, 0.3, -0.06);
+    tuft.scale.set(0.75, 1.45, 0.75);
     head.add(tuft);
+    const sideL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), hair);
+    sideL.position.set(-0.22, 0.0, 0.02);
+    sideL.scale.set(0.7, 1.1, 0.8);
+    head.add(sideL);
 
-    // Tiny eyes for readable face at isometric distance
-    const eyeGeo = new THREE.SphereGeometry(0.035, 6, 6);
+    // Eyes oversized for follow-cam readability
+    const eyeGeo = new THREE.SphereGeometry(0.045, 6, 6);
     const eyeMat = createToonMaterial(0x2a1a14);
     const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeL.position.set(-0.08, 0.02, 0.21);
+    eyeL.position.set(-0.09, 0.02, 0.24);
     const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeR.position.set(0.08, 0.02, 0.21);
+    eyeR.position.set(0.09, 0.02, 0.24);
     head.add(eyeL, eyeR);
 
     // Shoulders / arms
@@ -190,25 +200,25 @@ export class Player extends Entity {
     rightShoulder.position.set(0.42, 0.68, 0);
     torso.add(rightShoulder);
 
-    const padGeo = new THREE.BoxGeometry(0.34, 0.2, 0.4);
+    const padGeo = new THREE.SphereGeometry(0.2, 10, 8);
     const leftPad = new THREE.Mesh(padGeo, leatherDark);
-    leftPad.position.set(-0.06, 0.04, 0);
-    leftPad.rotation.z = 0.35;
+    leftPad.scale.set(1.15, 0.7, 1.25);
+    leftPad.position.set(-0.08, 0.04, 0);
     leftPad.castShadow = true;
     leftShoulder.add(leftPad);
-    const leftPadTrim = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.08, 0.42), trim);
-    leftPadTrim.position.set(-0.06, 0.12, 0);
-    leftPadTrim.rotation.z = 0.35;
+    const leftPadTrim = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.035, 6, 12), trim);
+    leftPadTrim.rotation.x = Math.PI / 2;
+    leftPadTrim.position.set(-0.08, 0.1, 0);
     leftShoulder.add(leftPadTrim);
 
     const rightPad = new THREE.Mesh(padGeo, leatherDark);
-    rightPad.position.set(0.06, 0.04, 0);
-    rightPad.rotation.z = -0.35;
+    rightPad.scale.set(1.15, 0.7, 1.25);
+    rightPad.position.set(0.08, 0.04, 0);
     rightPad.castShadow = true;
     rightShoulder.add(rightPad);
-    const rightPadTrim = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.08, 0.42), trim);
-    rightPadTrim.position.set(0.06, 0.12, 0);
-    rightPadTrim.rotation.z = -0.35;
+    const rightPadTrim = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.035, 6, 12), trim);
+    rightPadTrim.rotation.x = Math.PI / 2;
+    rightPadTrim.position.set(0.08, 0.1, 0);
     rightShoulder.add(rightPadTrim);
 
     const leftArm = new THREE.Group();
@@ -263,24 +273,25 @@ export class Player extends Entity {
     swordPivot.position.set(0.08, -0.45, 0.05);
     rightArm.add(swordPivot);
 
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.08), boot);
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.3, 8), boot);
     grip.position.y = -0.05;
     swordPivot.add(grip);
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.07, 0.12), gold);
-    guard.position.y = 0.12;
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.14), gold);
+    guard.position.y = 0.14;
     swordPivot.add(guard);
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.05, 0.06), steel);
-    blade.position.y = 0.68;
+    // Wide blade for readable swing mass
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.15, 0.05), steel);
+    blade.position.y = 0.74;
     blade.castShadow = true;
     swordPivot.add(blade);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.16, 6), steel);
-    tip.position.y = 1.26;
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.2, 6), steel);
+    tip.position.y = 1.4;
     swordPivot.add(tip);
-    const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.7, 0.07), steelDark);
-    fuller.position.y = 0.65;
+    const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.85, 0.06), steelDark);
+    fuller.position.y = 0.7;
     swordPivot.add(fuller);
-    const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), gold);
-    pommel.position.y = -0.22;
+    const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), gold);
+    pommel.position.y = -0.24;
     swordPivot.add(pommel);
 
     // Soft contact shadow disc

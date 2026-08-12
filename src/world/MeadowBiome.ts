@@ -98,7 +98,7 @@ export class MeadowBiome {
   private buildGround(): void {
     const groundGeo = new THREE.CircleGeometry(this.groundSize * 0.5, 72);
     displaceGroundHeight(groundGeo, {
-      amplitude: 0.28,
+      amplitude: 0.42,
       pathFn: meadowPathInfluence,
     });
     paintGroundVertexColors(

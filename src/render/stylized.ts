@@ -177,7 +177,8 @@ export function paintGroundVertexColors(
       const p = opts.pathFn(x, y);
       if (p > 0) {
         const dirt = pathCol.clone().lerp(pathEdge, hash2(x * 2.1, y * 2.1) * 0.45);
-        tmp.lerp(dirt, Math.min(1, p));
+        // Stronger dirt blend so the winding path reads at iso distance
+        tmp.lerp(dirt, Math.min(1, p * 1.15));
       }
     }
 
@@ -231,7 +232,7 @@ export function meadowPathInfluence(x: number, z: number): number {
   const t = THREE.MathUtils.clamp((z + 18) / 36, 0, 1);
   const cx = Math.sin(t * Math.PI * 1.35) * 4.2 + Math.sin(t * Math.PI * 0.5) * 1.5;
   const dx = x - cx;
-  const halfW = 1.55 + Math.sin(t * Math.PI * 2) * 0.25;
+  const halfW = 1.85 + Math.sin(t * Math.PI * 2) * 0.3;
   const d = Math.abs(dx) / halfW;
   if (d >= 1.35) return 0;
   if (d <= 0.75) return 1;

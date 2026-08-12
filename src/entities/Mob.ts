@@ -8,8 +8,8 @@ export type MobAIState = 'idle' | 'chase' | 'attack' | 'leash' | 'dead';
 
 const sharedBodyGeo = new THREE.SphereGeometry(0.62, 16, 14);
 const sharedBellyGeo = new THREE.SphereGeometry(0.4, 12, 10);
-const sharedEyeWhiteGeo = new THREE.SphereGeometry(0.12, 8, 8);
-const sharedPupilGeo = new THREE.SphereGeometry(0.065, 6, 6);
+const sharedEyeWhiteGeo = new THREE.SphereGeometry(0.15, 8, 8);
+const sharedPupilGeo = new THREE.SphereGeometry(0.08, 6, 6);
 const sharedCheekGeo = new THREE.SphereGeometry(0.1, 6, 6);
 const sharedSpotGeo = new THREE.SphereGeometry(0.11, 6, 6);
 const sharedEarGeo = new THREE.SphereGeometry(0.17, 8, 8);
