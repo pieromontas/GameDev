@@ -167,7 +167,8 @@ export class HUD {
         Follow the dirt path south to the river ford<br/>
         Follow the stone road northeast to the city gate<br/>
         NW cottage — spend gold at the merchant<br/>
-        RMB drag — rotate camera
+        RMB drag — rotate camera<br/>
+        Scroll / pinch — zoom · <kbd>-</kbd><kbd>=</kbd> or <kbd>[</kbd><kbd>]</kbd>
       </div>
       <div class="interact-prompt" id="interact-prompt" hidden></div>
       <div class="objective-banner" id="objective-banner" hidden></div>
