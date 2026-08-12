@@ -24,6 +24,17 @@ export class MeadowBiome {
   /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
 
+  /** Interact radius for the east shrine crystal (player proximity). */
+  readonly shrineInteractRadius = 4.6;
+  /** World XZ of the ancient shrine crystal/tower. */
+  readonly shrinePosition = new THREE.Vector3(EastShrineClearing.x, 0, EastShrineClearing.z);
+
+  private shrineCrystal: THREE.Mesh | null = null;
+  private shrineCrystalTip: THREE.Mesh | null = null;
+  private shrineCrystalMat: THREE.MeshToonMaterial | null = null;
+  private shrineActivated = false;
+  private shrinePulseT = 0;
+
   private readonly canopyLowGeo = new THREE.ConeGeometry(1.15, 1.55, 7);
   private readonly canopyMidGeo = new THREE.ConeGeometry(0.88, 1.35, 7);
   private readonly canopyTopGeo = new THREE.ConeGeometry(0.55, 1.1, 7);
@@ -487,12 +498,18 @@ export class MeadowBiome {
     crystal.position.set(0, 4.85, 0);
     crystal.rotation.y = Math.PI * 0.2;
     crystal.castShadow = true;
+    crystal.name = 'ShrineCrystal';
     group.add(crystal);
 
     const crystalTip = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), crystalMat);
     crystalTip.position.set(0, 5.45, 0);
     crystalTip.scale.set(0.7, 1.15, 0.7);
+    crystalTip.name = 'ShrineCrystalTip';
     group.add(crystalTip);
+
+    this.shrineCrystal = crystal;
+    this.shrineCrystalTip = crystalTip;
+    this.shrineCrystalMat = crystalMat;
 
     // Standing stones in a circle around the ruined tower
     const stones = 7;
@@ -550,6 +567,59 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 1.55 });
+  }
+
+  /** True when the player stands close enough to awaken the shrine. */
+  isNearShrine(position: THREE.Vector3): boolean {
+    const dx = position.x - this.shrinePosition.x;
+    const dz = position.z - this.shrinePosition.z;
+    const r = this.shrineInteractRadius;
+    return dx * dx + dz * dz <= r * r;
+  }
+
+  get shrineIsActivated(): boolean {
+    return this.shrineActivated;
+  }
+
+  /**
+   * Toggle awakened crystal look — brighter emissive + slight scale pulse when active.
+   * Inactive returns to the dormant cyan glow so the shrine can cool down for another run.
+   */
+  setShrineActivated(active: boolean): void {
+    this.shrineActivated = active;
+    if (!this.shrineCrystalMat || !this.shrineCrystal || !this.shrineCrystalTip) return;
+    if (active) {
+      this.shrineCrystalMat.color.setHex(0xb8fff8);
+      this.shrineCrystalMat.emissive.setHex(0x6ef0ff);
+      this.shrineCrystalMat.emissiveIntensity = 1.35;
+      this.shrineCrystal.scale.setScalar(1.18);
+      this.shrineCrystalTip.scale.set(0.85, 1.35, 0.85);
+    } else {
+      this.shrineCrystalMat.color.setHex(Palette.flowerCyan);
+      this.shrineCrystalMat.emissive.setHex(Palette.flowerCyan);
+      this.shrineCrystalMat.emissiveIntensity = 0.55;
+      this.shrineCrystal.scale.setScalar(1);
+      this.shrineCrystalTip.scale.set(0.7, 1.15, 0.7);
+      this.shrinePulseT = 0;
+    }
+  }
+
+  /** Soft bob/spin on the awakened crystal so the activated state reads at a glance. */
+  updateShrineVisual(dt: number): void {
+    if (!this.shrineCrystal || !this.shrineCrystalTip) return;
+    if (this.shrineActivated) {
+      this.shrinePulseT += dt;
+      const bob = Math.sin(this.shrinePulseT * 3.2) * 0.08;
+      this.shrineCrystal.position.y = 4.85 + bob;
+      this.shrineCrystalTip.position.y = 5.45 + bob;
+      this.shrineCrystal.rotation.y += dt * 1.1;
+      this.shrineCrystalTip.rotation.y -= dt * 1.4;
+      if (this.shrineCrystalMat) {
+        this.shrineCrystalMat.emissiveIntensity = 1.15 + Math.sin(this.shrinePulseT * 4.5) * 0.35;
+      }
+    } else {
+      this.shrineCrystal.rotation.y += dt * 0.25;
+    }
   }
 
   private buildEdgeLedges(): void {

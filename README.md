@@ -28,12 +28,24 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | --- | --- |
 | **W A S D** / arrows | Move relative to camera |
 | **C** or **Tab** | Switch class (Warrior ↔ Mage) |
+| **E** | Awaken east shrine (when near) |
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt) |
 | **2** | Skill 2 (Quake / Frost Nova) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward) |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. A controls hint also lists **C — switch Warrior / Mage**.
+HUD skill names and the class line update when you switch. A controls hint also lists **C — switch Warrior / Mage** and **E — awaken east shrine**.
+
+## East shrine objective
+
+Follow the dirt path east to the ancient shrine clearing. Walk up to the crystal tower:
+
+1. **Prompt** — “Press E — Awaken Shrine”
+2. **Defend** — clear **3 waves** of blobs / spitters around the shrine (objective HUD tracks wave progress)
+3. **Reward** — crystal brightens; **+40% damage** and **+22% move speed** for **45s**, plus a burst of loot coins
+4. **Cooldown** — shrine rests **60s** after success (**18s** if you die mid-ritual) so it can’t be farmed infinitely
+
+Ignoring the shrine leaves meadow combat fully playable. Works for Warrior and Mage.
 
 ## Classes
 
@@ -50,12 +62,13 @@ HUD skill names and the class line update when you switch. A controls hint also 
 ## What’s in the slice
 
 - Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, east shrine clearing
+- **East shrine mini-objective**: interact (E) → defend 3 waves → temporary damage/speed blessing + loot; crystal activates with cooldown
 - KayKit Knight warrior + KayKit Mage (GLTF) with Idle / Walk / Run + skill clips via three.js `AnimationMixer`
 - Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, frost slow, death squash
 - **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine
 - Combat feedback: slash arcs, bolts, ground seals, Quake/Nova rings, Shield Bash pulse, Arcane Ward bubble, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs/spitters drop coins; pickups increment an inventory counter
-- HUD: HP, active class + switch hint, skill cooldowns (1/2/3) with class-specific names, loot/kill counts, controls hint, brief model loading overlay
+- HUD: HP, active class + switch hint, skill cooldowns (1/2/3) with class-specific names, loot/kill counts, shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
 
 ## Character art (KayKit Adventurers)
 

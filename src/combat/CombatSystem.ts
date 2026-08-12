@@ -353,6 +353,8 @@ export class CombatSystem {
   private readonly playerHitIFrames = 0.55;
   /** Remaining real-time hit-stop (seconds). Countdown uses raw dt. */
   private hitStopRemain = 0;
+  /** Cached from player buffs at skill cast time. */
+  private playerDamageMult = 1;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -383,6 +385,7 @@ export class CombatSystem {
     if (!player.canUse(skillId)) return false;
     player.startCooldown(skillId);
     player.markCombat();
+    this.playerDamageMult = player.damageBuffMult;
 
     if (player.playerClass === 'mage') {
       return this.tryMageSkill(player, skillId, mobs);
@@ -642,7 +645,9 @@ export class CombatSystem {
   }
 
   private applyDamageToMob(mob: Enemy, damage: number, crit: boolean): void {
-    const dealt = mob.takeDamage(damage + (crit ? 4 : 0));
+    // Shrine blessing (and future buffs) scale outgoing skill damage for both classes.
+    const scaled = Math.round(damage * this.playerDamageMult);
+    const dealt = mob.takeDamage(scaled + (crit ? 4 : 0));
     if (dealt <= 0) return;
     mob.playHitReact();
     this.damageNumbers.spawn(mob.position, dealt, crit);
