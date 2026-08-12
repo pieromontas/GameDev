@@ -175,9 +175,22 @@ export class Mob extends Entity {
 
     if (this.hitFlash > 0) {
       this.hitFlash -= dt;
+      // Stronger hit flash: hot white + emissive punch that falls off quickly.
+      const flash = Math.min(1, this.hitFlash / 0.1);
       this.bodyMat.color.setHex(0xffffff);
+      this.bodyMat.emissive.setHex(0xffe8a8);
+      this.bodyMat.emissiveIntensity = 0.35 + flash * 0.9;
+    } else if (this.windup && this.ai === 'attack' && this.attackTimer > 0) {
+      // Readable attack telegraph: warm warning tint while winding up.
+      const pulse = 0.5 + 0.5 * Math.sin(this.attackTimer * 28);
+      this.bodyMat.color.setHex(this.baseColor);
+      this.bodyMat.color.offsetHSL(0.02, 0.12, 0.08 + pulse * 0.1);
+      this.bodyMat.emissive.setHex(0xff6644);
+      this.bodyMat.emissiveIntensity = 0.22 + pulse * 0.38;
     } else {
       this.bodyMat.color.setHex(this.baseColor);
+      this.bodyMat.emissive.setHex(0x000000);
+      this.bodyMat.emissiveIntensity = 0;
     }
 
     if (this.attackTimer > 0) this.attackTimer -= dt;
@@ -255,7 +268,7 @@ export class Mob extends Entity {
 
   playHitReact(): void {
     if (!this.alive) return;
-    this.hitReactT = 0.28;
+    this.hitReactT = 0.32;
   }
 
   beginRespawn(delay = 4): void {
@@ -283,6 +296,9 @@ export class Mob extends Entity {
     this.visual.position.set(0, 0.62, 0);
     this.bodyMat.transparent = false;
     this.bodyMat.opacity = 1;
+    this.bodyMat.color.setHex(this.baseColor);
+    this.bodyMat.emissive.setHex(0x000000);
+    this.bodyMat.emissiveIntensity = 0;
     this.setFace('happy');
     this.syncMesh();
   }
@@ -366,13 +382,15 @@ export class Mob extends Entity {
     }
 
     if (this.windup && this.ai === 'attack' && this.attackTimer > 0) {
+      // Clearer wind-up telegraph: deeper crouch + rhythmic scale pulse.
       const w = clamp01(this.attackTimer / 0.32);
-      squashY = 0.76 + w * 0.12;
-      squashX = 1.22 - w * 0.1;
-      hop = 0.02;
-      zOff = -0.14 * (1 - w);
-      this.leftEar.rotation.z = 0.4;
-      this.rightEar.rotation.z = -0.4;
+      const pulse = 0.5 + 0.5 * Math.sin((1 - w) * Math.PI * 4);
+      squashY = 0.68 + w * 0.14 - pulse * 0.04;
+      squashX = 1.32 - w * 0.12 + pulse * 0.06;
+      hop = 0.015;
+      zOff = -0.18 * (1 - w);
+      this.leftEar.rotation.z = 0.55;
+      this.rightEar.rotation.z = -0.55;
     } else {
       this.leftEar.rotation.z = Math.sin(this.hopPhase) * 0.18;
       this.rightEar.rotation.z = -Math.sin(this.hopPhase) * 0.18;
@@ -388,11 +406,11 @@ export class Mob extends Entity {
     }
 
     if (this.hitReactT > 0) {
-      const t = this.hitReactT / 0.28;
+      const t = this.hitReactT / 0.32;
       const k = Math.sin(t * Math.PI);
-      squashY *= 0.68 + 0.32 * (1 - k);
-      squashX *= 1.3 - 0.3 * (1 - k);
-      hop *= 0.25;
+      squashY *= 0.62 + 0.38 * (1 - k);
+      squashX *= 1.38 - 0.38 * (1 - k);
+      hop *= 0.2;
     }
 
     // Keep visual center above ground when squashed

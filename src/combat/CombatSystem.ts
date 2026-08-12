@@ -10,6 +10,8 @@ export type CombatHooks = {
   onLootDrop: (loot: LootPickup) => void;
   onPlayerDamaged: () => void;
   onKill: () => void;
+  /** Optional: subtle camera punch when Quake connects. */
+  onQuakeImpact?: (hitCount: number) => void;
 };
 
 /** Lightweight VFX rings / slash arcs / seals using shared geometry. */
@@ -20,10 +22,11 @@ class SkillFx {
     life: number;
     grow: number;
     kind: 'ring' | 'slash' | 'seal';
+    startScale: number;
   }> = [];
-  private readonly ringGeo = new THREE.RingGeometry(0.2, 0.55, 28);
+  private readonly ringGeo = new THREE.RingGeometry(0.18, 0.62, 32);
   private readonly slashGeo = new THREE.RingGeometry(0.9, 1.45, 22, 1, 0, Math.PI * 0.85);
-  private readonly sealGeo = new THREE.RingGeometry(0.55, 0.7, 6);
+  private readonly sealGeo = new THREE.RingGeometry(0.5, 0.78, 6);
 
   constructor(private readonly scene: THREE.Scene) {
     this.ringGeo.rotateX(-Math.PI / 2);
@@ -34,27 +37,57 @@ class SkillFx {
     const mat = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.95,
+      opacity: 1,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
     const mesh = new THREE.Mesh(this.ringGeo, mat);
-    mesh.position.set(pos.x, 0.1, pos.z);
-    mesh.scale.setScalar(0.35);
+    mesh.position.set(pos.x, 0.12, pos.z);
+    mesh.scale.setScalar(0.28);
     mesh.renderOrder = 2;
     this.scene.add(mesh);
-    const targetScale = (finalRadius / 0.55) * 1.05;
-    this.items.push({ mesh, age: 0, life: 0.48, grow: targetScale, kind: 'ring' });
+    const targetScale = (finalRadius / 0.62) * 1.08;
+    this.items.push({
+      mesh,
+      age: 0,
+      life: 0.55,
+      grow: targetScale,
+      kind: 'ring',
+      startScale: 0.28,
+    });
+
+    // Thin outer ripple for readable ground impact radius.
+    const rimMat = new THREE.MeshBasicMaterial({
+      color: 0xfff0c8,
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const rim = new THREE.Mesh(this.ringGeo, rimMat);
+    rim.position.set(pos.x, 0.14, pos.z);
+    rim.scale.setScalar(0.22);
+    rim.renderOrder = 3;
+    this.scene.add(rim);
+    this.items.push({
+      mesh: rim,
+      age: 0,
+      life: 0.38,
+      grow: targetScale * 1.12,
+      kind: 'ring',
+      startScale: 0.22,
+    });
   }
 
   spawnSeal(pos: THREE.Vector3, color: number): void {
     const group = new THREE.Group();
-    group.position.set(pos.x, 0.06, pos.z);
+    group.position.set(pos.x, 0.08, pos.z);
     const mat = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.95,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -65,10 +98,17 @@ class SkillFx {
     inner.scale.setScalar(0.55);
     inner.rotation.y = Math.PI / 6;
     group.add(inner);
-    group.scale.setScalar(0.4);
+    group.scale.setScalar(0.35);
     group.renderOrder = 2;
     this.scene.add(group);
-    this.items.push({ mesh: group, age: 0, life: 0.42, grow: 1.35, kind: 'seal' });
+    this.items.push({
+      mesh: group,
+      age: 0,
+      life: 0.48,
+      grow: 1.55,
+      kind: 'seal',
+      startScale: 0.35,
+    });
   }
 
   spawnSlash(pos: THREE.Vector3, facing: THREE.Vector3, color: number): void {
@@ -88,7 +128,14 @@ class SkillFx {
     mesh.rotation.z = -0.2;
     mesh.renderOrder = 2;
     this.scene.add(mesh);
-    this.items.push({ mesh, age: 0, life: 0.22, grow: 0, kind: 'slash' });
+    this.items.push({
+      mesh,
+      age: 0,
+      life: 0.22,
+      grow: 0,
+      kind: 'slash',
+      startScale: 1,
+    });
   }
 
   update(dt: number): void {
@@ -97,10 +144,10 @@ class SkillFx {
       item.age += dt;
       const t = item.age / item.life;
       if (item.kind === 'ring' || item.kind === 'seal') {
-        const s = 0.35 + t * (item.grow - 0.35);
+        const s = item.startScale + t * (item.grow - item.startScale);
         item.mesh.scale.setScalar(s);
         if (item.kind === 'seal') {
-          item.mesh.rotation.y += dt * 2.5;
+          item.mesh.rotation.y += dt * 2.8;
         }
       } else {
         item.mesh.scale.set(1 + t * 0.45, 1 + t * 0.2, 1 + t * 0.45);
@@ -109,7 +156,9 @@ class SkillFx {
       item.mesh.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
         if (mesh.material && (mesh.material as THREE.Material).opacity !== undefined) {
-          (mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - t);
+          // Hold opacity a beat longer so rings stay readable mid-expand.
+          const fade = item.kind === 'ring' ? Math.max(0, 1 - t * t) : Math.max(0, 1 - t);
+          (mesh.material as THREE.MeshBasicMaterial).opacity = fade;
         }
       });
 
@@ -137,10 +186,23 @@ export class CombatSystem {
   private readonly tmp = new THREE.Vector3();
   /** Brief i-frames after a player hit so stacked bites don't delete you. */
   private readonly playerHitIFrames = 0.55;
+  /** Remaining real-time hit-stop (seconds). Countdown uses raw dt. */
+  private hitStopRemain = 0;
 
   constructor(scene: THREE.Scene, private readonly hooks: CombatHooks) {
     this.damageNumbers = new DamageNumbers(scene);
     this.fx = new SkillFx(scene);
+  }
+
+  /**
+   * Apply brief time-scale punch. Pass raw frame dt; returns scaled sim dt.
+   * Hit-stop countdown always consumes real time so the freeze stays short.
+   */
+  scaleDt(rawDt: number): number {
+    if (this.hitStopRemain <= 0) return rawDt;
+    this.hitStopRemain = Math.max(0, this.hitStopRemain - rawDt);
+    // Near-freeze for a couple frames — punchy without stalling the fight.
+    return rawDt * 0.1;
   }
 
   update(dt: number): void {
@@ -169,6 +231,7 @@ export class CombatSystem {
       this.fx.spawnSeal(player.position, 0xffd76a);
       if (target) {
         this.applyDamageToMob(target, skill.damage, false);
+        this.pulseHitStop(0.045);
       }
       return true;
     }
@@ -177,13 +240,19 @@ export class CombatSystem {
     player.playQuake();
     this.fx.spawnRing(player.position, skill.color, skill.radius);
     this.fx.spawnSeal(player.position, skill.color);
+    let hits = 0;
     for (const mob of mobs) {
       if (!mob.alive) continue;
       const reach = skill.radius + mob.radius * 0.35;
       const d2 = dist2(player.position.x, player.position.z, mob.position.x, mob.position.z);
       if (d2 <= reach * reach) {
         this.applyDamageToMob(mob, skill.damage, true);
+        hits += 1;
       }
+    }
+    if (hits > 0) {
+      this.pulseHitStop(0.055);
+      this.hooks.onQuakeImpact?.(hits);
     }
     return true;
   }
@@ -247,5 +316,9 @@ export class CombatSystem {
       const loot = new LootPickup(mob.position);
       this.hooks.onLootDrop(loot);
     }
+  }
+
+  private pulseHitStop(seconds: number): void {
+    this.hitStopRemain = Math.max(this.hitStopRemain, seconds);
   }
 }
