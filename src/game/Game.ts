@@ -9,6 +9,7 @@ import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
 import { createStarterBrutes, ArmoredBrute } from '../entities/ArmoredBrute';
+import { createStarterWisps, SpiritWisp } from '../entities/SpiritWisp';
 import { LootPickup } from '../entities/Loot';
 import { CombatSystem } from '../combat/CombatSystem';
 import { HUD } from '../ui/HUD';
@@ -77,7 +78,12 @@ export class Game {
     this.player = new Player();
     this.scene.add(this.player.mesh);
 
-    this.mobs = [...createStarterMobs(), ...createStarterSpitters(), ...createStarterBrutes()];
+    this.mobs = [
+      ...createStarterMobs(),
+      ...createStarterSpitters(),
+      ...createStarterBrutes(),
+      ...createStarterWisps(),
+    ];
     for (const mob of this.mobs) this.scene.add(mob.mesh);
 
     this.cameraRig = new FollowCamera(window.innerWidth / window.innerHeight);
@@ -194,6 +200,7 @@ export class Game {
   private enemyBarHeight(enemy: Enemy): number {
     if (enemy instanceof ArmoredBrute) return 2.75;
     if (enemy instanceof Spitter) return 2.05;
+    if (enemy instanceof SpiritWisp) return 2.15;
     return 1.55;
   }
 
@@ -272,7 +279,9 @@ export class Game {
               ? 'An armored brute reforms nearby…'
               : mob.kind === 'spitter'
                 ? 'A spitter reforms nearby…'
-                : 'A blob reforms nearby…';
+                : mob.kind === 'wisp'
+                  ? 'A spirit wisp reforms nearby…'
+                  : 'A blob reforms nearby…';
           this.hud.showToast(label, 1.0);
         }
         continue;
@@ -456,11 +465,18 @@ export class Game {
   }
 
   /**
-   * Kill → XP loop. Spitters pay more than blobs; brutes pay the most.
+   * Kill → XP loop. Wisps pay a bit more than blobs; spitters more; brutes most.
    * Floating "+XP" every kill; level-up gets a toast + FX; occasional XP toast.
    */
   private grantKillXp(enemy: Enemy): void {
-    const amount = enemy.kind === 'brute' ? 28 : enemy.kind === 'spitter' ? 14 : 8;
+    const amount =
+      enemy.kind === 'brute'
+        ? 28
+        : enemy.kind === 'spitter'
+          ? 14
+          : enemy.kind === 'wisp'
+            ? 11
+            : 8;
     const result = this.applyXpGain(amount, enemy.position);
 
     if (result.leveled) return;

@@ -3,6 +3,7 @@ import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Mob';
 import { Spitter } from '../entities/Spitter';
 import { ArmoredBrute } from '../entities/ArmoredBrute';
+import { SpiritWisp } from '../entities/SpiritWisp';
 import { SpitProjectile } from '../entities/SpitProjectile';
 import { LootPickup } from '../entities/Loot';
 import { SkillId } from './Skills';
@@ -1190,6 +1191,34 @@ export class CombatSystem {
           this.fx.spawnSeal(mob.position, 0xff6633);
           if (player.alive && player.invuln <= 0) {
             const reach = mob.slamRadius + player.radius * 0.35;
+            const d2 = dist2(
+              mob.position.x,
+              mob.position.z,
+              player.position.x,
+              player.position.z,
+            );
+            if (d2 <= reach * reach) {
+              const dealt = player.takeDamage(mob.attackDamage);
+              if (dealt > 0) {
+                player.invuln = this.playerHitIFrames;
+                player.markCombat();
+                this.damageNumbers.spawn(player.position, dealt, false);
+                this.hooks.onPlayerDamaged();
+              }
+            }
+          }
+        }
+        continue;
+      }
+
+      if (mob instanceof SpiritWisp) {
+        if (mob.consumeZapRequest()) {
+          // Short-range spirit zap — flash + tight rings (not spit, not slam).
+          this.fx.spawnRing(mob.position, 0xa8e8ff, mob.attackRange);
+          this.fx.spawnRing(mob.position, 0xd0b8ff, mob.attackRange * 0.55);
+          this.fx.spawnSeal(mob.position, 0xc8f0ff);
+          if (player.alive && player.invuln <= 0) {
+            const reach = mob.attackRange + player.radius * 0.3;
             const d2 = dist2(
               mob.position.x,
               mob.position.z,
