@@ -1,12 +1,20 @@
 import * as THREE from 'three';
 import { clamp } from '../utils/math';
 
+/** Default orbit distance — readable combat rings + city streets. */
+const DEFAULT_DISTANCE = 15;
+const MIN_DISTANCE = 7.5;
+const MAX_DISTANCE = 26;
+
 export class FollowCamera {
   readonly camera: THREE.PerspectiveCamera;
   private yaw = Math.PI * 0.25;
-  private readonly pitch = 0.82;
-  private readonly distance = 13.5;
-  private readonly lookHeight = 1.35;
+  /** Slightly steeper than before so streets and packs read clearly. */
+  private readonly pitch = 0.86;
+  /** Smoothed orbit radius (lerps toward `distanceTarget`). */
+  private distance = DEFAULT_DISTANCE;
+  private distanceTarget = DEFAULT_DISTANCE;
+  private readonly lookHeight = 1.4;
   private readonly follow = new THREE.Vector3();
   private readonly desired = new THREE.Vector3();
   private readonly lookAt = new THREE.Vector3();
@@ -14,7 +22,8 @@ export class FollowCamera {
   private impactPunch = 0;
 
   constructor(aspect: number) {
-    this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 280);
+    // Slightly wider FOV keeps the iso-ish frame without going FPS.
+    this.camera = new THREE.PerspectiveCamera(48, aspect, 0.1, 280);
     this.camera.position.set(10, 12, 10);
   }
 
@@ -32,6 +41,15 @@ export class FollowCamera {
     this.yaw += delta;
   }
 
+  /**
+   * Zoom by changing orbit distance. Positive delta zooms out, negative zooms in.
+   * Clamped so the camera never clips the hero or flies into outer space.
+   */
+  addZoom(delta: number): void {
+    if (delta === 0) return;
+    this.distanceTarget = clamp(this.distanceTarget + delta, MIN_DISTANCE, MAX_DISTANCE);
+  }
+
   /** Camera-forward flattened onto XZ for WASD relative movement. */
   getFlatForward(out: THREE.Vector3): THREE.Vector3 {
     out.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
@@ -44,8 +62,12 @@ export class FollowCamera {
   }
 
   update(target: THREE.Vector3, dt: number): void {
-    // Single snappy follow — less double-lerp lag in combat circles.
-    this.follow.lerp(target, clamp(1 - Math.pow(0.00008, dt), 0, 1));
+    // Snappier follow for combat circles; still soft enough for city walks.
+    this.follow.lerp(target, clamp(1 - Math.pow(0.00012, dt), 0, 1));
+
+    // Smooth zoom — exponential approach, not hard jumps.
+    this.distance +=
+      (this.distanceTarget - this.distance) * clamp(1 - Math.pow(0.00002, dt), 0, 1);
 
     if (this.impactPunch > 0) {
       this.impactPunch = Math.max(0, this.impactPunch - dt * 3.4);
@@ -63,13 +85,14 @@ export class FollowCamera {
       this.follow.z + Math.cos(this.yaw) * horizontal,
     );
 
-    this.camera.position.lerp(this.desired, clamp(1 - Math.pow(0.00005, dt), 0, 1));
+    this.camera.position.lerp(this.desired, clamp(1 - Math.pow(0.00008, dt), 0, 1));
     this.lookAt.set(this.follow.x, this.follow.y + lookH, this.follow.z);
     this.camera.lookAt(this.lookAt);
   }
 
   snapTo(target: THREE.Vector3): void {
     this.follow.copy(target);
+    this.distance = this.distanceTarget;
     const horizontal = Math.cos(this.pitch) * this.distance;
     const vertical = Math.sin(this.pitch) * this.distance;
     this.camera.position.set(

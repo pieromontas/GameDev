@@ -285,6 +285,7 @@ export class Game {
     // Hit-stop uses real time; simulation briefly slows on successful hits.
     const dt = this.combat.scaleDt(rawDt);
     this.cameraRig.addYaw(this.input.consumeYawDelta());
+    this.applyCameraZoom(dt);
 
     this.player.tickSkills(dt);
 
@@ -390,6 +391,15 @@ export class Game {
     this.hud.update(this.player, this.lootCount, this.kills, dt);
     this.hud.updateMinimap(this.player, this.mobs);
     this.input.endFrame();
+  }
+
+  /** Wheel / trackpad pinch + optional -/= and [/] zoom keys. */
+  private applyCameraZoom(dt: number): void {
+    let zoom = this.input.consumeZoomDelta();
+    const keyRate = 10 * dt;
+    if (this.input.isDown('Minus') || this.input.isDown('BracketLeft')) zoom += keyRate;
+    if (this.input.isDown('Equal') || this.input.isDown('BracketRight')) zoom -= keyRate;
+    this.cameraRig.addZoom(zoom);
   }
 
   private updatePlayerMovement(dt: number): void {

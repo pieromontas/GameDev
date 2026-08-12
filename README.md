@@ -43,8 +43,10 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
 | **4** | Skill 4 (Leap Strike / Meteor / Shadow Leap) — unlocks at **Level 3** |
 | **RMB drag** | Rotate camera yaw |
+| **Mouse wheel** / trackpad pinch | Zoom camera in / out (clamped) |
+| **-** / **=** or **[** / **]** | Zoom out / in (alternate) |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / cottage merchant**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate** road, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, chests, the healing spring, the cottage shop, and nearby enemies.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate** road, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, chests, the healing spring, the cottage shop, and nearby enemies.
 
 ## Treasure chests
 
@@ -222,7 +224,7 @@ src/
     Game.ts               Scene wiring + systems orchestration
     loop.ts               rAF loop with fixed 60 Hz update
   input/InputManager.ts   Keyboard + pointer
-  camera/FollowCamera.ts  Angled follow cam + optional yaw
+  camera/FollowCamera.ts  Angled follow cam + yaw + smooth zoom
   world/MeadowBiome.ts    Ground + props, play-area clamp
   world/WorldPropLibrary.ts  KayKit prop GLTF loader + toon remap
   world/CottageMerchant.ts   NW cottage spend-gold shop (E interact)
@@ -240,7 +242,7 @@ Stack: **Vite + TypeScript + three r170+**, ESM, modest draw-call reuse (shared 
 
 ## Design notes
 
-- Camera stays locked behind/above the player (isometric-ish), never first-person
+- Camera stays locked behind/above the player (isometric-ish), never first-person; wheel zoom is distance-clamped so it never becomes FPS or sky-cam
 - Semi-fixed timestep (`1/60`) keeps combat timing stable under frame hitches
 - Heroes + prominent meadow props use free CC0 KayKit GLTF packs; pocket landmarks / mobs stay procedural where packs don’t clearly win
 - Architecture is split so new classes, skills, or biomes can grow without a giant `main.ts`
