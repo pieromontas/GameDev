@@ -92,7 +92,7 @@ export class Game {
     this.input = new InputManager(canvas);
     this.hud = new HUD(hudHost);
     this.healthBars = new HealthBars(this.scene);
-    this.healthBars.track(this.player, 2.45);
+    // Player HP is HUD-only; world bars are for enemies (camera-facing billboards).
     for (const mob of this.mobs) {
       this.healthBars.track(mob, this.enemyBarHeight(mob));
     }
