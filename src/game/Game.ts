@@ -43,6 +43,8 @@ export class Game {
   private lootCount = 0;
   private kills = 0;
   private playerRespawnTimer = -1;
+  /** One-shot toast so the Shift dodge binding is obvious on first use. */
+  private dodgeHintShown = false;
 
   constructor(canvas: HTMLCanvasElement, hudHost: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -351,6 +353,15 @@ export class Game {
       this.moveDir.normalize();
     } else {
       this.moveDir.set(0, 0, 0);
+    }
+
+    if (this.input.wasPressed('ShiftLeft') || this.input.wasPressed('ShiftRight')) {
+      if (this.player.tryDodge(this.moveDir)) {
+        if (!this.dodgeHintShown) {
+          this.dodgeHintShown = true;
+          this.hud.showToast('Dodge Roll — Shift  ·  brief i-frames', 1.6);
+        }
+      }
     }
 
     this.player.applyMovement(this.moveDir, dt);

@@ -13,7 +13,7 @@ import {
 import { createToonMaterial } from '../render/stylized';
 import { MAGE_VISUAL, PlayerVisual, ROGUE_VISUAL, WARRIOR_VISUAL } from './PlayerVisual';
 
-export type PlayerAnim = 'idle' | 'move' | 'slash' | 'quake' | 'bash' | 'burst';
+export type PlayerAnim = 'idle' | 'move' | 'slash' | 'quake' | 'bash' | 'burst' | 'dodge';
 
 export type LevelUpResult = {
   leveled: boolean;
@@ -22,6 +22,12 @@ export type LevelUpResult = {
   hpGained: number;
   damageGained: number;
 };
+
+/** Dodge roll timing — short burst + brief i-frames, shared by all classes. */
+export const DODGE_DURATION = 0.38;
+export const DODGE_COOLDOWN = 1.55;
+export const DODGE_SPEED = 18.5;
+export const DODGE_IFRAMES = 0.4;
 
 /** XP required to advance from `level` → level+1 (Level 1 needs 20). */
 export function xpToReachNext(level: number): number {
@@ -59,6 +65,11 @@ export class Player extends Entity {
   private classId: PlayerClass = 'warrior';
   /** While > 0, Leap / Shadow Leap owns horizontal position (blocks WASD drift). */
   private leapLockRemain = 0;
+  /** While > 0, dodge roll owns horizontal position (blocks WASD drift). */
+  private dodgeRemain = 0;
+  /** Shared dodge cooldown across class swaps. */
+  private dodgeCooldownRemain = 0;
+  private readonly dodgeDir = new THREE.Vector3(0, 0, -1);
 
   private readonly velocity = new THREE.Vector3();
   private anim: PlayerAnim = 'idle';
@@ -155,8 +166,9 @@ export class Player extends Entity {
     this.visual = this.visualForClass(next);
     this.visual.setActive(true);
 
-    // Drop any leftover gap-closer ownership from the previous kit.
+    // Drop any leftover gap-closer / mid-roll ownership from the previous kit.
     this.leapLockRemain = 0;
+    this.dodgeRemain = 0;
     this.anim = 'idle';
     this.animT = 0;
     this.animDur = 0;
@@ -263,6 +275,9 @@ export class Player extends Entity {
       }
     }
     if (this.invuln > 0) this.invuln = Math.max(0, this.invuln - dt);
+    if (this.dodgeCooldownRemain > 0) {
+      this.dodgeCooldownRemain = Math.max(0, this.dodgeCooldownRemain - dt);
+    }
     if (this.buffRemain > 0) {
       this.buffRemain = Math.max(0, this.buffRemain - dt);
       if (this.buffRemain <= 0) {
@@ -305,6 +320,52 @@ export class Player extends Entity {
 
   get isLeapLocked(): boolean {
     return this.leapLockRemain > 0;
+  }
+
+  get isDodging(): boolean {
+    return this.dodgeRemain > 0;
+  }
+
+  get dodgeCooldownRemaining(): number {
+    return this.dodgeCooldownRemain;
+  }
+
+  /** 1 = ready, 0 = just used (for HUD cooldown pip fill). */
+  get dodgeReadyRatio(): number {
+    if (this.dodgeCooldownRemain <= 0) return 1;
+    return 1 - Math.min(1, this.dodgeCooldownRemain / DODGE_COOLDOWN);
+  }
+
+  /**
+   * Start a short invulnerable burst in wishDir, or facing if standing still.
+   * Returns false when on cooldown, mid-leap, already rolling, or dead.
+   */
+  tryDodge(wishDir: THREE.Vector3): boolean {
+    if (!this.alive) return false;
+    if (this.dodgeRemain > 0 || this.dodgeCooldownRemain > 0) return false;
+    if (this.leapLockRemain > 0) return false;
+
+    if (wishDir.lengthSq() > 1e-6) {
+      this.dodgeDir.copy(wishDir).normalize();
+    } else {
+      this.dodgeDir.copy(this.facing);
+      if (this.dodgeDir.lengthSq() < 1e-6) this.dodgeDir.set(0, 0, -1);
+      else this.dodgeDir.normalize();
+    }
+
+    this.faceDirection(this.dodgeDir);
+    // Snap yaw so the roll reads immediately in the burst direction.
+    this.yaw = this.targetYaw;
+    this.mesh.rotation.y = this.yaw;
+
+    this.dodgeRemain = DODGE_DURATION;
+    this.dodgeCooldownRemain = DODGE_COOLDOWN;
+    this.invuln = Math.max(this.invuln, DODGE_IFRAMES);
+    this.velocity.set(0, 0, 0);
+    this.anim = 'dodge';
+    this.animT = 0;
+    this.animDur = DODGE_DURATION;
+    return true;
   }
 
   markCombat(): void {
@@ -364,6 +425,14 @@ export class Player extends Entity {
       return false;
     }
 
+    if (this.dodgeRemain > 0) {
+      // Dodge roll owns translation — constant burst along the roll direction.
+      this.velocity.set(this.dodgeDir.x * DODGE_SPEED, 0, this.dodgeDir.z * DODGE_SPEED);
+      this.position.x += this.velocity.x * dt;
+      this.position.z += this.velocity.z * dt;
+      return true;
+    }
+
     // Lock locomotion facing during attack poses, but still allow small drift.
     const attacking =
       this.anim === 'slash' ||
@@ -419,13 +488,20 @@ export class Player extends Entity {
     if (this.leapLockRemain > 0) {
       this.leapLockRemain = Math.max(0, this.leapLockRemain - dt);
     }
+    if (this.dodgeRemain > 0) {
+      this.dodgeRemain = Math.max(0, this.dodgeRemain - dt);
+      if (this.dodgeRemain <= 0) {
+        this.velocity.set(0, 0, 0);
+      }
+    }
     const speed = Math.hypot(this.velocity.x, this.velocity.z);
 
     if (
       this.anim === 'slash' ||
       this.anim === 'quake' ||
       this.anim === 'bash' ||
-      this.anim === 'burst'
+      this.anim === 'burst' ||
+      this.anim === 'dodge'
     ) {
       this.animT += dt;
       if (this.animT >= this.animDur) {
@@ -449,13 +525,14 @@ export class Player extends Entity {
     }
   }
 
-  /** Smoothly rotate mesh yaw toward target; freeze during attack poses. */
+  /** Smoothly rotate mesh yaw toward target; freeze during attack poses / dodge. */
   private updateYaw(dt: number): void {
     if (
       this.anim === 'slash' ||
       this.anim === 'quake' ||
       this.anim === 'bash' ||
-      this.anim === 'burst'
+      this.anim === 'burst' ||
+      this.anim === 'dodge'
     ) {
       this.mesh.rotation.y = this.yaw;
       return;
@@ -485,6 +562,8 @@ export class Player extends Entity {
     this.mesh.visible = true;
     this.invuln = 1.6;
     this.outOfCombat = 0;
+    this.dodgeRemain = 0;
+    this.dodgeCooldownRemain = 0;
     // Buff persists through death — shrine blessing shouldn't soft-punish a wipe mid-meadow.
     this.anim = 'idle';
     this.animT = 0;

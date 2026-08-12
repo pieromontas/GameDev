@@ -37,6 +37,10 @@ export class HUD {
   private readonly interactPrompt: HTMLElement;
   private readonly objectiveBanner: HTMLElement;
   private readonly buffChip: HTMLElement;
+  private readonly dodgePip: HTMLElement;
+  private readonly dodgeOverlay: HTMLElement;
+  private readonly dodgeNum: HTMLElement;
+  private prevDodgeReady = true;
   private shownClass: PlayerClass | null = null;
 
   constructor(host: HTMLElement) {
@@ -70,6 +74,7 @@ export class HUD {
       <div class="hud-panel hud-hint" id="controls-hint">
         <strong>Controls</strong><br/>
         WASD — move<br/>
+        <kbd>Shift</kbd> — dodge roll<br/>
         LMB / 1 — skill 1<br/>
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
@@ -108,6 +113,20 @@ export class HUD {
       bash: this.makeSkillSlot(skillsHost, 'bash', 'Bash', '3'),
       burst: this.makeSkillSlot(skillsHost, 'burst', 'Leap', '4'),
     };
+
+    // Compact dodge cooldown pip next to the skill row (Shift).
+    this.dodgePip = document.createElement('div');
+    this.dodgePip.className = 'dodge-pip ready';
+    this.dodgePip.title = 'Dodge Roll (Shift)';
+    this.dodgePip.innerHTML = `
+      <span class="key">⇧</span>
+      <span class="name">Dodge</span>
+      <div class="cd-overlay"></div>
+      <span class="cd-num"></span>
+    `;
+    skillsHost.appendChild(this.dodgePip);
+    this.dodgeOverlay = this.dodgePip.querySelector('.cd-overlay') as HTMLElement;
+    this.dodgeNum = this.dodgePip.querySelector('.cd-num') as HTMLElement;
   }
 
   setLoading(active: boolean, message = 'Loading heroes…'): void {
@@ -181,6 +200,7 @@ export class HUD {
     this.syncSkill('slam', player);
     this.syncSkill('bash', player);
     this.syncSkill('burst', player);
+    this.syncDodge(player);
 
     // Slot-4 unlock toast — works for kill XP and any other gainXp path.
     const unlock = player.consumeSkill4UnlockToast();
@@ -251,6 +271,29 @@ export class HUD {
     } else {
       this.objectiveBanner.hidden = true;
     }
+  }
+
+  private syncDodge(player: Player): void {
+    const cd = player.dodgeCooldownRemaining;
+    const ready = cd <= 0;
+    if (ready) {
+      this.dodgePip.classList.add('ready');
+      this.dodgeOverlay.style.transform = 'translateY(100%)';
+      this.dodgeNum.textContent = '';
+      this.dodgeNum.classList.remove('show');
+      if (!this.prevDodgeReady) {
+        this.dodgePip.classList.remove('pop');
+        void this.dodgePip.offsetWidth;
+        this.dodgePip.classList.add('pop');
+      }
+    } else {
+      this.dodgePip.classList.remove('ready');
+      const pct = 1 - player.dodgeReadyRatio;
+      this.dodgeOverlay.style.transform = `translateY(${(1 - pct) * 100}%)`;
+      this.dodgeNum.textContent = cd.toFixed(1);
+      this.dodgeNum.classList.add('show');
+    }
+    this.prevDodgeReady = ready;
   }
 
   private syncSkill(id: SkillId, player: Player): void {

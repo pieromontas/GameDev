@@ -11,6 +11,7 @@ export type ClipMap = {
   quake: string;
   bash: string;
   burst: string;
+  dodge: string;
 };
 
 export type VisualConfig = {
@@ -47,6 +48,7 @@ export const WARRIOR_VISUAL: VisualConfig = {
     bash: 'Block_Attack',
     // Longer jump for Leap Strike — distinct from Quake's short hop.
     burst: 'Jump_Full_Long',
+    dodge: 'Dodge_Forward',
   },
   attackMotion: 'warrior',
 };
@@ -67,6 +69,7 @@ export const MAGE_VISUAL: VisualConfig = {
     bash: 'Spellcast_Raise',
     // Channel cast for Meteor — distinct from Bolt / Nova / Ward clips.
     burst: 'Spellcasting',
+    dodge: 'Dodge_Forward',
   },
   attackMotion: 'mage',
 };
@@ -88,6 +91,7 @@ export const ROGUE_VISUAL: VisualConfig = {
     bash: 'Dodge_Forward',
     // Same long jump clip as Leap Strike — Shadow Leap reuses the travel feel.
     burst: 'Jump_Full_Long',
+    dodge: 'Dodge_Forward',
   },
   attackMotion: 'rogue',
 };
@@ -285,6 +289,7 @@ export class PlayerVisual {
     else if (state === 'quake') desired = 'quake';
     else if (state === 'bash') desired = 'bash';
     else if (state === 'burst') desired = 'burst';
+    else if (state === 'dodge') desired = 'dodge';
     else if (state === 'move') {
       if (this.locoGate === 'walk' && speed > maxSpeed * 0.78) this.locoGate = 'run';
       else if (this.locoGate === 'run' && speed < maxSpeed * 0.58) this.locoGate = 'walk';
@@ -296,13 +301,23 @@ export class PlayerVisual {
     if (desired !== this.current) {
       const fade = this.fadeFor(this.current, desired);
       this.crossfade(desired, fade);
-      if (desired === 'slash' || desired === 'quake' || desired === 'bash' || desired === 'burst') {
+      if (
+        desired === 'slash' ||
+        desired === 'quake' ||
+        desired === 'bash' ||
+        desired === 'burst' ||
+        desired === 'dodge'
+      ) {
         this.attackSynced = null;
       }
     }
 
     if (
-      (desired === 'slash' || desired === 'quake' || desired === 'bash' || desired === 'burst') &&
+      (desired === 'slash' ||
+        desired === 'quake' ||
+        desired === 'bash' ||
+        desired === 'burst' ||
+        desired === 'dodge') &&
       animDur > 1e-4
     ) {
       const action = this.actions.get(desired);
@@ -360,6 +375,8 @@ export class PlayerVisual {
       this.root.position.y = hop - squash;
       this.root.position.x = 0;
       this.root.position.z = 0;
+    } else if (state === 'dodge' && animDur > 1e-4) {
+      this.applyDodgeLean(animT, animDur);
     } else if (state === 'bash' && animDur > 1e-4) {
       const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
       const surge = Math.sin(Math.min(1, t / 0.35) * Math.PI);
@@ -385,6 +402,8 @@ export class PlayerVisual {
       this.root.position.y = (rise + hold) * (1 - settle);
       this.root.position.x = 0;
       this.root.position.z = 0;
+    } else if (state === 'dodge' && animDur > 1e-4) {
+      this.applyDodgeLean(animT, animDur);
     } else if ((state === 'slash' || state === 'quake' || state === 'bash') && animDur > 1e-4) {
       const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
       const lift = Math.sin(Math.min(1, t / 0.45) * Math.PI) * (state === 'quake' ? 0.12 : 0.07);
@@ -411,6 +430,8 @@ export class PlayerVisual {
       this.root.position.y = hop - squash;
       this.root.position.x = 0;
       this.root.position.z = 0;
+    } else if (state === 'dodge' && animDur > 1e-4) {
+      this.applyDodgeLean(animT, animDur);
     } else if (state === 'bash' && animDur > 1e-4) {
       // Dodge lunge — short forward dip, then settle (Smoke Bomb i-frames).
       const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
@@ -441,9 +462,22 @@ export class PlayerVisual {
     }
   }
 
+  /** Shared procedural lean for Shift dodge — pairs with Dodge_Forward clip. */
+  private applyDodgeLean(animT: number, animDur: number): void {
+    const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
+    const surge = Math.sin(Math.min(1, t / 0.45) * Math.PI);
+    const settle = smooth01((t - 0.5) / 0.5);
+    const lean = surge * (1 - settle);
+    this.root.position.y = -lean * 0.08;
+    this.root.position.x = 0;
+    this.root.position.z = lean * 0.18;
+  }
+
   private fadeFor(from: ClipKey | null, to: ClipKey): number {
-    const toAttack = to === 'slash' || to === 'quake' || to === 'bash' || to === 'burst';
-    const fromAttack = from === 'slash' || from === 'quake' || from === 'bash' || from === 'burst';
+    const toAttack =
+      to === 'slash' || to === 'quake' || to === 'bash' || to === 'burst' || to === 'dodge';
+    const fromAttack =
+      from === 'slash' || from === 'quake' || from === 'bash' || from === 'burst' || from === 'dodge';
     if (toAttack) return FADE.attackIn;
     if (fromAttack) return FADE.attackOut;
     return FADE.loco;
