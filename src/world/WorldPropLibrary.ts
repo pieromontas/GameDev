@@ -226,11 +226,18 @@ export class WorldPropLibrary {
     return this.instantiate(tmpl, x, z, scale, seed * 0.9);
   }
 
-  createCottage(x: number, z: number): THREE.Group | null {
+  createCottage(
+    x: number,
+    z: number,
+    opts?: { scale?: number; yaw?: number },
+  ): THREE.Group | null {
     if (!this.cottage) return null;
-    // Slight yaw so the door doesn't face camera-dead-on from spawn.
     // Extra 1.15 matches the prior procedural cottage group scale.
-    return this.instantiate(this.cottage, x, z, 1.15, 0.35);
+    // Optional yaw lets market shops face the street (seed yaw used otherwise).
+    const scale = opts?.scale ?? 1.15;
+    const group = this.instantiate(this.cottage, x, z, scale, 0.35);
+    if (opts?.yaw !== undefined) group.rotation.y = opts.yaw;
+    return group;
   }
 
   createWindmill(x: number, z: number): THREE.Group | null {

@@ -257,7 +257,7 @@ export const SouthRiverFordClearing = {
 } as const;
 
 /**
- * Northeast city-gate plaza stub — road spur landmark for a future town fill.
+ * Northeast city-gate plaza stub — road spur landmark into the town slice.
  * Smaller than the cardinal nature clearings; sits on a distinct diagonal bearing.
  */
 export const NortheastCityGate = {
@@ -266,7 +266,17 @@ export const NortheastCityGate = {
   radius: 9,
 } as const;
 
-/** Smooth 0–1 influence of dirt paths (main S-curve + E/W/N/S + NE city-gate branches). */
+/**
+ * First town slice behind the NE city gate — compact market district stub.
+ * Further NE along the same diagonal; leave room for later residential / harbor districts.
+ */
+export const NortheastMarketDistrict = {
+  x: 51,
+  z: 51,
+  radius: 11,
+} as const;
+
+/** Smooth 0–1 influence of dirt paths (main S-curve + E/W/N/S + NE city-gate / market branches). */
 export function meadowPathInfluence(x: number, z: number): number {
   return Math.max(
     mainMeadowPathInfluence(x, z),
@@ -433,8 +443,8 @@ function southBranchPathInfluence(x: number, z: number): number {
 }
 
 /**
- * Dirt/stone road spur from the main meadow northeast to the city gate plaza.
- * Includes a soft arrival pad so the road reads as ending at the gate.
+ * Dirt/stone road spur from the main meadow northeast through the city gate
+ * into the market district stub. Soft arrival pads at the gate and market plaza.
  */
 function northeastBranchPathInfluence(x: number, z: number): number {
   // Branch leaves the main path near (+12, +12) and runs to the gate plaza.
@@ -465,5 +475,35 @@ function northeastBranchPathInfluence(x: number, z: number): number {
     pad = cr < 2.8 ? 0.95 : 0.95 * (1 - (cr - 2.8) / 2.4);
   }
 
-  return Math.max(branch, pad);
+  // Short cobble spur gate → market district
+  const mx0 = NortheastCityGate.x + 2.5;
+  const mz0 = NortheastCityGate.z + 2.5;
+  const mx1 = NortheastMarketDistrict.x;
+  const mz1 = NortheastMarketDistrict.z;
+  const mdx = mx1 - mx0;
+  const mdz = mz1 - mz0;
+  const mLen2 = mdx * mdx + mdz * mdz;
+  const mt =
+    mLen2 > 1e-8
+      ? THREE.MathUtils.clamp(((x - mx0) * mdx + (z - mz0) * mdz) / mLen2, 0, 1)
+      : 0;
+  const mpx = mx0 + mdx * mt;
+  const mpz = mz0 + mdz * mt;
+  const mDist = Math.hypot(x - mpx, z - mpz);
+  const mHalfW = 2.9 + Math.sin(mt * Math.PI) * 0.35;
+  let marketRoad = 0;
+  const md = mDist / mHalfW;
+  if (md < 1.35) {
+    marketRoad = md <= 0.75 ? 1 : 1 - (md - 0.75) / 0.6;
+  }
+
+  const mcdx = x - NortheastMarketDistrict.x;
+  const mcdz = z - NortheastMarketDistrict.z;
+  const mcr = Math.hypot(mcdx, mcdz);
+  let marketPad = 0;
+  if (mcr < 5.6) {
+    marketPad = mcr < 3.0 ? 0.95 : 0.95 * (1 - (mcr - 3.0) / 2.6);
+  }
+
+  return Math.max(branch, pad, marketRoad, marketPad);
 }

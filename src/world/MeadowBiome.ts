@@ -10,14 +10,19 @@ import {
   NorthRuinsClearing,
   SouthRiverFordClearing,
   NortheastCityGate,
+  NortheastMarketDistrict,
   hash2,
 } from '../render/stylized';
 import type { WorldPropLibrary } from './WorldPropLibrary';
 import { PROP_COLLISION_SCALE, WELL_OFFSET } from './WorldPropLibrary';
+import { MARKET_SIGN_SPOT } from './MarketDistrict';
 
 export type Obstacle = { x: number; z: number; radius: number };
 
 type PropPlacement = { x: number; z: number; scale: number };
+
+/** KayKit cottage reused as a market shop facade (pack-swapped like the NW cottage). */
+type ShopPlacement = { x: number; z: number; scale: number; yaw: number };
 
 type SignFacing = 'east' | 'west' | 'north' | 'south' | 'northeast';
 
@@ -43,12 +48,22 @@ export class MeadowBiome {
   readonly southClearing = SouthRiverFordClearing;
   /** Soft corridor half-width connecting main meadow → south river ford. */
   readonly southCorridorHalfWidth = 6.0;
-  /** Sixth playable stub — city gate plaza northeast of the main ring (future town). */
+  /** Sixth playable stub — city gate plaza northeast of the main ring. */
   readonly northeastGate = NortheastCityGate;
   /** Soft corridor half-width connecting main meadow → NE city gate. */
   readonly northeastCorridorHalfWidth = 6.0;
+  /** Seventh playable stub — market district behind the NE gate (first town slice). */
+  readonly northeastMarket = NortheastMarketDistrict;
+  /** Soft corridor half-width connecting gate plaza → market district. */
+  readonly marketCorridorHalfWidth = 6.0;
   /** World XZ of the city gate arch (for minimap / discovery cues). */
   readonly cityGatePosition = new THREE.Vector3(NortheastCityGate.x, 0, NortheastCityGate.z);
+  /** World XZ of the market plaza center (for minimap / discovery cues). */
+  readonly marketPosition = new THREE.Vector3(
+    NortheastMarketDistrict.x,
+    0,
+    NortheastMarketDistrict.z,
+  );
   /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
 
@@ -68,6 +83,9 @@ export class MeadowBiome {
   private readonly rockPlacements: PropPlacement[] = [];
   private cottagePlacement: { x: number; z: number } | null = null;
   private windmillPlacement: { x: number; z: number } | null = null;
+  /** Market district KayKit shop cottages (pack-swapped; not the NW merchant cottage). */
+  private readonly shopPlacements: ShopPlacement[] = [];
+  private marketWellPlacement: { x: number; z: number } | null = null;
   private packApplied = false;
 
   private readonly canopyLowGeo = new THREE.ConeGeometry(1.15, 1.55, 7);
@@ -151,6 +169,7 @@ export class MeadowBiome {
     this.buildNorthRuinsClearing();
     this.buildSouthRiverFordClearing();
     this.buildNortheastCityGate();
+    this.buildNortheastMarketDistrict();
     this.buildEdgeLedges();
   }
 
@@ -252,11 +271,22 @@ export class MeadowBiome {
     gatePad.receiveShadow = true;
     this.root.add(gatePad);
 
+    // Soft grass RING under the market district — leave center open for cobble plaza.
+    const marketPad = new THREE.Mesh(
+      new THREE.RingGeometry(5.0, this.northeastMarket.radius + 1.6, 36),
+      createToonMaterial(0x6a8a52),
+    );
+    marketPad.rotation.x = -Math.PI / 2;
+    marketPad.position.set(this.northeastMarket.x, 0.025, this.northeastMarket.z);
+    marketPad.receiveShadow = true;
+    this.root.add(marketPad);
+
     this.buildEastPathRibbon();
     this.buildWestPathRibbon();
     this.buildNorthPathRibbon();
     this.buildSouthPathRibbon();
     this.buildNortheastPathRibbon();
+    this.buildMarketStreetRibbon();
   }
 
   /** Explicit dirt ribbon so the east branch reads clearly at iso distance. */
@@ -508,6 +538,74 @@ export class MeadowBiome {
     this.root.add(pad);
   }
 
+  /** Cobble/stone street from the gate plaza into the market district stub. */
+  private buildMarketStreetRibbon(): void {
+    const pathMat = createToonMaterial(Palette.pathDark);
+    const edgeMat = createToonMaterial(Palette.rockLight);
+    const cobbleMat = createToonMaterial(Palette.rock);
+    const ax = this.northeastGate.x + 2.2;
+    const az = this.northeastGate.z + 2.2;
+    const bx = this.northeastMarket.x;
+    const bz = this.northeastMarket.z;
+    const segments = 8;
+    for (let i = 0; i < segments; i++) {
+      const t0 = i / segments;
+      const t1 = (i + 1) / segments;
+      const x0 = ax + (bx - ax) * t0;
+      const z0 = az + (bz - az) * t0;
+      const x1 = ax + (bx - ax) * t1;
+      const z1 = az + (bz - az) * t1;
+      const mx = (x0 + x1) * 0.5;
+      const mz = (z0 + z1) * 0.5;
+      const dx = x1 - x0;
+      const dz = z1 - z0;
+      const len = Math.hypot(dx, dz);
+      const ang = Math.atan2(dx, dz);
+      const width = 4.4 + Math.sin(t0 * Math.PI) * 0.45;
+
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(width, 0.05, len + 0.12), pathMat);
+      plank.position.set(mx, 0.05, mz);
+      plank.rotation.y = ang;
+      plank.receiveShadow = true;
+      this.root.add(plank);
+
+      const edge = new THREE.Mesh(
+        new THREE.BoxGeometry(width + 0.65, 0.028, len + 0.18),
+        edgeMat,
+      );
+      edge.position.set(mx, 0.034, mz);
+      edge.rotation.y = ang;
+      edge.receiveShadow = true;
+      this.root.add(edge);
+
+      if (i % 2 === 0) {
+        const cobble = new THREE.Mesh(
+          new THREE.BoxGeometry(width * 0.62, 0.032, Math.min(len * 0.75, 1.2)),
+          cobbleMat,
+        );
+        cobble.position.set(mx, 0.058, mz);
+        cobble.rotation.y = ang + 0.05;
+        cobble.receiveShadow = true;
+        this.root.add(cobble);
+      }
+    }
+
+    const plaza = new THREE.Mesh(new THREE.CircleGeometry(5.4, 28), cobbleMat);
+    plaza.rotation.x = -Math.PI / 2;
+    plaza.position.set(this.northeastMarket.x, 0.042, this.northeastMarket.z);
+    plaza.receiveShadow = true;
+    this.root.add(plaza);
+
+    const plazaTop = new THREE.Mesh(
+      new THREE.CircleGeometry(4.2, 24),
+      createToonMaterial(Palette.rockLight),
+    );
+    plazaTop.rotation.x = -Math.PI / 2;
+    plazaTop.position.set(this.northeastMarket.x, 0.055, this.northeastMarket.z);
+    plazaTop.receiveShadow = true;
+    this.root.add(plazaTop);
+  }
+
   private buildGrassInstances(): void {
     const count = 580;
     const mesh = new THREE.InstancedMesh(this.grassBladeGeo, this.grassTuftMat, count);
@@ -520,8 +618,13 @@ export class MeadowBiome {
       guard += 1;
       let x: number;
       let z: number;
-      // Bias later placements into clearings / gate plaza so pockets feel inhabited.
-      if (placed > 540) {
+      // Bias later placements into clearings / gate / market so pockets feel inhabited.
+      if (placed > 555) {
+        const ang = hash2(placed * 1.7, guard * 0.3) * Math.PI * 2;
+        const rad = 4.5 + hash2(guard * 2.1, placed * 0.9) * (this.northeastMarket.radius - 5.2);
+        x = this.northeastMarket.x + Math.cos(ang) * rad;
+        z = this.northeastMarket.z + Math.sin(ang) * rad;
+      } else if (placed > 530) {
         const ang = hash2(placed * 1.7, guard * 0.3) * Math.PI * 2;
         const rad = hash2(guard * 2.1, placed * 0.9) * (this.northeastGate.radius - 1.4);
         x = this.northeastGate.x + Math.cos(ang) * rad;
@@ -1082,8 +1185,8 @@ export class MeadowBiome {
   }
 
   /**
-   * Northeast road spur end: intact city gate arch + tiny empty plaza stub for a
-   * future town fill. No shops, interiors, or building clusters yet.
+   * Northeast road spur end: intact city gate arch + approach plaza.
+   * Market district continues further NE (see `buildNortheastMarketDistrict`).
    */
   private buildNortheastCityGate(): void {
     const { x: cx, z: cz, radius } = this.northeastGate;
@@ -1091,13 +1194,13 @@ export class MeadowBiome {
     this.addCityGateArch(cx, cz);
     this.addRoadsideDressing();
 
-    // Sparse rim trees — leave the SW entrance open for the road, NE open for town stub.
+    // Sparse rim trees — leave the SW entrance open for the road, NE open for market.
     const rimTrees = 7;
     for (let i = 0; i < rimTrees; i++) {
       const a = (i / rimTrees) * Math.PI * 2 + 0.35;
-      // Skip SW approach (road) and far NE (future town plaza hook)
+      // Skip SW approach (road) and far NE (market street)
       if (Math.cos(a) + Math.sin(a) < -0.55) continue;
-      if (Math.cos(a) + Math.sin(a) > 1.15) continue;
+      if (Math.cos(a) + Math.sin(a) > 1.05) continue;
       const r = radius + 0.4 + (i % 3) * 0.45;
       this.addTree(cx + Math.cos(a) * r, cz + Math.sin(a) * r, 0.88 + (i % 3) * 0.07);
     }
@@ -1114,9 +1217,55 @@ export class MeadowBiome {
   }
 
   /**
-   * Intact stylized city gate — knight-scale archway (taller/wider than the
+   * Compact market district stub behind the NE gate — first town slice.
+   * KayKit cottage shops + stylized stalls/awning props; leave hooks for later
+   * residential / harbor districts further out.
+   */
+  private buildNortheastMarketDistrict(): void {
+    const { x: cx, z: cz, radius } = this.northeastMarket;
+
+    // Flavor sign just past the gate (E interact wired in Game via MarketDistrictSign).
+    this.addMarketDistrictSign(MARKET_SIGN_SPOT.x, MARKET_SIGN_SPOT.z);
+
+    // Street-facing KayKit shops (procedural stand-ins → pack swap). Yaw faces cobble.
+    // Street runs along the NE diagonal; shops sit well off the walk lane
+    // (KayKit cottage collision ≈ 1.6 × PROP_SCALE.cottage after pack apply).
+    this.addMarketShop(44.8, 58.2, 1.08, Math.PI * 0.78);
+    this.addMarketShop(58.2, 44.6, 1.12, -Math.PI * 0.22);
+    // Far-side shop — stay ≥~5 units off the diagonal so pack-scaled cottage r≈4.4 clears the street
+    this.addMarketShop(61.0, 53.0, 1.18, -Math.PI * 0.45);
+
+    // Stylized stall awnings + crates (dense but not a capital).
+    this.addMarketStall(48.0, 54.0, Math.PI * 0.7, Palette.roofTile);
+    this.addMarketStall(54.2, 47.8, -Math.PI * 0.28, Palette.flowerYellow);
+    this.addMarketStall(55.8, 52.4, -Math.PI * 0.9, Palette.flowerCyan);
+
+    this.addMarketCrates(49.6, 51.8, 0.2);
+    this.addMarketCrates(52.4, 50.2, -0.35);
+    this.addMarketBannerPost(47.0, 49.2, 0.1);
+    this.addMarketBannerPost(55.0, 52.6, -0.08);
+
+    // KayKit well accent near plaza center — pack-swapped with shops.
+    this.marketWellPlacement = { x: 50.2, z: 53.8 };
+    this.addMarketWellStandIn(this.marketWellPlacement.x, this.marketWellPlacement.z);
+
+    // Sparse rim trees — leave SW open toward the gate, far NE for future districts.
+    const rimTrees = 6;
+    for (let i = 0; i < rimTrees; i++) {
+      const a = (i / rimTrees) * Math.PI * 2 + 0.55;
+      if (Math.cos(a) + Math.sin(a) < -0.7) continue;
+      if (Math.cos(a) + Math.sin(a) > 1.2) continue;
+      const r = radius + 0.35 + (i % 2) * 0.4;
+      const tx = cx + Math.cos(a) * r;
+      const tz = cz + Math.sin(a) * r;
+      if (meadowPathInfluence(tx, tz) > 0.45) continue;
+      this.addTree(tx, tz, 0.86 + (i % 3) * 0.06);
+    }
+  }
+
+  /** Intact stylized city gate — knight-scale archway (taller/wider than the
    * north ruins crumbled gate). Faces southwest toward the meadow road.
-   * Tiny stone plaza behind the arch is an intentional empty stub for town fill.
+   * Tiny stone plaza behind the arch leads into the market street.
    */
   private addCityGateArch(x: number, z: number): void {
     const group = new THREE.Group();
@@ -1134,7 +1283,7 @@ export class MeadowBiome {
     approach.receiveShadow = true;
     group.add(approach);
 
-    // Tiny empty plaza stub BEHIND the gate (+local Z) — hook for future town
+    // Small stone plaza BEHIND the gate (+local Z) — transitions into market street
     const plaza = new THREE.Mesh(
       new THREE.CylinderGeometry(4.0, 4.2, 0.16, 12),
       this.rockMat,
@@ -1349,6 +1498,242 @@ export class MeadowBiome {
       this.root.add(group);
       this.obstacles.push({ x, z, radius: 0.35 });
     }
+  }
+
+  /** Market district welcome sign — soft collision + E flavor interact. */
+  private addMarketDistrictSign(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = (-Math.PI * 3) / 4;
+    group.name = 'MarketDistrictSign';
+
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.1, 0.12, 2.5, 6),
+      this.woodDarkMat,
+    );
+    post.position.y = 1.25;
+    post.castShadow = true;
+    group.add(post);
+
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.7, 0.1), this.signBoardMat);
+    board.position.set(0, 2.15, 0.05);
+    board.castShadow = true;
+    group.add(board);
+
+    const stripe = new THREE.Mesh(
+      new THREE.BoxGeometry(1.35, 0.1, 0.12),
+      this.bannerTrimMat,
+    );
+    stripe.position.set(0, 2.35, 0.1);
+    group.add(stripe);
+
+    const trim = new THREE.Mesh(
+      new THREE.BoxGeometry(1.35, 0.08, 0.12),
+      this.bannerMat,
+    );
+    trim.position.set(0, 1.95, 0.1);
+    group.add(trim);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.4 });
+  }
+
+  /** Procedural KayKit-cottage stand-in for a market shop (pack-swapped later). */
+  private addMarketShop(x: number, z: number, scale: number, yaw: number): void {
+    this.shopPlacements.push({ x, z, scale, yaw });
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.scale.setScalar(scale);
+    group.userData.proceduralProp = true;
+    group.name = 'MarketShopStandIn';
+
+    const walls = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.65, 2.15), this.rockLightMat);
+    walls.position.y = 0.82;
+    walls.castShadow = true;
+    walls.receiveShadow = true;
+    group.add(walls);
+
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(2.0, 1.25, 4), this.roofMat);
+    roof.position.y = 2.2;
+    roof.rotation.y = Math.PI / 4;
+    roof.castShadow = true;
+    group.add(roof);
+
+    const awning = new THREE.Mesh(
+      new THREE.BoxGeometry(2.2, 0.08, 0.85),
+      this.bannerMat,
+    );
+    awning.position.set(0, 1.45, 1.35);
+    awning.rotation.x = -0.35;
+    awning.castShadow = true;
+    group.add(awning);
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.85, 0.1), this.woodDarkMat);
+    door.position.set(0, 0.45, 1.1);
+    group.add(door);
+
+    const window = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.4, 0.08), this.pondMat);
+    window.position.set(-0.7, 1.05, 1.08);
+    group.add(window);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.6 });
+  }
+
+  /** Stylized market stall with cloth awning — permanent (not pack-swapped). */
+  private addMarketStall(x: number, z: number, yaw: number, awningColor: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'MarketStall';
+
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.7, 0.95), this.woodMat);
+    counter.position.y = 0.45;
+    counter.castShadow = true;
+    counter.receiveShadow = true;
+    group.add(counter);
+
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 0.7), this.woodDarkMat);
+    shelf.position.y = 0.88;
+    shelf.castShadow = true;
+    group.add(shelf);
+
+    for (const px of [-0.95, 0.95]) {
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.07, 2.1, 5),
+        this.woodDarkMat,
+      );
+      pole.position.set(px, 1.4, 0.15);
+      pole.castShadow = true;
+      group.add(pole);
+    }
+
+    const awningMat = createToonMaterial(awningColor, {
+      emissive: awningColor,
+      emissiveIntensity: 0.1,
+      side: THREE.DoubleSide,
+    });
+    const awning = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 1.5), awningMat);
+    awning.position.set(0, 2.35, 0.1);
+    awning.rotation.x = -0.22;
+    awning.castShadow = true;
+    group.add(awning);
+
+    // Goods silhouettes on the counter
+    for (let i = 0; i < 3; i++) {
+      const goods = new THREE.Mesh(
+        new THREE.BoxGeometry(0.28, 0.22 + i * 0.05, 0.28),
+        i % 2 === 0 ? this.rockLightMat : this.bannerTrimMat,
+      );
+      goods.position.set(-0.55 + i * 0.55, 1.05, 0.05);
+      goods.castShadow = true;
+      group.add(goods);
+    }
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.15 });
+  }
+
+  /** Small crate stack prop beside stalls. */
+  private addMarketCrates(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'MarketCrates';
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.7), this.woodMat);
+    base.position.y = 0.28;
+    base.castShadow = true;
+    base.receiveShadow = true;
+    group.add(base);
+
+    const top = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.55), this.woodDarkMat);
+    top.position.set(0.08, 0.78, -0.05);
+    top.rotation.y = 0.25;
+    top.castShadow = true;
+    group.add(top);
+
+    const barrel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28, 0.3, 0.55, 8),
+      this.woodMat,
+    );
+    barrel.position.set(-0.55, 0.28, 0.35);
+    barrel.castShadow = true;
+    group.add(barrel);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.65 });
+  }
+
+  /** Banner pole dressing for the market street. */
+  private addMarketBannerPost(x: number, z: number, tilt: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.1, 2.8, 5),
+      this.woodDarkMat,
+    );
+    post.position.y = 1.4;
+    post.rotation.z = tilt;
+    post.castShadow = true;
+    group.add(post);
+
+    const banner = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 1.35), this.bannerMat);
+    banner.position.set(0.45, 1.85, 0.05);
+    banner.castShadow = true;
+    group.add(banner);
+
+    const stripe = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.5, 0.12),
+      this.bannerTrimMat,
+    );
+    stripe.position.set(0.45, 2.15, 0.06);
+    group.add(stripe);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.35 });
+  }
+
+  /** Procedural well stand-in at the market plaza (replaced by KayKit well). */
+  private addMarketWellStandIn(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.userData.proceduralProp = true;
+    group.name = 'MarketWellStandIn';
+
+    const basin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 0.85, 0.7, 10),
+      this.rockMat,
+    );
+    basin.position.y = 0.35;
+    basin.castShadow = true;
+    basin.receiveShadow = true;
+    group.add(basin);
+
+    const water = new THREE.Mesh(new THREE.CircleGeometry(0.5, 12), this.pondMat);
+    water.rotation.x = -Math.PI / 2;
+    water.position.y = 0.62;
+    group.add(water);
+
+    const postL = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.07, 1.4, 5),
+      this.woodDarkMat,
+    );
+    postL.position.set(-0.45, 1.1, 0);
+    postL.castShadow = true;
+    group.add(postL);
+    const postR = postL.clone();
+    postR.position.x = 0.45;
+    group.add(postR);
+
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 0.12), this.woodMat);
+    beam.position.y = 1.75;
+    group.add(beam);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.55 });
   }
 
   /**
@@ -2451,6 +2836,29 @@ export class MeadowBiome {
       }
     }
 
+    // Market district shops — KayKit cottages facing the cobble street.
+    for (const shop of this.shopPlacements) {
+      const mesh = library.createCottage(shop.x, shop.z, {
+        scale: shop.scale,
+        yaw: shop.yaw,
+      });
+      if (mesh) {
+        this.root.add(mesh);
+        placed += 1;
+      }
+    }
+
+    if (this.marketWellPlacement) {
+      const well = library.createWell(
+        this.marketWellPlacement.x,
+        this.marketWellPlacement.z,
+      );
+      if (well) {
+        this.root.add(well);
+        placed += 1;
+      }
+    }
+
     this.retunePackObstacles();
     this.scatterPackBushes(library);
     return placed > 0;
@@ -2481,6 +2889,16 @@ export class MeadowBiome {
     }
     if (this.windmillPlacement) {
       bump(this.windmillPlacement.x, this.windmillPlacement.z, PROP_COLLISION_SCALE.windmill);
+    }
+    for (const shop of this.shopPlacements) {
+      bump(shop.x, shop.z, PROP_COLLISION_SCALE.cottage);
+    }
+    if (this.marketWellPlacement) {
+      bump(
+        this.marketWellPlacement.x,
+        this.marketWellPlacement.z,
+        PROP_COLLISION_SCALE.well,
+      );
     }
   }
 
@@ -2520,12 +2938,17 @@ export class MeadowBiome {
       if (Math.hypot(x - EastShrineClearing.x, z - EastShrineClearing.z) < 8) continue;
       if (Math.hypot(x - SouthRiverFordClearing.x, z - SouthRiverFordClearing.z) < 8) continue;
       if (Math.hypot(x - NortheastCityGate.x, z - NortheastCityGate.z) < 7) continue;
+      if (
+        Math.hypot(x - NortheastMarketDistrict.x, z - NortheastMarketDistrict.z) < 9
+      ) {
+        continue;
+      }
       const bush = library.createBush(x, z, s, hash2(x, z) * 500 + i);
       if (bush) this.root.add(bush);
     }
   }
 
-  /** True if inside main meadow, any corridor, clearing, or the NE gate plaza. */
+  /** True if inside main meadow, any corridor, clearing, NE gate, or market district. */
   isInPlayArea(x: number, z: number): boolean {
     if (x * x + z * z <= this.playRadius * this.playRadius) return true;
     const cdx = x - this.eastClearing.x;
@@ -2553,14 +2976,22 @@ export class MeadowBiome {
     if (gdx * gdx + gdz * gdz <= this.northeastGate.radius * this.northeastGate.radius) {
       return true;
     }
+    const mdx = x - this.northeastMarket.x;
+    const mdz = z - this.northeastMarket.z;
+    if (
+      mdx * mdx + mdz * mdz <= this.northeastMarket.radius * this.northeastMarket.radius
+    ) {
+      return true;
+    }
     if (this.distToEastCorridor(x, z) <= this.eastCorridorHalfWidth) return true;
     if (this.distToWestCorridor(x, z) <= this.westCorridorHalfWidth) return true;
     if (this.distToNorthCorridor(x, z) <= this.northCorridorHalfWidth) return true;
     if (this.distToSouthCorridor(x, z) <= this.southCorridorHalfWidth) return true;
-    return this.distToNortheastCorridor(x, z) <= this.northeastCorridorHalfWidth;
+    if (this.distToNortheastCorridor(x, z) <= this.northeastCorridorHalfWidth) return true;
+    return this.distToMarketCorridor(x, z) <= this.marketCorridorHalfWidth;
   }
 
-  /** Keep entities inside meadow ∪ corridors ∪ clearings ∪ NE gate plaza. */
+  /** Keep entities inside meadow ∪ corridors ∪ clearings ∪ NE gate ∪ market. */
   clampToPlayArea(position: THREE.Vector3): void {
     if (this.isInPlayArea(position.x, position.z)) return;
     const nearest = this.nearestPlayPoint(position.x, position.z);
@@ -2575,6 +3006,14 @@ export class MeadowBiome {
     if (dx * dx + dz * dz <= 8 * 8) return true;
     return this.distToNortheastCorridor(position.x, position.z) <= 4.5
       && Math.hypot(position.x, position.z) > 28;
+  }
+
+  /** True when the player is in the market plaza / street (discovery toast). */
+  isNearMarketDistrict(position: THREE.Vector3): boolean {
+    const dx = position.x - this.northeastMarket.x;
+    const dz = position.z - this.northeastMarket.z;
+    if (dx * dx + dz * dz <= 9 * 9) return true;
+    return this.distToMarketCorridor(position.x, position.z) <= 4.2;
   }
 
   /** Corridor + path samples used to keep props from blocking the branch. */
@@ -2613,12 +3052,15 @@ export class MeadowBiome {
     return meadowPathInfluence(x, z) > 0.35 && z < -15;
   }
 
-  /** Keep props off the northeast dirt/stone road into the city gate. */
+  /** Keep props off the northeast dirt/stone road into the city gate + market. */
   private isOnNortheastBranchApproach(x: number, z: number): boolean {
     if (x < 10 || z < 10) return false;
-    // Wide cone along +X/+Z so the tree ring does not choke the NE exit.
+    // Wide cone along +X/+Z so the tree ring does not choke the NE exit / market street.
     if (x > 22 && z > 22 && Math.abs(x - z) < 12) return true;
     if (this.distToNortheastCorridor(x, z) < this.northeastCorridorHalfWidth + 1.6) {
+      return true;
+    }
+    if (this.distToMarketCorridor(x, z) < this.marketCorridorHalfWidth + 1.4) {
       return true;
     }
     return meadowPathInfluence(x, z) > 0.35 && x > 14 && z > 14;
@@ -2668,6 +3110,15 @@ export class MeadowBiome {
     // Stop short of the gate center so the plaza circle owns the end.
     const bx = this.northeastGate.x - 2.2;
     const bz = this.northeastGate.z - 2.2;
+    return this.distToSegment(x, z, ax, az, bx, bz);
+  }
+
+  /** Distance from point to the market corridor segment (gate → market plaza). */
+  private distToMarketCorridor(x: number, z: number): number {
+    const ax = this.northeastGate.x + 2.0;
+    const az = this.northeastGate.z + 2.0;
+    const bx = this.northeastMarket.x - 1.5;
+    const bz = this.northeastMarket.z - 1.5;
     return this.distToSegment(x, z, ax, az, bx, bz);
   }
 
@@ -2766,6 +3217,17 @@ export class MeadowBiome {
       );
     }
 
+    // Market district rim
+    {
+      const dx = x - this.northeastMarket.x;
+      const dz = z - this.northeastMarket.z;
+      const d = Math.hypot(dx, dz) || 1;
+      consider(
+        this.northeastMarket.x + (dx / d) * this.northeastMarket.radius,
+        this.northeastMarket.z + (dz / d) * this.northeastMarket.radius,
+      );
+    }
+
     // East corridor capsule surface
     this.considerCorridorSurface(
       x,
@@ -2823,6 +3285,18 @@ export class MeadowBiome {
       this.northeastGate.x - 2.2,
       this.northeastGate.z - 2.2,
       this.northeastCorridorHalfWidth,
+      consider,
+    );
+
+    // Gate → market corridor capsule surface
+    this.considerCorridorSurface(
+      x,
+      z,
+      this.northeastGate.x + 2.0,
+      this.northeastGate.z + 2.0,
+      this.northeastMarket.x - 1.5,
+      this.northeastMarket.z - 1.5,
+      this.marketCorridorHalfWidth,
       consider,
     );
 
