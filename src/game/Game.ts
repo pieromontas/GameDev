@@ -227,8 +227,6 @@ export class Game {
 
     this.player.tickSkills(dt);
 
-    const wasAlive = this.player.alive;
-
     if (this.player.alive) {
       this.updatePlayerMovement(dt);
       this.handleClassSwitch();
@@ -279,7 +277,9 @@ export class Game {
     this.separateMobs();
 
     this.combat.updateMobCombat(this.mobs, this.player);
-    if (wasAlive && !this.player.alive) {
+    // Always arm respawn when dead with no timer — covers same-frame death right after
+    // a prior respawn (wasAlive was false at frame start), which previously softlocked.
+    if (!this.player.alive && this.playerRespawnTimer < 0) {
       this.playerRespawnTimer = 2.2;
       this.hud.showToast('Defeated — respawning…', 2);
     }
