@@ -8,6 +8,7 @@ import { ShrineObjective } from '../world/ShrineObjective';
 import { TreasureChests } from '../world/TreasureChests';
 import { HealingSprings } from '../world/HealingSprings';
 import { CottageMerchant } from '../world/CottageMerchant';
+import { MarketDistrictSign } from '../world/MarketDistrict';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
@@ -30,6 +31,7 @@ export class Game {
   private readonly chests: TreasureChests;
   private readonly springs: HealingSprings;
   private readonly merchant: CottageMerchant;
+  private readonly marketSign: MarketDistrictSign;
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
   private readonly mobs: Enemy[];
@@ -53,6 +55,8 @@ export class Game {
   private dodgeHintShown = false;
   /** One-shot toast when the player first finds the NE city-gate road. */
   private cityGateHintShown = false;
+  /** One-shot toast when the player first enters the market district. */
+  private marketHintShown = false;
 
   constructor(canvas: HTMLCanvasElement, hudHost: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -170,6 +174,9 @@ export class Game {
         return true;
       },
       onShopChanged: (open) => this.hud.setShopOpen(open, this.lootCount),
+    });
+    this.marketSign = new MarketDistrictSign({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.hud.bindShopHandlers({
       onBuyPotion: () => this.merchant.buyHealthPotion(this.player),
@@ -431,7 +438,11 @@ export class Game {
 
     if (!this.cityGateHintShown && this.meadow.isNearCityGate(this.player.position)) {
       this.cityGateHintShown = true;
-      this.hud.showToast('City gate ahead — road to town (coming soon)', 2.2);
+      this.hud.showToast('City gate ahead — Market District beyond the arch', 2.2);
+    }
+    if (!this.marketHintShown && this.meadow.isNearMarketDistrict(this.player.position)) {
+      this.marketHintShown = true;
+      this.hud.showToast('Market District  ·  first slice of town', 2.0);
     }
   }
 
@@ -500,7 +511,7 @@ export class Game {
   }
 
   /**
-   * E key: closed chests → healing spring → east shrine → cottage merchant.
+   * E key: closed chests → healing spring → east shrine → market sign → cottage merchant.
    * Open shop always closes on E first so it never blocks other interactables.
    */
   private handleInteract(): void {
@@ -512,14 +523,16 @@ export class Game {
     if (this.chests.tryInteract(this.player)) return;
     if (this.springs.tryInteract(this.player)) return;
     if (this.shrine.tryInteract(this.player)) return;
+    if (this.marketSign.tryInteract(this.player)) return;
     this.merchant.tryInteract(this.player);
   }
 
-  /** Merge shrine objective HUD with chest / spring / shrine / merchant prompts. */
+  /** Merge shrine objective HUD with chest / spring / shrine / market / merchant prompts. */
   private syncInteractHud(): void {
     const shrineHud = this.shrine.getHudState(this.player);
     const chestPrompt = this.chests.getInteractPrompt(this.player);
     const springPrompt = this.springs.getInteractPrompt(this.player);
+    const marketPrompt = this.marketSign.getInteractPrompt(this.player);
     const merchantPrompt = this.merchant.getInteractPrompt(this.player);
     if (chestPrompt.visible) {
       this.hud.setShrineHud({
@@ -535,6 +548,12 @@ export class Game {
       });
     } else if (shrineHud.promptVisible) {
       this.hud.setShrineHud(shrineHud);
+    } else if (marketPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: marketPrompt.text,
+      });
     } else if (merchantPrompt.visible) {
       this.hud.setShrineHud({
         ...shrineHud,

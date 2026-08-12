@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine**, **west misty grove**, **north ruins**, **south river ford** clearings, and a **northeast city-gate** road spur (future town stub), blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine**, **west misty grove**, **north ruins**, **south river ford** clearings, a **northeast city-gate** road spur, and a compact **market district** town stub behind the gate, blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -37,7 +37,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **W A S D** / arrows | Move relative to camera |
 | **Shift** | Dodge roll — short burst + brief i-frames (~1.55s cooldown) |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
-| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / talk to cottage merchant (when near) |
+| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / read market sign / talk to cottage merchant (when near) |
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt / Stab) |
 | **2** | Skill 2 (Quake / Frost Nova / Fan of Knives) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
@@ -46,7 +46,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **Mouse wheel** / trackpad pinch | Zoom camera in / out (clamped) |
 | **-** / **=** or **[** / **]** | Zoom out / in (alternate) |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate** road, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, chests, the healing spring, the cottage shop, and nearby enemies.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / market sign / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate & market** road, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, **Market**, chests, the healing spring, the cottage shop, and nearby enemies.
 
 ## Treasure chests
 
@@ -72,7 +72,11 @@ Works for Warrior, Mage, and Rogue. Prices are reachable after opening a couple 
 
 ## Northeast city gate
 
-Follow the **dirt/stone road northeast** from the main meadow to a readable **city gate** archway (first slice of a future town — not a full district). Landmark: an intact **stone gate** with banners and low flanking walls, plus a tiny empty plaza stub behind the arch for later town fill. Light roadside posts only — no new enemies, shops, or interiors. Play-area clamp includes the NE corridor + gate plaza — walk the full road and stand under the gate. Minimap marks **Gate**; a signpost and discovery toast cue that the road leads toward town (coming soon).
+Follow the **dirt/stone road northeast** from the main meadow to a readable **city gate** archway into the first town slice. Landmark: an intact **stone gate** with banners and low flanking walls, plus a small stone plaza that continues into the market street. Light roadside posts on the approach. Play-area clamp includes the NE corridor + gate plaza — walk the full road and stand under the gate. Minimap marks **Gate**; a signpost and discovery toast cue the Market District beyond the arch.
+
+## City market district
+
+Through the gate, a compact **market district** stub fills the first town pocket: a short **cobble/stone street** and plaza, **3 KayKit cottage shops** (street-facing facades at knight-correct scale), **stylized stall awnings**, crates, banners, and a well accent. Soft collisions on building/stall footprints keep the street walkable. Press **E** at the market sign for a flavor toast (`Market District`). No new combat or full shop UI here — ambient empty town is intentional; later districts (residential / harbor) can extend further NE. Play clamp includes the gate→market corridor + market plaza. Minimap marks **Market** (in addition to Gate).
 
 ## South river ford
 
@@ -168,7 +172,7 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 | **Author** | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)) | same |
 | **License** | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | same |
 | **Files** | `public/models/kaykit-forest/` — curated `Tree_*` / `Rock_*` / `Bush_*` GLTF + `forest_texture.png` (+ `LICENSE.txt`, `ATTRIBUTION.md`) | `public/models/kaykit-medieval/` — `building_home_A_green`, `building_windmill_green`, `building_well_green` + `hexagons_medieval.png` (+ license/attribution) |
-| **Integration** | `WorldPropLibrary.ts` → `MeadowBiome.applyPropPack()` (trees / rocks / bushes) | same (`createCottage` / `createWindmill` / `createWell`) |
+| **Integration** | `WorldPropLibrary.ts` → `MeadowBiome.applyPropPack()` (trees / rocks / bushes) | same (`createCottage` / `createWindmill` / `createWell`); market shops reuse cottage + well |
 
 Only the assets actually placed in the meadow are vendored (not the full packs). Materials are remapped to `MeshToonMaterial` (shared KayKit atlas + cel `gradientMap`) so they stay readable under the slice’s stylized lighting. Soft XZ obstacle radii are unchanged — shrine / chest interacts, paths, and play clamp are preserved. If prop GLTFs fail to load, procedural trees / rocks / cottage / windmill remain.
 
@@ -225,9 +229,10 @@ src/
     loop.ts               rAF loop with fixed 60 Hz update
   input/InputManager.ts   Keyboard + pointer
   camera/FollowCamera.ts  Angled follow cam + yaw + smooth zoom
-  world/MeadowBiome.ts    Ground + props, play-area clamp
+  world/MeadowBiome.ts    Ground + props, play-area clamp, gate + market stub
   world/WorldPropLibrary.ts  KayKit prop GLTF loader + toon remap
   world/CottageMerchant.ts   NW cottage spend-gold shop (E interact)
+  world/MarketDistrict.ts    NE market sign flavor interact (E)
   world/TreasureChests.ts Treasure chest interact + rewards
   world/HealingSprings.ts Healing spring interact
   world/ShrineObjective.ts East shrine defend objective
