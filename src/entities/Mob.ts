@@ -6,8 +6,11 @@ import { clamp01, easeOutCubic, smoothstep } from '../anim/ease';
 
 export type MobAIState = 'idle' | 'chase' | 'attack' | 'leash' | 'retreat' | 'dead';
 
-/** Shared combat surface for meadow blobs and spitters. */
-export type Enemy = import('./Spitter').Spitter | Mob;
+/** Shared combat surface for meadow blobs, spitters, and armored brutes. */
+export type Enemy =
+  | import('./Spitter').Spitter
+  | import('./ArmoredBrute').ArmoredBrute
+  | Mob;
 
 const sharedBodyGeo = new THREE.SphereGeometry(0.62, 16, 14);
 const sharedBellyGeo = new THREE.SphereGeometry(0.4, 12, 10);

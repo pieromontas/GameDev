@@ -7,6 +7,7 @@ import { ShrineObjective } from '../world/ShrineObjective';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
+import { createStarterBrutes, ArmoredBrute } from '../entities/ArmoredBrute';
 import { LootPickup } from '../entities/Loot';
 import { CombatSystem } from '../combat/CombatSystem';
 import { HUD } from '../ui/HUD';
@@ -72,7 +73,7 @@ export class Game {
     this.player = new Player();
     this.scene.add(this.player.mesh);
 
-    this.mobs = [...createStarterMobs(), ...createStarterSpitters()];
+    this.mobs = [...createStarterMobs(), ...createStarterSpitters(), ...createStarterBrutes()];
     for (const mob of this.mobs) this.scene.add(mob.mesh);
 
     this.cameraRig = new FollowCamera(window.innerWidth / window.innerHeight);
@@ -83,7 +84,7 @@ export class Game {
     this.healthBars = new HealthBars(this.scene);
     this.healthBars.track(this.player, 2.45);
     for (const mob of this.mobs) {
-      this.healthBars.track(mob, mob instanceof Spitter ? 2.05 : 1.55);
+      this.healthBars.track(mob, this.enemyBarHeight(mob));
     }
 
     this.combat = new CombatSystem(this.scene, {
@@ -97,6 +98,9 @@ export class Game {
       onKill: (enemy) => {
         this.kills += 1;
         this.grantKillXp(enemy);
+        if (enemy.kind === 'brute') {
+          this.hud.showToast('Armored Brute crushed!  ·  rich loot + XP', 2.0);
+        }
       },
       onQuakeImpact: () => {
         this.cameraRig.addImpactPunch(0.16);
@@ -166,7 +170,13 @@ export class Game {
   private addEnemy(enemy: Enemy): void {
     this.mobs.push(enemy);
     this.scene.add(enemy.mesh);
-    this.healthBars.track(enemy, enemy instanceof Spitter ? 2.05 : 1.55);
+    this.healthBars.track(enemy, this.enemyBarHeight(enemy));
+  }
+
+  private enemyBarHeight(enemy: Enemy): number {
+    if (enemy instanceof ArmoredBrute) return 2.75;
+    if (enemy instanceof Spitter) return 2.05;
+    return 1.55;
   }
 
   private removeEnemy(enemy: Enemy): void {
@@ -242,7 +252,11 @@ export class Game {
         if (mob.readyToRespawn()) {
           mob.respawnNearHome();
           const label =
-            mob.kind === 'spitter' ? 'A spitter reforms nearby…' : 'A blob reforms nearby…';
+            mob.kind === 'brute'
+              ? 'An armored brute reforms nearby…'
+              : mob.kind === 'spitter'
+                ? 'A spitter reforms nearby…'
+                : 'A blob reforms nearby…';
           this.hud.showToast(label, 1.0);
         }
         continue;
@@ -398,11 +412,11 @@ export class Game {
   }
 
   /**
-   * Kill → XP loop. Spitters pay more so clearing them feels like real progress.
+   * Kill → XP loop. Spitters pay more than blobs; brutes pay the most.
    * Floating "+XP" every kill; level-up gets a toast + FX; occasional XP toast.
    */
   private grantKillXp(enemy: Enemy): void {
-    const amount = enemy.kind === 'spitter' ? 14 : 8;
+    const amount = enemy.kind === 'brute' ? 28 : enemy.kind === 'spitter' ? 14 : 8;
     const result = this.player.gainXp(amount);
     this.combat.damageNumbers.spawnXp(enemy.position, amount);
 
@@ -420,6 +434,9 @@ export class Game {
       this.cameraRig.addImpactPunch(0.2);
       return;
     }
+
+    // Brute kills already toasted in onKill — skip the generic XP pulse.
+    if (enemy.kind === 'brute') return;
 
     // Occasional toast so XP still reads if floaters are missed in the scrap.
     if (this.kills % 5 === 0) {

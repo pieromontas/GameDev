@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Mob';
 import { Spitter } from '../entities/Spitter';
+import { ArmoredBrute } from '../entities/ArmoredBrute';
 import { SpitProjectile } from '../entities/SpitProjectile';
 import { LootPickup } from '../entities/Loot';
 import { SkillId } from './Skills';
@@ -1180,6 +1181,35 @@ export class CombatSystem {
         continue;
       }
 
+      if (mob instanceof ArmoredBrute) {
+        if (mob.consumeSlamRequest()) {
+          // Shockwave ring — readable ground slam telegraph payoff.
+          this.fx.spawnRing(mob.position, 0xff4422, mob.slamRadius);
+          this.fx.spawnRing(mob.position, 0xffc070, mob.slamRadius * 0.7);
+          this.fx.spawnRing(mob.position, 0xff8844, mob.slamRadius * 0.4);
+          this.fx.spawnSeal(mob.position, 0xff6633);
+          if (player.alive && player.invuln <= 0) {
+            const reach = mob.slamRadius + player.radius * 0.35;
+            const d2 = dist2(
+              mob.position.x,
+              mob.position.z,
+              player.position.x,
+              player.position.z,
+            );
+            if (d2 <= reach * reach) {
+              const dealt = player.takeDamage(mob.attackDamage);
+              if (dealt > 0) {
+                player.invuln = this.playerHitIFrames;
+                player.markCombat();
+                this.damageNumbers.spawn(player.position, dealt, false);
+                this.hooks.onPlayerDamaged();
+              }
+            }
+          }
+        }
+        continue;
+      }
+
       // Melee blob bite
       if (player.alive && player.invuln <= 0) {
         const dealt = player.takeDamage(mob.attackDamage);
@@ -1265,8 +1295,11 @@ export class CombatSystem {
     this.damageNumbers.spawn(mob.position, dealt, crit);
     if (!mob.alive) {
       this.hooks.onKill(mob);
-      const loot = new LootPickup(mob.position);
-      this.hooks.onLootDrop(loot);
+      // Brutes drop a richer coin burst; blobs / spitters stay at one.
+      const drops = mob.kind === 'brute' ? 3 : 1;
+      for (let i = 0; i < drops; i++) {
+        this.hooks.onLootDrop(new LootPickup(mob.position));
+      }
     }
   }
 
