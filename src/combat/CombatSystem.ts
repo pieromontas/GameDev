@@ -1184,9 +1184,10 @@ export class CombatSystem {
       if (mob instanceof ArmoredBrute) {
         if (mob.consumeSlamRequest()) {
           // Shockwave ring — readable ground slam telegraph payoff.
-          this.fx.spawnRing(mob.position, 0xff6a2a, mob.slamRadius);
-          this.fx.spawnRing(mob.position, 0xffc070, mob.slamRadius * 0.55);
-          this.fx.spawnSeal(mob.position, 0xff8844);
+          this.fx.spawnRing(mob.position, 0xff4422, mob.slamRadius);
+          this.fx.spawnRing(mob.position, 0xffc070, mob.slamRadius * 0.7);
+          this.fx.spawnRing(mob.position, 0xff8844, mob.slamRadius * 0.4);
+          this.fx.spawnSeal(mob.position, 0xff6633);
           if (player.alive && player.invuln <= 0) {
             const reach = mob.slamRadius + player.radius * 0.35;
             const d2 = dist2(

@@ -188,18 +188,18 @@ export class ArmoredBrute extends Entity {
     rightBoot.position.set(0.28, -1.12, 0.06);
     visual.add(leftBoot, rightBoot);
 
-    // Ground slam telegraph — hidden until wind-up.
+    // Ground slam telegraph — hidden until wind-up; thick bright ring for readability.
     const telegraphMat = new THREE.MeshBasicMaterial({
-      color: 0xff5522,
+      color: 0xff4422,
       transparent: true,
       opacity: 0,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
-    const telegraph = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.15, 40), telegraphMat);
+    const telegraph = new THREE.Mesh(new THREE.RingGeometry(0.75, 1.2, 48), telegraphMat);
     telegraph.rotation.x = -Math.PI / 2;
-    telegraph.position.y = 0.06;
+    telegraph.position.y = 0.08;
     telegraph.visible = false;
     telegraph.renderOrder = 3;
     group.add(telegraph);
@@ -524,9 +524,9 @@ export class ArmoredBrute extends Entity {
 
       const progress = 1 - w;
       this.telegraph.visible = true;
-      const ringScale = (this.slamRadius / 1.15) * (0.35 + progress * 0.65);
+      const ringScale = (this.slamRadius / 1.2) * (0.4 + progress * 0.6);
       this.telegraph.scale.setScalar(ringScale);
-      this.telegraphMat.opacity = 0.22 + progress * 0.45 + pulse * 0.12;
+      this.telegraphMat.opacity = 0.35 + progress * 0.55 + pulse * 0.15;
     } else if (this.slamT >= 0) {
       // Impact: arms smash down, body expands into the shockwave.
       const t = clamp01(this.slamT / 0.4);
