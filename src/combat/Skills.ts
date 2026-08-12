@@ -25,7 +25,7 @@ export const WARRIOR_SKILLS: Record<SkillId, SkillDef> = {
     damage: 15,
     range: 2.55,
     radius: 0,
-    color: 0x9fd3ff,
+    color: 0x7ec8ff,
   },
   slam: {
     id: 'slam',
@@ -35,7 +35,7 @@ export const WARRIOR_SKILLS: Record<SkillId, SkillDef> = {
     damage: 26,
     range: 0.5,
     radius: 3.55,
-    color: 0xff6b6b,
+    color: 0xff5a5a,
   },
 };
 

@@ -31,13 +31,16 @@ class SkillFx {
     const mat = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.95,
       side: THREE.DoubleSide,
       depthWrite: false,
+      // Additive pop without a post-process bloom stack
+      blending: THREE.AdditiveBlending,
     });
     const mesh = new THREE.Mesh(this.ringGeo, mat);
-    mesh.position.set(pos.x, 0.08, pos.z);
+    mesh.position.set(pos.x, 0.1, pos.z);
     mesh.scale.setScalar(0.35);
+    mesh.renderOrder = 2;
     this.scene.add(mesh);
     // RingGeometry outer ~0.55 → scale so visual ≈ skill radius
     const targetScale = (finalRadius / 0.55) * 1.05;
@@ -48,14 +51,16 @@ class SkillFx {
     const mat = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.95,
+      opacity: 1,
       side: THREE.DoubleSide,
       depthWrite: false,
+      blending: THREE.AdditiveBlending,
     });
     const mesh = new THREE.Mesh(this.slashGeo, mat);
     mesh.position.set(pos.x + facing.x * 1.15, 1.15, pos.z + facing.z * 1.15);
     mesh.rotation.y = Math.atan2(facing.x, facing.z);
     mesh.rotation.z = -0.35;
+    mesh.renderOrder = 2;
     this.scene.add(mesh);
     this.items.push({ mesh, age: 0, life: 0.2, grow: 0 });
   }

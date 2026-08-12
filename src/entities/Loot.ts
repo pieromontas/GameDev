@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { dist2 } from '../utils/math';
+import { Palette, createToonMaterial } from '../render/stylized';
 
 const coinGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.1, 12);
-const coinMat = new THREE.MeshLambertMaterial({
-  color: 0xffd166,
-  emissive: 0x886600,
-  emissiveIntensity: 0.35,
+const coinMat = createToonMaterial(Palette.lootGold, {
+  emissive: Palette.lootGold,
+  emissiveIntensity: 0.45,
 });
 
 export class LootPickup {
