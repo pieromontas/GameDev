@@ -1,0 +1,14 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/assets/*",
+      "/models/*",
+      "*.{css,js,mjs,ico,png,jpg,jpeg,gif,svg,webp,glb,gltf,woff,woff2,ttf,map,txt,md,json}"
+    ]
+  },
+  "mimeTypes": {
+    ".glb": "model/gltf-binary",
+    ".gltf": "model/gltf+json"
+  }
+}
