@@ -9,6 +9,7 @@ import { TreasureChests } from '../world/TreasureChests';
 import { HealingSprings } from '../world/HealingSprings';
 import { CottageMerchant } from '../world/CottageMerchant';
 import {
+  MarketAlley,
   MarketBlacksmith,
   MarketDistrictSign,
   MarketInn,
@@ -38,6 +39,7 @@ export class Game {
   private readonly marketSign: MarketDistrictSign;
   private readonly marketBlacksmith: MarketBlacksmith;
   private readonly marketInn: MarketInn;
+  private readonly marketAlley: MarketAlley;
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
   private readonly mobs: Enemy[];
@@ -195,6 +197,9 @@ export class Game {
         this.lootCount -= amount;
         return true;
       },
+    });
+    this.marketAlley = new MarketAlley({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.hud.bindShopHandlers({
       onBuyPotion: () => this.merchant.buyHealthPotion(this.player),
@@ -531,7 +536,7 @@ export class Game {
   }
 
   /**
-   * E key: closed chests → healing spring → east shrine → market sign → blacksmith → inn → cottage merchant.
+   * E key: closed chests → healing spring → east shrine → market sign → blacksmith → inn → alley → cottage merchant.
    * Open shop always closes on E first so it never blocks other interactables.
    */
   private handleInteract(): void {
@@ -546,10 +551,11 @@ export class Game {
     if (this.marketSign.tryInteract(this.player)) return;
     if (this.marketBlacksmith.tryInteract(this.player)) return;
     if (this.marketInn.tryInteract(this.player)) return;
+    if (this.marketAlley.tryInteract(this.player)) return;
     this.merchant.tryInteract(this.player);
   }
 
-  /** Merge shrine objective HUD with chest / spring / shrine / market / blacksmith / inn / merchant prompts. */
+  /** Merge shrine objective HUD with chest / spring / shrine / market / blacksmith / inn / alley / merchant prompts. */
   private syncInteractHud(): void {
     const shrineHud = this.shrine.getHudState(this.player);
     const chestPrompt = this.chests.getInteractPrompt(this.player);
@@ -557,6 +563,7 @@ export class Game {
     const marketPrompt = this.marketSign.getInteractPrompt(this.player);
     const smithPrompt = this.marketBlacksmith.getInteractPrompt(this.player);
     const innPrompt = this.marketInn.getInteractPrompt(this.player);
+    const alleyPrompt = this.marketAlley.getInteractPrompt(this.player);
     const merchantPrompt = this.merchant.getInteractPrompt(this.player);
     if (chestPrompt.visible) {
       this.hud.setShrineHud({
@@ -589,6 +596,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: innPrompt.text,
+      });
+    } else if (alleyPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: alleyPrompt.text,
       });
     } else if (merchantPrompt.visible) {
       this.hud.setShrineHud({

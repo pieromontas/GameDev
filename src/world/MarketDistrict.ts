@@ -43,6 +43,12 @@ export const MARKET_INN_SPOT = { x: 48.5, z: 40.8 } as const;
 /** Door / porch stand point in front of the inn (E interact) — outside cottage footprint. */
 export const MARKET_INN_DOOR = { x: 49.6, z: 45.3 } as const;
 
+/**
+ * Short west-rim side alley off the plaza (between curtain wall + crate stacks).
+ * Keep clear of KayKit shop pack radii (~4.4) and the gate→market diagonal.
+ */
+export const MARKET_ALLEY_SPOT = { x: 43.6, z: 52.4 } as const;
+
 /** Cheap short rest — reachable after one chest. */
 export const INN_REST_COST = 3;
 export const INN_REST_HEAL = 40;
@@ -209,5 +215,42 @@ export class MarketInn {
     if (this.cooldownRemain > 0) {
       this.cooldownRemain = Math.max(0, this.cooldownRemain - dt);
     }
+  }
+}
+
+const ALLEY_INTERACT_RADIUS = 3.2;
+const ALLEY_INTERACT_RADIUS_SQ = ALLEY_INTERACT_RADIUS * ALLEY_INTERACT_RADIUS;
+const ALLEY_PROMPT = 'Press E — Back Alley';
+const ALLEY_TOAST = 'Back alley  ·  quiet crates · town gossip';
+
+/**
+ * Flavor interact at the market side alley — toast only.
+ * Keep E-priority after the inn so porch / forge / sign still win on overlap.
+ */
+export class MarketAlley {
+  private readonly spot = new THREE.Vector3(MARKET_ALLEY_SPOT.x, 0, MARKET_ALLEY_SPOT.z);
+  private readonly onToast: (message: string, duration?: number) => void;
+
+  constructor(hooks: { onToast: (message: string, duration?: number) => void }) {
+    this.onToast = hooks.onToast;
+  }
+
+  isNear(pos: THREE.Vector3): boolean {
+    const dx = pos.x - this.spot.x;
+    const dz = pos.z - this.spot.z;
+    return dx * dx + dz * dz <= ALLEY_INTERACT_RADIUS_SQ;
+  }
+
+  getInteractPrompt(player: Player): MarketHudPrompt {
+    if (!player.alive || !this.isNear(player.position)) {
+      return { visible: false, text: '' };
+    }
+    return { visible: true, text: ALLEY_PROMPT };
+  }
+
+  tryInteract(player: Player): boolean {
+    if (!player.alive || !this.isNear(player.position)) return false;
+    this.onToast(ALLEY_TOAST, 2.0);
+    return true;
   }
 }
