@@ -22,6 +22,14 @@ npm run preview   # optional local preview of dist/
 
 Requires a modern Chromium-based browser (or current Firefox/Safari).
 
+## Deploy to Azure Static Web Apps
+
+1. Create a **Static Web App** in Azure and connect this GitHub repo (or rely on the workflow in `.github/workflows/azure-static-web-apps.yml`).
+2. In the Azure portal, open the SWA → **Manage deployment token**, then add a GitHub Actions secret named `AZURE_STATIC_WEB_APPS_API_TOKEN` with that value.
+3. Build output is Vite’s `dist/` (`app_location: "/"`, `output_location: "dist"`). Push to `main` (or open a PR) to deploy.
+
+`staticwebapp.config.json` (repo root and `public/`, copied into `dist`) sets SPA `navigationFallback` to `/index.html` and MIME types for `.glb` / `.gltf`.
+
 ## Controls
 
 | Input | Action |
