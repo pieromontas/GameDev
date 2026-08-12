@@ -51,6 +51,8 @@ export class Game {
   private playerRespawnTimer = -1;
   /** One-shot toast so the Shift dodge binding is obvious on first use. */
   private dodgeHintShown = false;
+  /** One-shot toast when the player first finds the NE city-gate road. */
+  private cityGateHintShown = false;
 
   constructor(canvas: HTMLCanvasElement, hudHost: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -416,6 +418,11 @@ export class Game {
     this.player.applyMovement(this.moveDir, dt);
     this.constrainEntity(this.player.position, this.player.radius);
     this.player.syncMesh();
+
+    if (!this.cityGateHintShown && this.meadow.isNearCityGate(this.player.position)) {
+      this.cityGateHintShown = true;
+      this.hud.showToast('City gate ahead — road to town (coming soon)', 2.2);
+    }
   }
 
   private constrainEntity(position: THREE.Vector3, radius: number): void {

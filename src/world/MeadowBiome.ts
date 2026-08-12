@@ -9,6 +9,7 @@ import {
   WestMistyGrove,
   NorthRuinsClearing,
   SouthRiverFordClearing,
+  NortheastCityGate,
   hash2,
 } from '../render/stylized';
 import type { WorldPropLibrary } from './WorldPropLibrary';
@@ -18,12 +19,12 @@ export type Obstacle = { x: number; z: number; radius: number };
 
 type PropPlacement = { x: number; z: number; scale: number };
 
-type SignFacing = 'east' | 'west' | 'north' | 'south';
+type SignFacing = 'east' | 'west' | 'north' | 'south' | 'northeast';
 
 /** Shared stylized meadow: living ground, tiered trees, rocks, landmarks. */
 export class MeadowBiome {
   readonly root = new THREE.Group();
-  /** Larger disk so east/west/north/south clearings sit on painted ground. */
+  /** Larger disk so east/west/north/south clearings + NE gate sit on painted ground. */
   readonly groundSize = 145;
   readonly playRadius = 44;
   /** Second playable pocket — ancient shrine clearing east of the main ring. */
@@ -42,6 +43,12 @@ export class MeadowBiome {
   readonly southClearing = SouthRiverFordClearing;
   /** Soft corridor half-width connecting main meadow → south river ford. */
   readonly southCorridorHalfWidth = 6.0;
+  /** Sixth playable stub — city gate plaza northeast of the main ring (future town). */
+  readonly northeastGate = NortheastCityGate;
+  /** Soft corridor half-width connecting main meadow → NE city gate. */
+  readonly northeastCorridorHalfWidth = 6.0;
+  /** World XZ of the city gate arch (for minimap / discovery cues). */
+  readonly cityGatePosition = new THREE.Vector3(NortheastCityGate.x, 0, NortheastCityGate.z);
   /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
 
@@ -124,6 +131,12 @@ export class MeadowBiome {
     side: THREE.DoubleSide,
     depthWrite: false,
   });
+  private readonly bannerMat = createToonMaterial(Palette.roofTile, {
+    emissive: Palette.roofTile,
+    emissiveIntensity: 0.12,
+    side: THREE.DoubleSide,
+  });
+  private readonly bannerTrimMat = createToonMaterial(Palette.warriorTrimGold);
 
   constructor() {
     this.root.name = 'MeadowBiome';
@@ -137,6 +150,7 @@ export class MeadowBiome {
     this.buildWestMistyGrove();
     this.buildNorthRuinsClearing();
     this.buildSouthRiverFordClearing();
+    this.buildNortheastCityGate();
     this.buildEdgeLedges();
   }
 
@@ -228,10 +242,21 @@ export class MeadowBiome {
     southPad.receiveShadow = true;
     this.root.add(southPad);
 
+    // Soft grass RING under the NE gate plaza — leave center open for the road pad.
+    const gatePad = new THREE.Mesh(
+      new THREE.RingGeometry(4.4, this.northeastGate.radius + 1.6, 36),
+      createToonMaterial(Palette.grassB),
+    );
+    gatePad.rotation.x = -Math.PI / 2;
+    gatePad.position.set(this.northeastGate.x, 0.025, this.northeastGate.z);
+    gatePad.receiveShadow = true;
+    this.root.add(gatePad);
+
     this.buildEastPathRibbon();
     this.buildWestPathRibbon();
     this.buildNorthPathRibbon();
     this.buildSouthPathRibbon();
+    this.buildNortheastPathRibbon();
   }
 
   /** Explicit dirt ribbon so the east branch reads clearly at iso distance. */
@@ -423,6 +448,66 @@ export class MeadowBiome {
     this.root.add(pad);
   }
 
+  /** Dirt/stone road ribbon so the NE city-gate spur reads clearly at iso distance. */
+  private buildNortheastPathRibbon(): void {
+    const pathMat = createToonMaterial(Palette.pathDark);
+    const edgeMat = createToonMaterial(Palette.rockLight);
+    const ax = 16;
+    const az = 16;
+    const bx = this.northeastGate.x;
+    const bz = this.northeastGate.z;
+    const segments = 14;
+    for (let i = 0; i < segments; i++) {
+      const t0 = i / segments;
+      const t1 = (i + 1) / segments;
+      const x0 = ax + (bx - ax) * t0;
+      const z0 = az + (bz - az) * t0;
+      const x1 = ax + (bx - ax) * t1;
+      const z1 = az + (bz - az) * t1;
+      const mx = (x0 + x1) * 0.5;
+      const mz = (z0 + z1) * 0.5;
+      const dx = x1 - x0;
+      const dz = z1 - z0;
+      const len = Math.hypot(dx, dz);
+      const ang = Math.atan2(dx, dz);
+      // Wider than nature trails — reads as a road toward town.
+      const width = 4.1 + Math.sin(t0 * Math.PI) * 0.55;
+
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(width, 0.045, len + 0.15), pathMat);
+      plank.position.set(mx, 0.048, mz);
+      plank.rotation.y = ang;
+      plank.receiveShadow = true;
+      this.root.add(plank);
+
+      const edge = new THREE.Mesh(
+        new THREE.BoxGeometry(width + 0.7, 0.025, len + 0.2),
+        edgeMat,
+      );
+      edge.position.set(mx, 0.032, mz);
+      edge.rotation.y = ang;
+      edge.receiveShadow = true;
+      this.root.add(edge);
+
+      // Occasional cobble accents so the road feels stone-lined, not pure dirt.
+      if (i % 3 === 1) {
+        const cobble = new THREE.Mesh(
+          new THREE.BoxGeometry(width * 0.55, 0.03, Math.min(len * 0.7, 1.1)),
+          createToonMaterial(Palette.rock),
+        );
+        cobble.position.set(mx, 0.055, mz);
+        cobble.rotation.y = ang + 0.04;
+        cobble.receiveShadow = true;
+        this.root.add(cobble);
+      }
+    }
+
+    const pad = new THREE.Mesh(new THREE.CircleGeometry(5.0, 28), pathMat);
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set(this.northeastGate.x, 0.04, this.northeastGate.z);
+    pad.receiveShadow = true;
+    this.root.add(pad);
+  }
+
   private buildGrassInstances(): void {
     const count = 580;
     const mesh = new THREE.InstancedMesh(this.grassBladeGeo, this.grassTuftMat, count);
@@ -435,23 +520,28 @@ export class MeadowBiome {
       guard += 1;
       let x: number;
       let z: number;
-      // Bias later placements into east/west/north/south clearings so pockets feel inhabited.
-      if (placed > 520) {
+      // Bias later placements into clearings / gate plaza so pockets feel inhabited.
+      if (placed > 540) {
+        const ang = hash2(placed * 1.7, guard * 0.3) * Math.PI * 2;
+        const rad = hash2(guard * 2.1, placed * 0.9) * (this.northeastGate.radius - 1.4);
+        x = this.northeastGate.x + Math.cos(ang) * rad;
+        z = this.northeastGate.z + Math.sin(ang) * rad;
+      } else if (placed > 480) {
         const ang = hash2(placed * 1.7, guard * 0.3) * Math.PI * 2;
         const rad = hash2(guard * 2.1, placed * 0.9) * (this.southClearing.radius - 1.2);
         x = this.southClearing.x + Math.cos(ang) * rad;
         z = this.southClearing.z + Math.sin(ang) * rad;
-      } else if (placed > 460) {
+      } else if (placed > 420) {
         const ang = hash2(placed * 1.7, guard * 0.3) * Math.PI * 2;
         const rad = hash2(guard * 2.1, placed * 0.9) * (this.northClearing.radius - 1.2);
         x = this.northClearing.x + Math.cos(ang) * rad;
         z = this.northClearing.z + Math.sin(ang) * rad;
-      } else if (placed > 400) {
+      } else if (placed > 360) {
         const ang = hash2(placed * 1.7, guard * 0.3) * Math.PI * 2;
         const rad = hash2(guard * 2.1, placed * 0.9) * (this.westClearing.radius - 1.2);
         x = this.westClearing.x + Math.cos(ang) * rad;
         z = this.westClearing.z + Math.sin(ang) * rad;
-      } else if (placed > 340) {
+      } else if (placed > 300) {
         const ang = hash2(placed * 1.7, guard * 0.3) * Math.PI * 2;
         const rad = hash2(guard * 2.1, placed * 0.9) * (this.eastClearing.radius - 1.2);
         x = this.eastClearing.x + Math.cos(ang) * rad;
@@ -486,11 +576,12 @@ export class MeadowBiome {
       const radius = 38.5 + (i % 4) * 1.35;
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
-      // Gap for dirt path branches into east shrine / west grove / north ruins / south ford.
+      // Gap for dirt path branches into clearings + NE city-gate road.
       if (this.isOnEastBranchApproach(x, z)) continue;
       if (this.isOnWestBranchApproach(x, z)) continue;
       if (this.isOnNorthBranchApproach(x, z)) continue;
       if (this.isOnSouthBranchApproach(x, z)) continue;
+      if (this.isOnNortheastBranchApproach(x, z)) continue;
       if (meadowPathInfluence(x, z) > 0.28) continue;
       this.addTree(x, z, 0.88 + (i % 5) * 0.07);
     }
@@ -515,7 +606,8 @@ export class MeadowBiome {
       // Outer-band fillers for the expanded meadow ring
       [28, -14, 1.05],
       [-30, 14, 0.98],
-      [20, 30, 1.1],
+      // Was (20, 30) — nudged off the NE city-gate road
+      [16, 34, 1.1],
       [-22, -28, 1.02],
     ];
     for (const [x, z, s] of treeSpots) {
@@ -523,6 +615,7 @@ export class MeadowBiome {
       if (this.isOnWestBranchApproach(x, z)) continue;
       if (this.isOnNorthBranchApproach(x, z)) continue;
       if (this.isOnSouthBranchApproach(x, z)) continue;
+      if (this.isOnNortheastBranchApproach(x, z)) continue;
       this.addTree(x, z, s);
     }
 
@@ -559,7 +652,8 @@ export class MeadowBiome {
       // Outer-band rocks in the expanded play ring
       [32, 8, 1.05],
       [-28, -18, 0.9],
-      [12, 34, 0.85],
+      // Was (12, 34) — kept north of NE corridor
+      [8, 36, 0.85],
       [-14, -32, 1.0],
     ];
     for (const [x, z, s] of rockSpots) {
@@ -567,6 +661,7 @@ export class MeadowBiome {
       if (this.isOnWestBranchApproach(x, z)) continue;
       if (this.isOnNorthBranchApproach(x, z)) continue;
       if (this.isOnSouthBranchApproach(x, z)) continue;
+      if (this.isOnNortheastBranchApproach(x, z)) continue;
       this.addRock(x, z, s);
     }
 
@@ -623,14 +718,16 @@ export class MeadowBiome {
     this.addSignpost(5.2, 21, 'north');
     // Branch marker — points players toward the south river ford
     this.addSignpost(-5.2, -21, 'south');
+    // Branch marker — points players toward the NE city gate / future town
+    this.addSignpost(18.5, 17.2, 'northeast');
     // Quiet pond off the path
     this.addPond(-11.5, -11.5);
     // Ruin pillar cluster for a read-able landmark
     this.addRuinPillar(15.5, -6.5);
     // Tiny cottage + windmill silhouette on the rim (out of play collision mostly)
     this.addCottage(-29, 21);
-    // Windmill kept north of the east path so the branch stays readable
-    this.addWindmill(31, 23);
+    // Windmill kept north of the east path and south of the NE city-gate road
+    this.addWindmill(34, 16);
     // Small outer-ring landmarks so the expanded meadow doesn’t read as empty grass
     this.addStandingStones(26, -24);
     this.addWaysideCairn(-24, 28);
@@ -982,6 +1079,276 @@ export class MeadowBiome {
     ledge.add(cliff);
     this.root.add(ledge);
     this.obstacles.push({ x: ledgeX, z: ledgeZ, radius: 1.45 });
+  }
+
+  /**
+   * Northeast road spur end: intact city gate arch + tiny empty plaza stub for a
+   * future town fill. No shops, interiors, or building clusters yet.
+   */
+  private buildNortheastCityGate(): void {
+    const { x: cx, z: cz, radius } = this.northeastGate;
+
+    this.addCityGateArch(cx, cz);
+    this.addRoadsideDressing();
+
+    // Sparse rim trees — leave the SW entrance open for the road, NE open for town stub.
+    const rimTrees = 7;
+    for (let i = 0; i < rimTrees; i++) {
+      const a = (i / rimTrees) * Math.PI * 2 + 0.35;
+      // Skip SW approach (road) and far NE (future town plaza hook)
+      if (Math.cos(a) + Math.sin(a) < -0.55) continue;
+      if (Math.cos(a) + Math.sin(a) > 1.15) continue;
+      const r = radius + 0.4 + (i % 3) * 0.45;
+      this.addTree(cx + Math.cos(a) * r, cz + Math.sin(a) * r, 0.88 + (i % 3) * 0.07);
+    }
+
+    // A couple of roadside rocks clear of the paved pad
+    const rocks: Array<[number, number, number]> = [
+      [cx + 5.6, cz - 1.8, 0.85],
+      [cx - 2.2, cz + 5.8, 0.75],
+    ];
+    for (const [x, z, s] of rocks) {
+      if (meadowPathInfluence(x, z) > 0.5) continue;
+      this.addRock(x, z, s);
+    }
+  }
+
+  /**
+   * Intact stylized city gate — knight-scale archway (taller/wider than the
+   * north ruins crumbled gate). Faces southwest toward the meadow road.
+   * Tiny stone plaza behind the arch is an intentional empty stub for town fill.
+   */
+  private addCityGateArch(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    // Road arrives from SW (−X, −Z); yaw so the arch faces the approach.
+    group.rotation.y = (-Math.PI * 3) / 4;
+    group.name = 'CityGateArch';
+
+    // Arrival / under-gate paving
+    const approach = new THREE.Mesh(
+      new THREE.BoxGeometry(5.2, 0.08, 7.5),
+      createToonMaterial(Palette.pathDark),
+    );
+    approach.position.set(0, 0.05, -0.4);
+    approach.receiveShadow = true;
+    group.add(approach);
+
+    // Tiny empty plaza stub BEHIND the gate (+local Z) — hook for future town
+    const plaza = new THREE.Mesh(
+      new THREE.CylinderGeometry(4.0, 4.2, 0.16, 12),
+      this.rockMat,
+    );
+    plaza.position.set(0, 0.06, 3.6);
+    plaza.receiveShadow = true;
+    group.add(plaza);
+    const plazaTop = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.4, 3.5, 0.1, 12),
+      this.rockLightMat,
+    );
+    plazaTop.position.set(0, 0.16, 3.6);
+    plazaTop.receiveShadow = true;
+    group.add(plazaTop);
+
+    // Twin towers / pillars — ~6.4 tall for Adventurers-scale readability
+    const pillarH = 6.4;
+    const pillarY = pillarH * 0.5;
+    const leftPillar = new THREE.Mesh(
+      new THREE.BoxGeometry(1.35, pillarH, 1.35),
+      this.rockLightMat,
+    );
+    leftPillar.position.set(-2.55, pillarY, 0);
+    leftPillar.castShadow = true;
+    leftPillar.receiveShadow = true;
+    group.add(leftPillar);
+
+    const rightPillar = new THREE.Mesh(
+      new THREE.BoxGeometry(1.35, pillarH, 1.35),
+      this.rockLightMat,
+    );
+    rightPillar.position.set(2.55, pillarY, 0);
+    rightPillar.castShadow = true;
+    rightPillar.receiveShadow = true;
+    group.add(rightPillar);
+
+    // Pillar caps
+    for (const px of [-2.55, 2.55]) {
+      const cap = new THREE.Mesh(
+        new THREE.BoxGeometry(1.7, 0.35, 1.7),
+        this.cliffMat,
+      );
+      cap.position.set(px, pillarH + 0.12, 0);
+      cap.castShadow = true;
+      group.add(cap);
+      const finial = new THREE.Mesh(
+        new THREE.ConeGeometry(0.28, 0.55, 5),
+        this.bannerTrimMat,
+      );
+      finial.position.set(px, pillarH + 0.55, 0);
+      finial.castShadow = true;
+      group.add(finial);
+    }
+
+    // Main lintel / arch beam
+    const lintel = new THREE.Mesh(
+      new THREE.BoxGeometry(6.6, 1.1, 1.5),
+      this.rockMat,
+    );
+    lintel.position.set(0, 5.55, 0);
+    lintel.castShadow = true;
+    lintel.receiveShadow = true;
+    group.add(lintel);
+
+    // Keystone accent
+    const keystone = new THREE.Mesh(
+      new THREE.BoxGeometry(0.7, 0.85, 1.65),
+      this.cliffMat,
+    );
+    keystone.position.set(0, 5.35, 0.05);
+    keystone.castShadow = true;
+    group.add(keystone);
+
+    // Soft arch wedges under the lintel (readable opening ~3.6 wide × ~4.8 tall)
+    for (const side of [-1, 1]) {
+      const wedge = new THREE.Mesh(
+        new THREE.BoxGeometry(0.85, 1.4, 1.2),
+        this.rockShadowMat,
+      );
+      wedge.position.set(side * 1.55, 4.55, 0);
+      wedge.rotation.z = side * 0.35;
+      wedge.castShadow = true;
+      group.add(wedge);
+    }
+
+    // Open wooden gate leaves (ajar) — walkable through the center
+    for (const side of [-1, 1]) {
+      const leaf = new THREE.Mesh(
+        new THREE.BoxGeometry(1.35, 3.6, 0.14),
+        this.woodDarkMat,
+      );
+      leaf.position.set(side * 1.55, 1.9, side * 0.55);
+      leaf.rotation.y = side * 0.55;
+      leaf.castShadow = true;
+      group.add(leaf);
+      const brace = new THREE.Mesh(
+        new THREE.BoxGeometry(1.1, 0.12, 0.16),
+        this.woodMat,
+      );
+      brace.position.set(side * 1.55, 2.6, side * 0.55);
+      brace.rotation.y = side * 0.55;
+      group.add(brace);
+    }
+
+    // Banner poles on outer faces
+    for (const side of [-1, 1]) {
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.08, 3.2, 5),
+        this.woodDarkMat,
+      );
+      pole.position.set(side * 3.45, 4.2, 0.15);
+      pole.castShadow = true;
+      group.add(pole);
+      const banner = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.85, 1.6),
+        this.bannerMat,
+      );
+      banner.position.set(side * 3.45, 3.5, 0.55);
+      banner.castShadow = true;
+      group.add(banner);
+      const stripe = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.55, 0.14),
+        this.bannerTrimMat,
+      );
+      stripe.position.set(side * 3.45, 3.85, 0.56);
+      group.add(stripe);
+    }
+
+    // Low flanking walls — light dressing, not a district
+    for (const side of [-1, 1]) {
+      const wall = new THREE.Mesh(
+        new THREE.BoxGeometry(2.8, 1.35, 0.55),
+        this.rockMat,
+      );
+      wall.position.set(side * 4.6, 0.68, 0.8);
+      wall.castShadow = true;
+      wall.receiveShadow = true;
+      group.add(wall);
+      const coping = new THREE.Mesh(
+        new THREE.BoxGeometry(2.9, 0.22, 0.65),
+        this.cliffMat,
+      );
+      coping.position.set(side * 4.6, 1.45, 0.8);
+      group.add(coping);
+    }
+
+    this.root.add(group);
+
+    // Soft collision on pillars + side walls — center arch stays walkable
+    const yaw = (-Math.PI * 3) / 4;
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+    const toWorld = (lx: number, lz: number): { x: number; z: number } => ({
+      x: x + lx * cos + lz * sin,
+      z: z - lx * sin + lz * cos,
+    });
+    const left = toWorld(-2.55, 0);
+    const right = toWorld(2.55, 0);
+    const wallL = toWorld(-4.6, 0.8);
+    const wallR = toWorld(4.6, 0.8);
+    this.obstacles.push({ x: left.x, z: left.z, radius: 0.85 });
+    this.obstacles.push({ x: right.x, z: right.z, radius: 0.85 });
+    this.obstacles.push({ x: wallL.x, z: wallL.z, radius: 0.7 });
+    this.obstacles.push({ x: wallR.x, z: wallR.z, radius: 0.7 });
+  }
+
+  /** A few roadside posts + banners along the NE spur — optional light dressing. */
+  private addRoadsideDressing(): void {
+    const posts: Array<[number, number, number]> = [
+      [22.5, 19.8, 0.15],
+      [27.2, 24.6, -0.12],
+      [32.4, 30.1, 0.2],
+      [36.0, 35.2, -0.08],
+    ];
+    for (let i = 0; i < posts.length; i++) {
+      const [px, pz, tilt] = posts[i]!;
+      // Offset slightly off the road centerline (perpendicular to NE)
+      const side = i % 2 === 0 ? 1 : -1;
+      const x = px + side * 2.7;
+      const z = pz - side * 2.7;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+
+      const post = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.11, 2.4, 5),
+        this.woodDarkMat,
+      );
+      post.position.y = 1.2;
+      post.rotation.z = tilt;
+      post.castShadow = true;
+      group.add(post);
+
+      if (i % 2 === 0) {
+        const banner = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.7, 1.15),
+          this.bannerMat,
+        );
+        banner.position.set(0.35, 1.55, 0.05);
+        banner.rotation.y = -Math.PI / 4;
+        group.add(banner);
+      } else {
+        // Low stone curb chunk
+        const curb = new THREE.Mesh(
+          new THREE.BoxGeometry(0.9, 0.45, 0.4),
+          this.rockMat,
+        );
+        curb.position.set(0.55, 0.22, 0.1);
+        curb.castShadow = true;
+        group.add(curb);
+      }
+
+      this.root.add(group);
+      this.obstacles.push({ x, z, radius: 0.35 });
+    }
   }
 
   /**
@@ -1697,12 +2064,14 @@ export class MeadowBiome {
       // Outer rim ledges — kept off corridor approaches
       [32, -26, 1.2, 0.9],
       [-34, -20, 1.4, 1],
-      [28, 30, 1.1, 0.85],
+      // Was (28, 30) — moved off the NE city-gate road
+      [22, 36, 1.1, 0.85],
       [-32, 32, 1.3, 0.95],
       [34, 2, 1.5, 1.1],
       [-34, 16, 1.35, 1],
     ];
     for (const [x, z, s, h] of ledges) {
+      if (this.isOnNortheastBranchApproach(x, z)) continue;
       const group = new THREE.Group();
       group.position.set(x, 0, z);
 
@@ -1847,10 +2216,11 @@ export class MeadowBiome {
   private addSignpost(x: number, z: number, facing: SignFacing = 'east'): void {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
-    // Boards are built along +X; yaw the whole post for west/north/south branches.
+    // Boards are built along +X; yaw the whole post for cardinal / NE branches.
     if (facing === 'west') group.rotation.y = Math.PI;
     else if (facing === 'north') group.rotation.y = -Math.PI / 2;
     else if (facing === 'south') group.rotation.y = Math.PI / 2;
+    else if (facing === 'northeast') group.rotation.y = -Math.PI / 4;
 
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.6, 6), this.woodDarkMat);
     post.position.y = 0.8;
@@ -2145,15 +2515,17 @@ export class MeadowBiome {
       if (this.isOnWestBranchApproach(x, z)) continue;
       if (this.isOnNorthBranchApproach(x, z)) continue;
       if (this.isOnSouthBranchApproach(x, z)) continue;
-      // Keep shrine / ford centers open.
+      if (this.isOnNortheastBranchApproach(x, z)) continue;
+      // Keep shrine / ford / gate centers open.
       if (Math.hypot(x - EastShrineClearing.x, z - EastShrineClearing.z) < 8) continue;
       if (Math.hypot(x - SouthRiverFordClearing.x, z - SouthRiverFordClearing.z) < 8) continue;
+      if (Math.hypot(x - NortheastCityGate.x, z - NortheastCityGate.z) < 7) continue;
       const bush = library.createBush(x, z, s, hash2(x, z) * 500 + i);
       if (bush) this.root.add(bush);
     }
   }
 
-  /** True if inside main meadow, east/west/north/south corridors, or any clearing. */
+  /** True if inside main meadow, any corridor, clearing, or the NE gate plaza. */
   isInPlayArea(x: number, z: number): boolean {
     if (x * x + z * z <= this.playRadius * this.playRadius) return true;
     const cdx = x - this.eastClearing.x;
@@ -2176,18 +2548,33 @@ export class MeadowBiome {
     if (sdx * sdx + sdz * sdz <= this.southClearing.radius * this.southClearing.radius) {
       return true;
     }
+    const gdx = x - this.northeastGate.x;
+    const gdz = z - this.northeastGate.z;
+    if (gdx * gdx + gdz * gdz <= this.northeastGate.radius * this.northeastGate.radius) {
+      return true;
+    }
     if (this.distToEastCorridor(x, z) <= this.eastCorridorHalfWidth) return true;
     if (this.distToWestCorridor(x, z) <= this.westCorridorHalfWidth) return true;
     if (this.distToNorthCorridor(x, z) <= this.northCorridorHalfWidth) return true;
-    return this.distToSouthCorridor(x, z) <= this.southCorridorHalfWidth;
+    if (this.distToSouthCorridor(x, z) <= this.southCorridorHalfWidth) return true;
+    return this.distToNortheastCorridor(x, z) <= this.northeastCorridorHalfWidth;
   }
 
-  /** Keep entities inside main meadow ∪ east/west/north/south corridors ∪ clearings. */
+  /** Keep entities inside meadow ∪ corridors ∪ clearings ∪ NE gate plaza. */
   clampToPlayArea(position: THREE.Vector3): void {
     if (this.isInPlayArea(position.x, position.z)) return;
     const nearest = this.nearestPlayPoint(position.x, position.z);
     position.x = nearest.x;
     position.z = nearest.z;
+  }
+
+  /** True when the player is on the NE road / under the gate (discovery toast). */
+  isNearCityGate(position: THREE.Vector3): boolean {
+    const dx = position.x - this.northeastGate.x;
+    const dz = position.z - this.northeastGate.z;
+    if (dx * dx + dz * dz <= 8 * 8) return true;
+    return this.distToNortheastCorridor(position.x, position.z) <= 4.5
+      && Math.hypot(position.x, position.z) > 28;
   }
 
   /** Corridor + path samples used to keep props from blocking the branch. */
@@ -2226,6 +2613,17 @@ export class MeadowBiome {
     return meadowPathInfluence(x, z) > 0.35 && z < -15;
   }
 
+  /** Keep props off the northeast dirt/stone road into the city gate. */
+  private isOnNortheastBranchApproach(x: number, z: number): boolean {
+    if (x < 10 || z < 10) return false;
+    // Wide cone along +X/+Z so the tree ring does not choke the NE exit.
+    if (x > 22 && z > 22 && Math.abs(x - z) < 12) return true;
+    if (this.distToNortheastCorridor(x, z) < this.northeastCorridorHalfWidth + 1.6) {
+      return true;
+    }
+    return meadowPathInfluence(x, z) > 0.35 && x > 14 && z > 14;
+  }
+
   /** Distance from point to the east corridor segment (main rim → clearing). */
   private distToEastCorridor(x: number, z: number): number {
     // Capsule from just inside the main ring toward the clearing center.
@@ -2260,6 +2658,16 @@ export class MeadowBiome {
     const az = -29;
     const bx = this.southClearing.x;
     const bz = this.southClearing.z + 3;
+    return this.distToSegment(x, z, ax, az, bx, bz);
+  }
+
+  /** Distance from point to the NE corridor segment (main rim → city gate). */
+  private distToNortheastCorridor(x: number, z: number): number {
+    const ax = 30;
+    const az = 30;
+    // Stop short of the gate center so the plaza circle owns the end.
+    const bx = this.northeastGate.x - 2.2;
+    const bz = this.northeastGate.z - 2.2;
     return this.distToSegment(x, z, ax, az, bx, bz);
   }
 
@@ -2347,6 +2755,17 @@ export class MeadowBiome {
       );
     }
 
+    // NE city-gate plaza rim
+    {
+      const dx = x - this.northeastGate.x;
+      const dz = z - this.northeastGate.z;
+      const d = Math.hypot(dx, dz) || 1;
+      consider(
+        this.northeastGate.x + (dx / d) * this.northeastGate.radius,
+        this.northeastGate.z + (dz / d) * this.northeastGate.radius,
+      );
+    }
+
     // East corridor capsule surface
     this.considerCorridorSurface(
       x,
@@ -2392,6 +2811,18 @@ export class MeadowBiome {
       this.southClearing.x,
       this.southClearing.z + 3,
       this.southCorridorHalfWidth,
+      consider,
+    );
+
+    // NE city-gate corridor capsule surface
+    this.considerCorridorSurface(
+      x,
+      z,
+      30,
+      30,
+      this.northeastGate.x - 2.2,
+      this.northeastGate.z - 2.2,
+      this.northeastCorridorHalfWidth,
       consider,
     );
 

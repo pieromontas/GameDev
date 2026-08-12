@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine**, **west misty grove**, **north ruins**, and **south river ford** clearings, blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine**, **west misty grove**, **north ruins**, **south river ford** clearings, and a **northeast city-gate** road spur (future town stub), blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -44,7 +44,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **4** | Skill 4 (Leap Strike / Meteor / Shadow Leap) — unlocks at **Level 3** |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / cottage merchant**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the four pocket landmarks, chests, the healing spring, the cottage shop, and nearby enemies.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / cottage merchant**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate** road, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, chests, the healing spring, the cottage shop, and nearby enemies.
 
 ## Treasure chests
 
@@ -67,6 +67,10 @@ A simple spend-gold shop at the **NW cottage** (rim landmark near the well). Wal
 - **E-priority** — chest → spring → shrine → merchant (merchant never blocks closer interactables)
 
 Works for Warrior, Mage, and Rogue. Prices are reachable after opening a couple of chests.
+
+## Northeast city gate
+
+Follow the **dirt/stone road northeast** from the main meadow to a readable **city gate** archway (first slice of a future town — not a full district). Landmark: an intact **stone gate** with banners and low flanking walls, plus a tiny empty plaza stub behind the arch for later town fill. Light roadside posts only — no new enemies, shops, or interiors. Play-area clamp includes the NE corridor + gate plaza — walk the full road and stand under the gate. Minimap marks **Gate**; a signpost and discovery toast cue that the road leads toward town (coming soon).
 
 ## South river ford
 

@@ -256,7 +256,17 @@ export const SouthRiverFordClearing = {
   radius: 14,
 } as const;
 
-/** Smooth 0–1 influence of dirt paths (main S-curve + east/west/north/south branches). */
+/**
+ * Northeast city-gate plaza stub — road spur landmark for a future town fill.
+ * Smaller than the cardinal nature clearings; sits on a distinct diagonal bearing.
+ */
+export const NortheastCityGate = {
+  x: 40,
+  z: 40,
+  radius: 9,
+} as const;
+
+/** Smooth 0–1 influence of dirt paths (main S-curve + E/W/N/S + NE city-gate branches). */
 export function meadowPathInfluence(x: number, z: number): number {
   return Math.max(
     mainMeadowPathInfluence(x, z),
@@ -264,6 +274,7 @@ export function meadowPathInfluence(x: number, z: number): number {
     westBranchPathInfluence(x, z),
     northBranchPathInfluence(x, z),
     southBranchPathInfluence(x, z),
+    northeastBranchPathInfluence(x, z),
   );
 }
 
@@ -416,6 +427,42 @@ function southBranchPathInfluence(x: number, z: number): number {
   let pad = 0;
   if (cr < 5.0) {
     pad = cr < 2.6 ? 0.95 : 0.95 * (1 - (cr - 2.6) / 2.4);
+  }
+
+  return Math.max(branch, pad);
+}
+
+/**
+ * Dirt/stone road spur from the main meadow northeast to the city gate plaza.
+ * Includes a soft arrival pad so the road reads as ending at the gate.
+ */
+function northeastBranchPathInfluence(x: number, z: number): number {
+  // Branch leaves the main path near (+12, +12) and runs to the gate plaza.
+  const ax = 12;
+  const az = 12;
+  const bx = NortheastCityGate.x;
+  const bz = NortheastCityGate.z;
+  const abx = bx - ax;
+  const abz = bz - az;
+  const abLen2 = abx * abx + abz * abz;
+  const t = abLen2 > 1e-8 ? THREE.MathUtils.clamp(((x - ax) * abx + (z - az) * abz) / abLen2, 0, 1) : 0;
+  const px = ax + abx * t;
+  const pz = az + abz * t;
+  const dist = Math.hypot(x - px, z - pz);
+  // Slightly wider than nature branches — reads as a road, not a trail.
+  const halfW = 2.7 + Math.sin(t * Math.PI) * 0.4;
+  let branch = 0;
+  const d = dist / halfW;
+  if (d < 1.35) {
+    branch = d <= 0.75 ? 1 : 1 - (d - 0.75) / 0.6;
+  }
+
+  const cdx = x - NortheastCityGate.x;
+  const cdz = z - NortheastCityGate.z;
+  const cr = Math.hypot(cdx, cdz);
+  let pad = 0;
+  if (cr < 5.2) {
+    pad = cr < 2.8 ? 0.95 : 0.95 * (1 - (cr - 2.8) / 2.4);
   }
 
   return Math.max(branch, pad);
