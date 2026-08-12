@@ -118,7 +118,7 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 
 ## What’s in the slice
 
-- Living meadow: expanded play ring (~30% more reach), vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** + **north ruins** + **south river ford** clearings, plus small outer-ring standing stones / wayside cairn
+- Living meadow: expanded play ring (~30% more reach), vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, **KayKit Forest** trees / rocks / bushes + **KayKit Medieval** cottage / windmill / well (toon-remapped GLTF; procedural fallback), pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** + **north ruins** + **south river ford** clearings, plus small outer-ring standing stones / wayside cairn
 - **North ruins**: dirt path north → crumbled gate + broken columns + rubble courtyard; blobs/spitters/**Armored Brute**; play clamp extended
 - **West misty grove**: dirt path west → fallen giant tree + fairy ring + mist; blobs/spitters/**Armored Brute**; play clamp extended
 - **East shrine mini-objective**: interact (E) → defend 3 waves → temporary damage/speed blessing + loot; crystal activates with cooldown; static **Armored Brute** also patrols the clearing
@@ -131,6 +131,18 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 - **XP / leveling**: kills grant XP (blob 8 / spitter 14 / **brute 28**); HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent); **Level 3 unlocks skill 4**
 - **Dodge roll** (Shift): shared by Warrior / Mage / Rogue — short burst in move/facing direction, brief i-frames, ~1.55s cooldown + HUD pip
 - HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3/4) with locked Lv 3 state, dodge cooldown pip, loot/kill counts, **north-up minimap** (player arrow + pocket/chest markers + enemy dots), shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
+
+## World props (KayKit Forest + Medieval Hexagon)
+
+| | Nature | Village |
+| --- | --- | --- |
+| **Pack** | [KayKit – Forest Nature Pack](https://kaylousberg.itch.io/kaykit-forest) | [KayKit – Medieval Hexagon Pack](https://kaylousberg.itch.io/kaykit-medieval-hexagon) |
+| **Author** | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)) | same |
+| **License** | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | same |
+| **Files** | `public/models/kaykit-forest/` — curated `Tree_*` / `Rock_*` / `Bush_*` GLTF + `forest_texture.png` (+ `LICENSE.txt`, `ATTRIBUTION.md`) | `public/models/kaykit-medieval/` — `building_home_A_green`, `building_windmill_green`, `building_well_green` + `hexagons_medieval.png` (+ license/attribution) |
+| **Integration** | `WorldPropLibrary.ts` → `MeadowBiome.applyPropPack()` (trees / rocks / bushes) | same (`createCottage` / `createWindmill` / `createWell`) |
+
+Only the assets actually placed in the meadow are vendored (not the full packs). Materials are remapped to `MeshToonMaterial` (shared KayKit atlas + cel `gradientMap`) so they stay readable under the slice’s stylized lighting. Soft XZ obstacle radii are unchanged — shrine / chest interacts, paths, and play clamp are preserved. If prop GLTFs fail to load, procedural trees / rocks / cottage / windmill remain.
 
 ## Character art (KayKit Adventurers)
 
@@ -171,11 +183,13 @@ If a GLB fails to load, the game still boots (contact shadow / other classes) an
 ## Project structure
 
 ```
-public/models/kaykit-knight/  KayKit Knight.glb + license/attribution
-public/models/kaykit-mage/    KayKit Mage.glb + license/attribution
-public/models/kaykit-rogue/   KayKit Rogue.glb + license/attribution
+public/models/kaykit-knight/   KayKit Knight.glb + license/attribution
+public/models/kaykit-mage/     KayKit Mage.glb + license/attribution
+public/models/kaykit-rogue/    KayKit Rogue.glb + license/attribution
+public/models/kaykit-forest/   KayKit Forest Nature trees/rocks/bushes (curated) + license
+public/models/kaykit-medieval/ KayKit Medieval cottage/windmill/well (curated) + license
 src/
-  main.ts                 Entry — boots Game (awaits hero loads)
+  main.ts                 Entry — boots Game (awaits prop + hero loads)
   style.css               HUD + loading overlay styles
   anim/ease.ts            Shared easing (mobs / VFX)
   game/
@@ -184,6 +198,7 @@ src/
   input/InputManager.ts   Keyboard + pointer
   camera/FollowCamera.ts  Angled follow cam + optional yaw
   world/MeadowBiome.ts    Ground + props, play-area clamp
+  world/WorldPropLibrary.ts  KayKit prop GLTF loader + toon remap
   entities/               Player, PlayerVisual, Mob, Spitter, ArmoredBrute, SpitProjectile, Loot, Entity
   combat/                 Skills, CombatSystem, damage numbers
   render/stylized.ts      Toon materials, sky, palette, ground helpers
@@ -191,13 +206,13 @@ src/
   utils/math.ts           Small helpers
 ```
 
-Stack: **Vite + TypeScript + three r170+**, ESM, modest draw-call reuse (shared geometries/materials + instanced grass).
+Stack: **Vite + TypeScript + three r170+**, ESM, modest draw-call reuse (shared geometries/materials + instanced grass + cloned KayKit prop templates).
 
 ## Design notes
 
 - Camera stays locked behind/above the player (isometric-ish), never first-person
 - Semi-fixed timestep (`1/60`) keeps combat timing stable under frame hitches
-- Meadow / mobs stay procedural; hero visuals are free CC0 KayKit GLTF packs
+- Heroes + prominent meadow props use free CC0 KayKit GLTF packs; pocket landmarks / mobs stay procedural where packs don’t clearly win
 - Architecture is split so new classes, skills, or biomes can grow without a giant `main.ts`
 - Intentionally single-player — polish the core loop before inventing multiplayer
 
@@ -205,4 +220,7 @@ Stack: **Vite + TypeScript + three r170+**, ESM, modest draw-call reuse (shared 
 
 Prototype / learning project. SpiritVale is a trademark of its respective owners; this is an independent fan-inspired tech demo, not affiliated with the original game.
 
-Third-party character art: KayKit Adventurers Knight + Mage + Rogue by Kay Lousberg, CC0 — see `public/models/kaykit-knight/`, `public/models/kaykit-mage/`, and `public/models/kaykit-rogue/`.
+Third-party art (all Kay Lousberg / KayKit, CC0):
+- Adventurers Knight + Mage + Rogue — `public/models/kaykit-knight/`, `kaykit-mage/`, `kaykit-rogue/`
+- Forest Nature (selected trees / rocks / bushes) — `public/models/kaykit-forest/`
+- Medieval Hexagon (selected cottage / windmill / well) — `public/models/kaykit-medieval/`

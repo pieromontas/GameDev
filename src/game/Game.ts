@@ -3,6 +3,7 @@ import { GameLoop } from './loop';
 import { InputManager } from '../input/InputManager';
 import { FollowCamera } from '../camera/FollowCamera';
 import { MeadowBiome } from '../world/MeadowBiome';
+import { WorldPropLibrary } from '../world/WorldPropLibrary';
 import { ShrineObjective } from '../world/ShrineObjective';
 import { TreasureChests } from '../world/TreasureChests';
 import { Player } from '../entities/Player';
@@ -159,12 +160,16 @@ export class Game {
   }
 
   /**
-   * Load KayKit Warrior + Mage + Rogue GLTFs, then start the sim.
-   * On failure: logs clearly and still starts (soft shadow only / other classes).
+   * Load KayKit world props + Warrior/Mage/Rogue GLTFs, then start the sim.
+   * On failure: logs clearly and still starts (procedural meadow / soft shadow / other classes).
    */
   async start(): Promise<void> {
-    this.hud.setLoading(true, 'Loading Warrior, Mage & Rogue…');
-    const result = await this.player.loadVisuals();
+    this.hud.setLoading(true, 'Loading meadow props & heroes…');
+    const [propLibrary, result] = await Promise.all([
+      WorldPropLibrary.load(),
+      this.player.loadVisuals(),
+    ]);
+    const propsOk = this.meadow.applyPropPack(propLibrary);
     this.hud.setLoading(false);
     const failed = [
       !result.warrior ? 'Warrior' : null,
@@ -175,6 +180,11 @@ export class Game {
       this.hud.showToast('Hero models failed to load — check console', 3.5);
     } else if (failed.length > 0) {
       this.hud.showToast(`${failed.join(' + ')} model failed — others still playable (C)`, 3.2);
+    } else if (propsOk) {
+      this.hud.showToast(
+        'Welcome — KayKit meadow · 3 classes · chests · four pocket paths',
+        2.8,
+      );
     } else {
       this.hud.showToast(
         'Welcome — 3 classes · chests · east shrine · west grove · north ruins · south ford',
