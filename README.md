@@ -43,7 +43,7 @@ Follow the dirt path **west** from the main meadow to a second reachable clearin
 
 ## Armored Brute
 
-A third enemy type — large iron/bronze armored silhouette (procedural toon mesh), clearly distinct from purple meadow blobs and acid-green Spitters.
+A third enemy type — large rust/bronze armored silhouette (procedural toon mesh), clearly distinct from purple meadow blobs and acid-green Spitters.
 
 - **Behavior** — slow chase, high HP tank; telegraphed **ground slam** (crouch wind-up + growing AoE ring → shockwave)
 - **Spawn** — **1** in the east shrine clearing and **1** in the west misty grove (none in the starter meadow)
@@ -97,7 +97,7 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 - KayKit Knight / Mage / **Rogue** (GLTF) with Idle / Walk / Run + skill clips via three.js `AnimationMixer`
 - Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, frost slow, death squash
 - **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine + west grove
-- **Armored Brute** enemies (iron/bronze tank) with slow chase, high HP, telegraphed ground-slam AoE — east shrine + west grove only
+- **Armored Brute** enemies (rust/bronze tank) with slow chase, high HP, telegraphed ground-slam AoE — east shrine + west grove only
 - Combat feedback: slash arcs, bolts, ground seals, Quake/Nova/Fan rings, Shield Bash pulse, Arcane Ward / Smoke Bomb bubbles, Leap / Shadow Leap trail/landing, Meteor telegraph + sky drop, Brute slam shockwaves, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs/spitters drop coins; **brutes drop 3**; pickups increment an inventory counter
 - **XP / leveling**: kills grant XP (blob 8 / spitter 14 / **brute 28**); HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent); **Level 3 unlocks skill 4**

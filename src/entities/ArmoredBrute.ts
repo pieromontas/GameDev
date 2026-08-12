@@ -5,12 +5,12 @@ import { dist2, randomPointInRing } from '../utils/math';
 import { createToonMaterial } from '../render/stylized';
 import { clamp01, easeOutCubic, smoothstep } from '../anim/ease';
 
-/** Iron / bronze armored tank — clearly not a blob or spitter. */
-export const BRUTE_ARMOR = 0x6e7682;
-export const BRUTE_ARMOR_DARK = 0x3a424c;
-export const BRUTE_BRONZE = 0xc08a3a;
-export const BRUTE_SKIN = 0xb07058;
-export const BRUTE_VISOR = 0xff6a2a;
+/** Rust / bronze armored tank — clearly not a blob, spitter, or shrine stone. */
+export const BRUTE_ARMOR = 0x8a5a38;
+export const BRUTE_ARMOR_DARK = 0x4a3220;
+export const BRUTE_BRONZE = 0xe0a040;
+export const BRUTE_SKIN = 0xc08060;
+export const BRUTE_VISOR = 0xff5520;
 
 const torsoGeo = new THREE.BoxGeometry(1.15, 1.05, 0.85);
 const headGeo = new THREE.BoxGeometry(0.62, 0.55, 0.58);
@@ -32,6 +32,9 @@ const sharedBronzeMat = createToonMaterial(BRUTE_BRONZE, {
 });
 const sharedSkinMat = createToonMaterial(BRUTE_SKIN);
 
+/** Overall silhouette scale vs. procedural parts (kept out of pose squash). */
+const BRUTE_VISUAL_SCALE = 1.2;
+
 /**
  * Armored Brute — slow high-HP melee tank with a telegraphed ground slam.
  * Public surface mirrors {@link Mob} / {@link Spitter} for Game / Combat interchangeability.
@@ -46,8 +49,8 @@ export class ArmoredBrute extends Entity {
   readonly slamRadius = 3.4;
   readonly attackDamage = 16;
   readonly attackCooldown = 2.55;
-  /** Soft body radius used for mob-vs-mob separation. */
-  readonly sepRadius = 1.15;
+    // Soft body radius used for mob-vs-mob separation.
+  readonly sepRadius = 1.25;
   /** Wind-up hold when entering attack (crouch telegraph). */
   readonly windupSeconds = 0.68;
 
@@ -87,7 +90,7 @@ export class ArmoredBrute extends Entity {
     const group = new THREE.Group();
     const visual = new THREE.Group();
     // Tall armored stance — reads bigger than blobs (0.62) and spitters (0.95).
-    visual.position.y = 1.15;
+    visual.position.y = 1.35;
     group.add(visual);
 
     const bodyMat = createToonMaterial(color);
@@ -202,13 +205,13 @@ export class ArmoredBrute extends Entity {
     group.add(telegraph);
 
     const shadowMat = createToonMaterial(0x1a2818, { transparent: true, opacity: 0.34 });
-    const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.95, 18), shadowMat);
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.15, 18), shadowMat);
     shadow.rotation.x = -Math.PI / 2;
     shadow.position.y = 0.02;
     group.add(shadow);
 
     // High HP tank — more durable than blobs (40) / spitters (34).
-    super(group, 'enemy', 110, 0.95, spawn);
+    super(group, 'enemy', 110, 1.05, spawn);
     this.home = spawn.clone();
     this.bodyMat = bodyMat;
     this.baseColor = color;
@@ -430,8 +433,8 @@ export class ArmoredBrute extends Entity {
     this.hideTelegraph();
     this.mesh.visible = true;
     this.mesh.scale.set(1, 1, 1);
-    this.visual.scale.set(1, 1, 1);
-    this.visual.position.set(0, 1.15, 0);
+    this.visual.scale.set(BRUTE_VISUAL_SCALE, BRUTE_VISUAL_SCALE, BRUTE_VISUAL_SCALE);
+    this.visual.position.set(0, 1.35, 0);
     this.visual.rotation.z = 0;
     this.bodyMat.transparent = false;
     this.bodyMat.opacity = 1;
@@ -470,8 +473,12 @@ export class ArmoredBrute extends Entity {
       hop = 0.015;
       squashY = 0.9 + wobble * 0.03;
       squashX = 1.1 - wobble * 0.04;
-      this.visual.scale.set(squashX, squashY, squashX);
-      this.visual.position.set(wobble * 0.05, 1.15 * squashY + hop, 0);
+      this.visual.scale.set(
+        squashX * BRUTE_VISUAL_SCALE,
+        squashY * BRUTE_VISUAL_SCALE,
+        squashX * BRUTE_VISUAL_SCALE,
+      );
+      this.visual.position.set(wobble * 0.05, 1.35 * squashY + hop, 0);
       this.leftArm.rotation.x = 0.35;
       this.rightArm.rotation.x = 0.35;
       this.shadow.scale.setScalar(Math.max(0.55, 1.05 * squashX));
@@ -542,8 +549,12 @@ export class ArmoredBrute extends Entity {
       hop *= 0.25;
     }
 
-    this.visual.scale.set(squashX, squashY, squashX);
-    this.visual.position.set(0, 1.15 * squashY + hop, 0);
+    this.visual.scale.set(
+      squashX * BRUTE_VISUAL_SCALE,
+      squashY * BRUTE_VISUAL_SCALE,
+      squashX * BRUTE_VISUAL_SCALE,
+    );
+    this.visual.position.set(0, 1.35 * squashY + hop, 0);
     this.torso.rotation.x = this.windup ? 0.18 : 0;
 
     const shadowScale = Math.max(0.55, 1.15 * squashX - hop * 0.4);
@@ -555,13 +566,21 @@ export class ArmoredBrute extends Entity {
     const u = clamp01(t);
     if (u < 0.4) {
       const k = smoothstep(u / 0.4);
-      this.visual.scale.set(1 + k * 0.35, 1 - k * 0.55, 1 + k * 0.35);
-      this.visual.position.y = 1.15 * (1 - k * 0.55);
+      this.visual.scale.set(
+        (1 + k * 0.35) * BRUTE_VISUAL_SCALE,
+        (1 - k * 0.55) * BRUTE_VISUAL_SCALE,
+        (1 + k * 0.35) * BRUTE_VISUAL_SCALE,
+      );
+      this.visual.position.y = 1.35 * (1 - k * 0.55);
       this.visual.rotation.z = k * 0.35;
     } else {
       const k = easeOutCubic((u - 0.4) / 0.6);
       const s = Math.max(0.01, 1.25 * (1 - k));
-      this.visual.scale.set(s * 1.15, s * 0.35, s * 1.15);
+      this.visual.scale.set(
+        s * 1.15 * BRUTE_VISUAL_SCALE,
+        s * 0.35 * BRUTE_VISUAL_SCALE,
+        s * 1.15 * BRUTE_VISUAL_SCALE,
+      );
       this.visual.position.y = 0.18 * (1 - k);
       this.visual.rotation.z = 0.35 + k * 0.4;
       this.bodyMat.transparent = true;
@@ -579,8 +598,8 @@ export class ArmoredBrute extends Entity {
  */
 export function createStarterBrutes(): ArmoredBrute[] {
   const spots = [
-    // East shrine clearing — south of the crystal pocket
-    new THREE.Vector3(43, 0, 4),
+    // East shrine clearing — south-east of the crystal, clear of the tower
+    new THREE.Vector3(46, 0, 8),
     // West misty grove — near the fallen tree approach
     new THREE.Vector3(-41, 0, 0),
   ];
