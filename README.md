@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** Warrior + Mage starter classes (switchable), one meadow biome, blob + **Spitter** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage starter classes (switchable), one meadow biome with **east shrine** and **west misty grove** clearings, blob + **Spitter** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -34,7 +34,11 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **3** | Skill 3 (Shield Bash / Arcane Ward) |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. A controls hint also lists **C — switch Warrior / Mage** and **E — awaken east shrine**.
+HUD skill names and the class line update when you switch. A controls hint also lists **C — switch Warrior / Mage**, **E — awaken east shrine**, and the west misty grove path.
+
+## West misty grove
+
+Follow the dirt path **west** from the main meadow to a second reachable clearing. Landmark: a **fallen giant tree**, **fairy-ring mushrooms**, and soft mist volumes (distinct from the east shrine tower). **2 blobs + 2 spitters** patrol the grove. Play-area clamp includes the west corridor + clearing — fully walkable. No new objective this cycle; explore and fight.
 
 ## East shrine objective
 
@@ -67,11 +71,12 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 
 ## What’s in the slice
 
-- Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, east shrine clearing
+- Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** clearings
+- **West misty grove**: dirt path west → fallen giant tree + fairy ring + mist; blobs/spitters; play clamp extended
 - **East shrine mini-objective**: interact (E) → defend 3 waves → temporary damage/speed blessing + loot; crystal activates with cooldown
 - KayKit Knight warrior + KayKit Mage (GLTF) with Idle / Walk / Run + skill clips via three.js `AnimationMixer`
 - Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, frost slow, death squash
-- **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine
+- **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine + west grove
 - Combat feedback: slash arcs, bolts, ground seals, Quake/Nova rings, Shield Bash pulse, Arcane Ward bubble, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs/spitters drop coins; pickups increment an inventory counter
 - **XP / leveling**: kills grant XP; HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent)

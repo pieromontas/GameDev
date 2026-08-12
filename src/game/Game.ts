@@ -58,8 +58,8 @@ export class Game {
 
     // Fallback clear color under the sky dome; fog tints distance into meadow air.
     this.scene.background = new THREE.Color(Palette.skyHorizon);
-    // Far plane nudged out so the east shrine clearing stays readable
-    this.scene.fog = new THREE.Fog(Palette.fog, 24, 78);
+    // Far plane nudged out so east shrine + west grove clearings stay readable
+    this.scene.fog = new THREE.Fog(Palette.fog, 24, 82);
     this.sky = createSkyDome(110);
     this.scene.add(this.sky);
 
@@ -140,7 +140,7 @@ export class Game {
     } else if (!result.mage) {
       this.hud.showToast('Mage model failed — Warrior still playable', 3.2);
     } else {
-      this.hud.showToast('Welcome — press C to switch · E at the east shrine', 2.8);
+      this.hud.showToast('Welcome — east shrine · west misty grove · C to switch', 2.8);
     }
     this.loop.start();
   }

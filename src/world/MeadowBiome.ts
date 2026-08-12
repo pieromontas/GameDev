@@ -6,6 +6,7 @@ import {
   displaceGroundHeight,
   meadowPathInfluence,
   EastShrineClearing,
+  WestMistyGrove,
   hash2,
 } from '../render/stylized';
 
@@ -14,13 +15,17 @@ export type Obstacle = { x: number; z: number; radius: number };
 /** Shared stylized meadow: living ground, tiered trees, rocks, landmarks. */
 export class MeadowBiome {
   readonly root = new THREE.Group();
-  /** Larger disk so the east shrine clearing sits on painted ground. */
+  /** Larger disk so east shrine + west grove clearings sit on painted ground. */
   readonly groundSize = 110;
   readonly playRadius = 34;
   /** Second playable pocket — ancient shrine clearing east of the main ring. */
   readonly eastClearing = EastShrineClearing;
   /** Soft corridor half-width connecting main meadow → east clearing. */
   readonly eastCorridorHalfWidth = 5.6;
+  /** Third playable pocket — misty grove clearing west of the main ring. */
+  readonly westClearing = WestMistyGrove;
+  /** Soft corridor half-width connecting main meadow → west grove. */
+  readonly westCorridorHalfWidth = 5.6;
   /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
 
@@ -83,6 +88,18 @@ export class MeadowBiome {
     createToonMaterial(Palette.flowerCyan),
     createToonMaterial(Palette.flowerPurple),
   ];
+  private readonly mushroomCapMat = createToonMaterial(0xd4e8f0, {
+    emissive: 0x7ec8e8,
+    emissiveIntensity: 0.22,
+  });
+  private readonly mushroomStemMat = createToonMaterial(0xf0ebe0);
+  private readonly mistMat = createToonMaterial(0xb8d4e8, {
+    transparent: true,
+    opacity: 0.22,
+    emissive: 0x8ec4e0,
+    emissiveIntensity: 0.15,
+    side: THREE.DoubleSide,
+  });
 
   constructor() {
     this.root.name = 'MeadowBiome';
@@ -93,6 +110,7 @@ export class MeadowBiome {
     this.scatterProps();
     this.buildLandmarks();
     this.buildEastShrineClearing();
+    this.buildWestMistyGrove();
     this.buildEdgeLedges();
   }
 
@@ -154,7 +172,18 @@ export class MeadowBiome {
     clearingPad.receiveShadow = true;
     this.root.add(clearingPad);
 
+    // Soft grass RING under the west misty grove (same idea, cooler tint).
+    const westPad = new THREE.Mesh(
+      new THREE.RingGeometry(5.2, this.westClearing.radius + 1.8, 40),
+      createToonMaterial(0x4a9a58),
+    );
+    westPad.rotation.x = -Math.PI / 2;
+    westPad.position.set(this.westClearing.x, 0.025, this.westClearing.z);
+    westPad.receiveShadow = true;
+    this.root.add(westPad);
+
     this.buildEastPathRibbon();
+    this.buildWestPathRibbon();
   }
 
   /** Explicit dirt ribbon so the east branch reads clearly at iso distance. */
@@ -205,6 +234,53 @@ export class MeadowBiome {
     this.root.add(pad);
   }
 
+  /** Explicit dirt ribbon so the west branch reads clearly at iso distance. */
+  private buildWestPathRibbon(): void {
+    const pathMat = createToonMaterial(Palette.path);
+    const edgeMat = createToonMaterial(Palette.pathEdge);
+    const ax = -12;
+    const az = 1.2;
+    const bx = this.westClearing.x;
+    const bz = this.westClearing.z;
+    const segments = 10;
+    for (let i = 0; i < segments; i++) {
+      const t0 = i / segments;
+      const t1 = (i + 1) / segments;
+      const x0 = ax + (bx - ax) * t0;
+      const z0 = az + (bz - az) * t0;
+      const x1 = ax + (bx - ax) * t1;
+      const z1 = az + (bz - az) * t1;
+      const mx = (x0 + x1) * 0.5;
+      const mz = (z0 + z1) * 0.5;
+      const dx = x1 - x0;
+      const dz = z1 - z0;
+      const len = Math.hypot(dx, dz);
+      const ang = Math.atan2(dx, dz);
+      const width = 3.6 + Math.sin(t0 * Math.PI) * 0.5;
+
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(width, 0.04, len + 0.15), pathMat);
+      plank.position.set(mx, 0.045, mz);
+      plank.rotation.y = ang;
+      plank.receiveShadow = true;
+      this.root.add(plank);
+
+      const edge = new THREE.Mesh(
+        new THREE.BoxGeometry(width + 0.55, 0.02, len + 0.2),
+        edgeMat,
+      );
+      edge.position.set(mx, 0.03, mz);
+      edge.rotation.y = ang;
+      edge.receiveShadow = true;
+      this.root.add(edge);
+    }
+
+    const pad = new THREE.Mesh(new THREE.CircleGeometry(4.6, 28), pathMat);
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set(this.westClearing.x, 0.04, this.westClearing.z);
+    pad.receiveShadow = true;
+    this.root.add(pad);
+  }
+
   private buildGrassInstances(): void {
     const count = 520;
     const mesh = new THREE.InstancedMesh(this.grassBladeGeo, this.grassTuftMat, count);
@@ -217,8 +293,13 @@ export class MeadowBiome {
       guard += 1;
       let x: number;
       let z: number;
-      // Bias later placements into the east clearing so it feels inhabited.
-      if (placed > 380) {
+      // Bias later placements into east/west clearings so both pockets feel inhabited.
+      if (placed > 420) {
+        const ang = hash2(placed * 1.7, guard * 0.3) * Math.PI * 2;
+        const rad = hash2(guard * 2.1, placed * 0.9) * (this.westClearing.radius - 1.2);
+        x = this.westClearing.x + Math.cos(ang) * rad;
+        z = this.westClearing.z + Math.sin(ang) * rad;
+      } else if (placed > 340) {
         const ang = hash2(placed * 1.7, guard * 0.3) * Math.PI * 2;
         const rad = hash2(guard * 2.1, placed * 0.9) * (this.eastClearing.radius - 1.2);
         x = this.eastClearing.x + Math.cos(ang) * rad;
@@ -253,8 +334,9 @@ export class MeadowBiome {
       const radius = 29.5 + (i % 4) * 1.35;
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
-      // Gap for the dirt path branch into the east shrine clearing.
+      // Gap for dirt path branches into east shrine / west misty grove.
       if (this.isOnEastBranchApproach(x, z)) continue;
+      if (this.isOnWestBranchApproach(x, z)) continue;
       if (meadowPathInfluence(x, z) > 0.28) continue;
       this.addTree(x, z, 0.88 + (i % 5) * 0.07);
     }
@@ -269,13 +351,15 @@ export class MeadowBiome {
       [-3, 16, 1],
       // Was (14, 6) — moved north so the east path branch stays open
       [14, 12, 1.05],
-      [-16, -2, 1.2],
+      // Was (−16, −2) — nudged south so the west path branch stays open
+      [-16, -8, 1.2],
       [3, -12, 1.05],
       [-18, 10, 0.92],
       [16, -12, 1.08],
     ];
     for (const [x, z, s] of treeSpots) {
       if (this.isOnEastBranchApproach(x, z)) continue;
+      if (this.isOnWestBranchApproach(x, z)) continue;
       this.addTree(x, z, s);
     }
 
@@ -285,7 +369,8 @@ export class MeadowBiome {
       [9.1, 5.8, 0.75],
       [-9.4, -7.2, 1],
       [1.6, 11.3, 0.85],
-      [-13.2, 1.1, 1.15],
+      // Was (−13.2, 1.1) — nudged off the west branch corridor
+      [-13.2, 6.1, 1.15],
       [11.8, -9.4, 0.8],
       [-2.8, -10.6, 0.95],
       [7.4, 14.2, 0.7],
@@ -301,10 +386,12 @@ export class MeadowBiome {
       [-6.2, -13.4, 0.95],
       // Was (18, 8) — corridor rocks cleared for the path branch
       [18, 14, 1.2],
-      [-17, -10, 1.05],
+      // Was (−17, −10) — kept south of west corridor
+      [-17, -12, 1.05],
     ];
     for (const [x, z, s] of rockSpots) {
       if (this.isOnEastBranchApproach(x, z)) continue;
+      if (this.isOnWestBranchApproach(x, z)) continue;
       this.addRock(x, z, s);
     }
 
@@ -355,6 +442,8 @@ export class MeadowBiome {
     this.addSignpost(2.8, 8.4);
     // Branch marker — points players toward the east shrine clearing
     this.addSignpost(16.5, 6.8);
+    // Branch marker — points players toward the west misty grove
+    this.addSignpost(-16.5, 3.2, true);
     // Quiet pond off the path
     this.addPond(-11.5, -11.5);
     // Ruin pillar cluster for a read-able landmark
@@ -430,6 +519,254 @@ export class MeadowBiome {
     ledge.add(cliff);
     this.root.add(ledge);
     this.obstacles.push({ x: ledgeX, z: ledgeZ, radius: 1.45 });
+  }
+
+  /**
+   * West playable clearing: dirt-path arrival, fallen giant tree + fairy ring,
+   * mist volumes, rim trees — distinct from the east shrine landmark.
+   */
+  private buildWestMistyGrove(): void {
+    const { x: cx, z: cz, radius } = this.westClearing;
+
+    this.addFallenGiantTree(cx, cz);
+    this.addFairyRing(cx - 1.2, cz + 0.8, 3.4, 9);
+    this.addGroveMist(cx, cz);
+
+    // Rim trees — leave the eastern entrance open for the path branch
+    const rimTrees = 10;
+    for (let i = 0; i < rimTrees; i++) {
+      const a = (i / rimTrees) * Math.PI * 2;
+      // Skip east-facing arcs (path enters from +X)
+      if (Math.cos(a) > 0.35) continue;
+      const r = radius + 0.6 + (i % 3) * 0.55;
+      this.addTree(cx + Math.cos(a) * r, cz + Math.sin(a) * r, 0.9 + (i % 4) * 0.08);
+    }
+
+    const clearingRocks: Array<[number, number, number]> = [
+      [cx - 5.2, cz + 3.4, 0.95],
+      [cx + 3.8, cz - 5.1, 0.8],
+      [cx - 3.6, cz - 4.8, 1.05],
+      [cx - 6.4, cz - 1.2, 0.7],
+      [cx + 1.5, cz + 6.2, 0.9],
+    ];
+    for (const [x, z, s] of clearingRocks) {
+      if (meadowPathInfluence(x, z) > 0.55) continue;
+      this.addRock(x, z, s);
+    }
+
+    const flowerPatches: Array<[number, number, number]> = [
+      [cx - 4, cz + 5, 5],
+      [cx + 5, cz - 2, 4],
+      [cx - 2, cz - 6, 5],
+      [cx - 6, cz + 1, 4],
+      [cx + 4, cz + 4, 5],
+    ];
+    for (const [fx, fz, n] of flowerPatches) {
+      for (let i = 0; i < n; i++) {
+        const ox = (hash2(fx + i, fz) - 0.5) * 1.5;
+        const oz = (hash2(fz + i, fx) - 0.5) * 1.5;
+        this.addFlower(fx + ox, fz + oz);
+      }
+    }
+
+    // Extra glowing mushrooms near the fallen crown
+    this.addMushroom(cx + 3.2, cz - 2.4, 1.15);
+    this.addMushroom(cx + 4.1, cz - 1.6, 0.85);
+    this.addMushroom(cx + 2.6, cz - 3.1, 0.7);
+
+    // Low mossy ledge on the far rim
+    const ledgeX = cx - 9.5;
+    const ledgeZ = cz - 3.5;
+    const ledge = new THREE.Group();
+    ledge.position.set(ledgeX, 0, ledgeZ);
+    const top = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.6, 1.9, 0.3, 7),
+      this.mossMat,
+    );
+    top.position.y = 0.5;
+    top.castShadow = true;
+    top.receiveShadow = true;
+    ledge.add(top);
+    const cliff = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.5, 1.8, 1.0, 7),
+      this.cliffMat,
+    );
+    cliff.position.y = 0.05;
+    cliff.castShadow = true;
+    ledge.add(cliff);
+    this.root.add(ledge);
+    this.obstacles.push({ x: ledgeX, z: ledgeZ, radius: 1.45 });
+  }
+
+  /**
+   * Fallen giant tree — primary west-grove silhouette (horizontal trunk +
+   * root flare + broken canopy pile). Reads at iso distance vs the east tower.
+   */
+  private addFallenGiantTree(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'FallenGiantTree';
+
+    // Root plate (upended) near the path-facing side
+    const rootBall = new THREE.Mesh(
+      new THREE.SphereGeometry(1.35, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55),
+      this.trunkDarkMat,
+    );
+    rootBall.position.set(4.2, 0.55, 0.4);
+    rootBall.rotation.z = -0.35;
+    rootBall.castShadow = true;
+    group.add(rootBall);
+
+    for (let i = 0; i < 5; i++) {
+      const a = -0.4 + (i / 4) * 1.4;
+      const root = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.22, 1.6 + (i % 2) * 0.35, 5),
+        this.trunkMat,
+      );
+      root.position.set(
+        4.2 + Math.cos(a) * 0.9,
+        0.35,
+        0.4 + Math.sin(a) * 1.1,
+      );
+      root.rotation.z = Math.PI * 0.5 + (hash2(i, x) - 0.5) * 0.4;
+      root.rotation.y = a;
+      root.castShadow = true;
+      group.add(root);
+    }
+
+    // Main fallen trunk spanning the clearing
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.72, 0.95, 9.2, 8),
+      this.trunkMat,
+    );
+    trunk.rotation.z = Math.PI * 0.5;
+    trunk.rotation.y = 0.18;
+    trunk.position.set(0.2, 0.78, -0.3);
+    trunk.castShadow = true;
+    trunk.receiveShadow = true;
+    group.add(trunk);
+
+    // Bark rings / breaks along the trunk
+    for (let i = 0; i < 3; i++) {
+      const band = new THREE.Mesh(
+        new THREE.TorusGeometry(0.78 + i * 0.06, 0.08, 5, 10),
+        this.trunkDarkMat,
+      );
+      band.rotation.y = Math.PI * 0.5;
+      band.position.set(-2.4 + i * 2.2, 0.82, -0.25 - i * 0.08);
+      group.add(band);
+    }
+
+    // Moss blankets on the top face
+    const mossA = new THREE.Mesh(this.rockSmallGeo, this.mossMat);
+    mossA.position.set(-1.2, 1.35, -0.5);
+    mossA.scale.set(1.4, 0.35, 0.9);
+    group.add(mossA);
+    const mossB = new THREE.Mesh(this.rockSmallGeo, this.mossMat);
+    mossB.position.set(1.8, 1.28, -0.15);
+    mossB.scale.set(1.1, 0.28, 0.75);
+    group.add(mossB);
+
+    // Broken canopy pile at the far (west) end
+    const crown = new THREE.Group();
+    crown.position.set(-4.6, 0, -1.1);
+    const canopyLow = new THREE.Mesh(this.canopyLowGeo, this.leafDark);
+    canopyLow.position.set(0.2, 0.9, 0.3);
+    canopyLow.rotation.z = 0.9;
+    canopyLow.rotation.x = 0.35;
+    canopyLow.scale.setScalar(1.35);
+    canopyLow.castShadow = true;
+    crown.add(canopyLow);
+    const canopyMid = new THREE.Mesh(this.canopyMidGeo, this.leafMatC);
+    canopyMid.position.set(-0.6, 1.1, -0.4);
+    canopyMid.rotation.z = 1.1;
+    canopyMid.scale.setScalar(1.2);
+    canopyMid.castShadow = true;
+    crown.add(canopyMid);
+    const canopyTop = new THREE.Mesh(this.canopyTopGeo, this.leafMat);
+    canopyTop.position.set(0.5, 0.55, -0.7);
+    canopyTop.rotation.x = 1.2;
+    canopyTop.scale.setScalar(1.1);
+    crown.add(canopyTop);
+    const branchStub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.18, 2.2, 5),
+      this.trunkDarkMat,
+    );
+    branchStub.position.set(0.8, 0.9, 0.2);
+    branchStub.rotation.z = 0.7;
+    branchStub.rotation.y = -0.4;
+    branchStub.castShadow = true;
+    crown.add(branchStub);
+    group.add(crown);
+
+    this.root.add(group);
+    // Soft collision along the trunk length (segment samples)
+    this.obstacles.push({ x: x + 3.5, z: z + 0.2, radius: 1.15 });
+    this.obstacles.push({ x: x + 0.5, z: z - 0.25, radius: 0.95 });
+    this.obstacles.push({ x: x - 2.8, z: z - 0.7, radius: 1.05 });
+    this.obstacles.push({ x: x - 4.6, z: z - 1.1, radius: 1.25 });
+  }
+
+  /** Circle of glowing mushrooms — fairy-ring landmark for the misty grove. */
+  private addFairyRing(cx: number, cz: number, radius: number, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + 0.15;
+      const r = radius + (hash2(i, cx) - 0.5) * 0.35;
+      const scale = 0.75 + hash2(cz, i) * 0.55;
+      this.addMushroom(cx + Math.cos(a) * r, cz + Math.sin(a) * r, scale);
+    }
+  }
+
+  private addMushroom(x: number, z: number, scale: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.scale.setScalar(scale);
+
+    const stem = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.12, 0.45, 6),
+      this.mushroomStemMat,
+    );
+    stem.position.y = 0.22;
+    stem.castShadow = true;
+    group.add(stem);
+
+    const cap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55),
+      this.mushroomCapMat,
+    );
+    cap.position.y = 0.48;
+    cap.castShadow = true;
+    group.add(cap);
+
+    const spot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06, 5, 5),
+      createToonMaterial(Palette.flowerWhite, {
+        emissive: 0xa8e8ff,
+        emissiveIntensity: 0.35,
+      }),
+    );
+    spot.position.set(0.08, 0.58, 0.06);
+    group.add(spot);
+
+    this.root.add(group);
+  }
+
+  /** Soft translucent mist blobs so the grove reads “foggy” from the meadow. */
+  private addGroveMist(cx: number, cz: number): void {
+    const spots: Array<[number, number, number, number]> = [
+      [cx - 2, cz + 3, 2.8, 1.4],
+      [cx + 3, cz - 2, 3.2, 1.6],
+      [cx - 5, cz - 3, 2.4, 1.2],
+      [cx + 1, cz + 5, 2.6, 1.3],
+      [cx - 1, cz - 5, 2.2, 1.1],
+    ];
+    for (const [x, z, sx, sy] of spots) {
+      const mist = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), this.mistMat);
+      mist.position.set(x, sy * 0.55, z);
+      mist.scale.set(sx, sy, sx * 0.85);
+      mist.renderOrder = 2;
+      this.root.add(mist);
+    }
   }
 
   /**
@@ -629,7 +966,8 @@ export class MeadowBiome {
       [18, 20, 1.1, 0.85],
       [-19, 22, 1.3, 0.95],
       [26, 0, 1.5, 1.1],
-      [-26, 4, 1.35, 1],
+      // Was (−26, 4) — nudged north so the west path corridor stays open
+      [-26, 12, 1.35, 1],
     ];
     for (const [x, z, s, h] of ledges) {
       const group = new THREE.Group();
@@ -769,7 +1107,7 @@ export class MeadowBiome {
     this.root.add(group);
   }
 
-  private addSignpost(x: number, z: number): void {
+  private addSignpost(x: number, z: number, faceWest = false): void {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
 
@@ -778,21 +1116,22 @@ export class MeadowBiome {
     post.castShadow = true;
     group.add(post);
 
+    const dir = faceWest ? -1 : 1;
     const board = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.42, 0.08), this.signBoardMat);
-    board.position.set(0.35, 1.35, 0);
-    board.rotation.z = -0.08;
+    board.position.set(0.35 * dir, 1.35, 0);
+    board.rotation.z = -0.08 * dir;
     board.castShadow = true;
     group.add(board);
 
     const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.09), this.woodMat);
-    stripe.position.set(0.35, 1.35, 0.02);
-    stripe.rotation.z = -0.08;
+    stripe.position.set(0.35 * dir, 1.35, 0.02);
+    stripe.rotation.z = -0.08 * dir;
     group.add(stripe);
 
     // Arrow tip
     const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.28, 3), this.signBoardMat);
-    arrow.rotation.z = -Math.PI / 2;
-    arrow.position.set(0.95, 1.32, 0);
+    arrow.rotation.z = faceWest ? Math.PI / 2 : -Math.PI / 2;
+    arrow.position.set(0.95 * dir, 1.32, 0);
     group.add(arrow);
 
     this.root.add(group);
@@ -933,7 +1272,7 @@ export class MeadowBiome {
     this.obstacles.push({ x, z, radius: 1.1 });
   }
 
-  /** True if inside main meadow, east corridor, or shrine clearing. */
+  /** True if inside main meadow, east/west corridors, or either clearing. */
   isInPlayArea(x: number, z: number): boolean {
     if (x * x + z * z <= this.playRadius * this.playRadius) return true;
     const cdx = x - this.eastClearing.x;
@@ -941,10 +1280,16 @@ export class MeadowBiome {
     if (cdx * cdx + cdz * cdz <= this.eastClearing.radius * this.eastClearing.radius) {
       return true;
     }
-    return this.distToEastCorridor(x, z) <= this.eastCorridorHalfWidth;
+    const wdx = x - this.westClearing.x;
+    const wdz = z - this.westClearing.z;
+    if (wdx * wdx + wdz * wdz <= this.westClearing.radius * this.westClearing.radius) {
+      return true;
+    }
+    if (this.distToEastCorridor(x, z) <= this.eastCorridorHalfWidth) return true;
+    return this.distToWestCorridor(x, z) <= this.westCorridorHalfWidth;
   }
 
-  /** Keep entities inside the main meadow ∪ east path corridor ∪ shrine clearing. */
+  /** Keep entities inside main meadow ∪ east/west corridors ∪ clearings. */
   clampToPlayArea(position: THREE.Vector3): void {
     if (this.isInPlayArea(position.x, position.z)) return;
     const nearest = this.nearestPlayPoint(position.x, position.z);
@@ -961,6 +1306,15 @@ export class MeadowBiome {
     return meadowPathInfluence(x, z) > 0.35 && x > 10;
   }
 
+  /** Keep props off the west dirt branch into the misty grove. */
+  private isOnWestBranchApproach(x: number, z: number): boolean {
+    if (x > -8) return false;
+    // Wide cone along −X so the tree ring does not choke the west exit.
+    if (x < -18 && Math.abs(z - -1) < 9.5) return true;
+    if (this.distToWestCorridor(x, z) < this.westCorridorHalfWidth + 1.6) return true;
+    return meadowPathInfluence(x, z) > 0.35 && x < -10;
+  }
+
   /** Distance from point to the east corridor segment (main rim → clearing). */
   private distToEastCorridor(x: number, z: number): number {
     // Capsule from just inside the main ring toward the clearing center.
@@ -968,6 +1322,26 @@ export class MeadowBiome {
     const az = 4.4;
     const bx = this.eastClearing.x - 2.5;
     const bz = this.eastClearing.z;
+    return this.distToSegment(x, z, ax, az, bx, bz);
+  }
+
+  /** Distance from point to the west corridor segment (main rim → grove). */
+  private distToWestCorridor(x: number, z: number): number {
+    const ax = -22;
+    const az = 0.2;
+    const bx = this.westClearing.x + 2.5;
+    const bz = this.westClearing.z;
+    return this.distToSegment(x, z, ax, az, bx, bz);
+  }
+
+  private distToSegment(
+    x: number,
+    z: number,
+    ax: number,
+    az: number,
+    bx: number,
+    bz: number,
+  ): number {
     const abx = bx - ax;
     const abz = bz - az;
     const abLen2 = abx * abx + abz * abz;
@@ -1011,35 +1385,71 @@ export class MeadowBiome {
       );
     }
 
-    // Corridor capsule surface
+    // West clearing rim
     {
-      const ax = 22;
-      const az = 4.4;
-      const bx = this.eastClearing.x - 2.5;
-      const bz = this.eastClearing.z;
-      const abx = bx - ax;
-      const abz = bz - az;
-      const abLen2 = abx * abx + abz * abz;
-      const t =
-        abLen2 > 1e-8
-          ? Math.max(0, Math.min(1, ((x - ax) * abx + (z - az) * abz) / abLen2))
-          : 0;
-      const cx = ax + abx * t;
-      const cz = az + abz * t;
-      const dx = x - cx;
-      const dz = z - cz;
-      const d = Math.hypot(dx, dz);
-      if (d < 1e-8) {
-        consider(cx, cz + this.eastCorridorHalfWidth);
-      } else {
-        consider(
-          cx + (dx / d) * this.eastCorridorHalfWidth,
-          cz + (dz / d) * this.eastCorridorHalfWidth,
-        );
-      }
+      const dx = x - this.westClearing.x;
+      const dz = z - this.westClearing.z;
+      const d = Math.hypot(dx, dz) || 1;
+      consider(
+        this.westClearing.x + (dx / d) * this.westClearing.radius,
+        this.westClearing.z + (dz / d) * this.westClearing.radius,
+      );
     }
 
+    // East corridor capsule surface
+    this.considerCorridorSurface(
+      x,
+      z,
+      22,
+      4.4,
+      this.eastClearing.x - 2.5,
+      this.eastClearing.z,
+      this.eastCorridorHalfWidth,
+      consider,
+    );
+
+    // West corridor capsule surface
+    this.considerCorridorSurface(
+      x,
+      z,
+      -22,
+      0.2,
+      this.westClearing.x + 2.5,
+      this.westClearing.z,
+      this.westCorridorHalfWidth,
+      consider,
+    );
+
     return { x: bestX, z: bestZ };
+  }
+
+  private considerCorridorSurface(
+    x: number,
+    z: number,
+    ax: number,
+    az: number,
+    bx: number,
+    bz: number,
+    halfWidth: number,
+    consider: (px: number, pz: number) => void,
+  ): void {
+    const abx = bx - ax;
+    const abz = bz - az;
+    const abLen2 = abx * abx + abz * abz;
+    const t =
+      abLen2 > 1e-8
+        ? Math.max(0, Math.min(1, ((x - ax) * abx + (z - az) * abz) / abLen2))
+        : 0;
+    const cx = ax + abx * t;
+    const cz = az + abz * t;
+    const dx = x - cx;
+    const dz = z - cz;
+    const d = Math.hypot(dx, dz);
+    if (d < 1e-8) {
+      consider(cx, cz + halfWidth);
+    } else {
+      consider(cx + (dx / d) * halfWidth, cz + (dz / d) * halfWidth);
+    }
   }
 
   /** Soft-push an entity out of solid props. */

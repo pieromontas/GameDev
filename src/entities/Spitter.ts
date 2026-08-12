@@ -610,6 +610,9 @@ export function createStarterSpitters(): Spitter[] {
     // East shrine clearing
     new THREE.Vector3(40, 0, 6),
     new THREE.Vector3(38, 0, -2),
+    // West misty grove clearing
+    new THREE.Vector3(-38, 0, 4),
+    new THREE.Vector3(-42, 0, -4),
   ];
   return spots.map((p) => new Spitter(p));
 }

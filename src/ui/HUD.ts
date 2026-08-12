@@ -60,6 +60,7 @@ export class HUD {
         2 / 3 — skills 2 &amp; 3<br/>
         <kbd>C</kbd> — switch Warrior / Mage<br/>
         <kbd>E</kbd> — awaken east shrine<br/>
+        Follow the dirt path west to the misty grove<br/>
         RMB drag — rotate camera
       </div>
       <div class="interact-prompt" id="interact-prompt" hidden></div>
