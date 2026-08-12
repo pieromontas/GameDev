@@ -87,6 +87,7 @@ export function createToonMaterial(
     transparent?: boolean;
     opacity?: number;
     side?: THREE.Side;
+    depthWrite?: boolean;
   } = {},
 ): THREE.MeshToonMaterial {
   return new THREE.MeshToonMaterial({
@@ -97,6 +98,7 @@ export function createToonMaterial(
     transparent: opts.transparent ?? false,
     opacity: opts.opacity ?? 1,
     side: opts.side ?? THREE.FrontSide,
+    depthWrite: opts.depthWrite ?? true,
   });
 }
 
@@ -233,9 +235,20 @@ export const EastShrineClearing = {
   radius: 11.5,
 } as const;
 
-/** Smooth 0–1 influence of dirt paths (main S-curve + east branch to shrine clearing). */
+/** Third playable pocket west of the main meadow (misty grove clearing). */
+export const WestMistyGrove = {
+  x: -40,
+  z: -2,
+  radius: 11.5,
+} as const;
+
+/** Smooth 0–1 influence of dirt paths (main S-curve + east/west branches). */
 export function meadowPathInfluence(x: number, z: number): number {
-  return Math.max(mainMeadowPathInfluence(x, z), eastBranchPathInfluence(x, z));
+  return Math.max(
+    mainMeadowPathInfluence(x, z),
+    eastBranchPathInfluence(x, z),
+    westBranchPathInfluence(x, z),
+  );
 }
 
 /** Soft S-curve path from south toward north-west through the main meadow. */
@@ -278,6 +291,41 @@ function eastBranchPathInfluence(x: number, z: number): number {
   // Arrival pad — readable dirt around the shrine without covering the whole clearing.
   const cdx = x - EastShrineClearing.x;
   const cdz = z - EastShrineClearing.z;
+  const cr = Math.hypot(cdx, cdz);
+  let pad = 0;
+  if (cr < 5.0) {
+    pad = cr < 2.6 ? 0.95 : 0.95 * (1 - (cr - 2.6) / 2.4);
+  }
+
+  return Math.max(branch, pad);
+}
+
+/**
+ * Dirt path branch from the main meadow west into the misty grove clearing.
+ * Includes a soft dirt pad around the grove center so the path “arrives”.
+ */
+function westBranchPathInfluence(x: number, z: number): number {
+  // Branch leaves the main path near (−8, +1) and runs to the grove center.
+  const ax = -8;
+  const az = 1;
+  const bx = WestMistyGrove.x;
+  const bz = WestMistyGrove.z;
+  const abx = bx - ax;
+  const abz = bz - az;
+  const abLen2 = abx * abx + abz * abz;
+  const t = abLen2 > 1e-8 ? THREE.MathUtils.clamp(((x - ax) * abx + (z - az) * abz) / abLen2, 0, 1) : 0;
+  const px = ax + abx * t;
+  const pz = az + abz * t;
+  const dist = Math.hypot(x - px, z - pz);
+  const halfW = 2.45 + Math.sin(t * Math.PI) * 0.35;
+  let branch = 0;
+  const d = dist / halfW;
+  if (d < 1.35) {
+    branch = d <= 0.75 ? 1 : 1 - (d - 0.75) / 0.6;
+  }
+
+  const cdx = x - WestMistyGrove.x;
+  const cdz = z - WestMistyGrove.z;
   const cr = Math.hypot(cdx, cdz);
   let pad = 0;
   if (cr < 5.0) {

@@ -542,6 +542,9 @@ export function createStarterMobs(): Mob[] {
     new THREE.Vector3(36, 0, 2),
     new THREE.Vector3(44, 0, 10),
     new THREE.Vector3(42, 0, 1),
+    // West misty grove clearing
+    new THREE.Vector3(-36, 0, 2),
+    new THREE.Vector3(-44, 0, -6),
   ];
   return spots.map((p, i) => new Mob(p, colors[i % colors.length]));
 }
