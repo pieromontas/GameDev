@@ -14,10 +14,17 @@ export class HUD {
   private hintAge = 0;
   private hintHidden = false;
   private readonly prevReady: Record<SkillId, boolean> = { basic: true, slam: true };
+  private readonly loading: HTMLElement;
 
   constructor(host: HTMLElement) {
     this.root = host;
     this.root.innerHTML = `
+      <div class="loading-overlay" id="loading-overlay" hidden>
+        <div class="loading-card">
+          <p class="loading-title">SpiritVale Slice</p>
+          <p class="loading-msg" id="loading-msg">Loading warrior…</p>
+        </div>
+      </div>
       <div class="hud-panel hud-top-left">
         <p class="brand">SpiritVale Slice · Warrior</p>
         <div class="bar-row">
@@ -47,12 +54,20 @@ export class HUD {
     this.killsText = this.root.querySelector('#kills-text')!;
     this.toast = this.root.querySelector('#toast')!;
     this.hint = this.root.querySelector('#controls-hint')!;
+    this.loading = this.root.querySelector('#loading-overlay')!;
 
     const skillsHost = this.root.querySelector('#skills')!;
     this.skillEls = {
       basic: this.makeSkillSlot(skillsHost, 'basic', 'Slash', '1'),
       slam: this.makeSkillSlot(skillsHost, 'slam', 'Quake', '2'),
     };
+  }
+
+  setLoading(active: boolean, message = 'Loading warrior…'): void {
+    const msg = this.loading.querySelector('#loading-msg');
+    if (msg) msg.textContent = message;
+    if (active) this.loading.removeAttribute('hidden');
+    else this.loading.setAttribute('hidden', '');
   }
 
   private makeSkillSlot(

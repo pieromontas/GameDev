@@ -98,10 +98,21 @@ export class Game {
     });
 
     window.addEventListener('resize', this.onResize);
-    this.hud.showToast('Welcome to the meadow training grounds', 2.2);
   }
 
-  start(): void {
+  /**
+   * Load the KayKit warrior GLTF, then start the sim.
+   * On failure: logs clearly and still starts (soft shadow only).
+   */
+  async start(): Promise<void> {
+    this.hud.setLoading(true, 'Loading warrior…');
+    const ok = await this.player.loadVisual();
+    this.hud.setLoading(false);
+    if (!ok) {
+      this.hud.showToast('Warrior model failed to load — check console', 3.5);
+    } else {
+      this.hud.showToast('Welcome to the meadow training grounds', 2.2);
+    }
     this.loop.start();
   }
 
