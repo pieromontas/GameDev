@@ -42,7 +42,7 @@ export class MeadowBiome {
   readonly obstacles: Obstacle[] = [];
 
   /** Interact radius for the east shrine crystal (player proximity). */
-  readonly shrineInteractRadius = 4.6;
+  readonly shrineInteractRadius = 5.8;
   /** World XZ of the ancient shrine crystal/tower. */
   readonly shrinePosition = new THREE.Vector3(EastShrineClearing.x, 0, EastShrineClearing.z);
 
