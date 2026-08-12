@@ -60,7 +60,7 @@ export class Game {
 
     // Fallback clear color under the sky dome; fog tints distance into meadow air.
     this.scene.background = new THREE.Color(Palette.skyHorizon);
-    // Far plane nudged out so east/west/north clearings stay readable
+    // Far plane nudged out so east/west/north/south clearings stay readable
     this.scene.fog = new THREE.Fog(Palette.fog, 24, 88);
     this.sky = createSkyDome(110);
     this.scene.add(this.sky);
@@ -155,7 +155,7 @@ export class Game {
     } else if (failed.length > 0) {
       this.hud.showToast(`${failed.join(' + ')} model failed — others still playable (C)`, 3.2);
     } else {
-      this.hud.showToast('Welcome — 3 classes · east shrine · west grove · north ruins', 2.8);
+      this.hud.showToast('Welcome — 3 classes · east shrine · west grove · north ruins · south ford', 2.8);
     }
     this.loop.start();
   }

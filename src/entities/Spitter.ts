@@ -616,6 +616,9 @@ export function createStarterSpitters(): Spitter[] {
     // North ruins courtyard
     new THREE.Vector3(0, 0, 42),
     new THREE.Vector3(5, 0, 37),
+    // South river ford clearing
+    new THREE.Vector3(0, 0, -42),
+    new THREE.Vector3(-5, 0, -37),
   ];
   return spots.map((p) => new Spitter(p));
 }
