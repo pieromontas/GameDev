@@ -4,7 +4,8 @@ import { InputManager } from '../input/InputManager';
 import { FollowCamera } from '../camera/FollowCamera';
 import { MeadowBiome } from '../world/MeadowBiome';
 import { Player } from '../entities/Player';
-import { Mob, createStarterMobs } from '../entities/Mob';
+import { Enemy, createStarterMobs } from '../entities/Mob';
+import { createStarterSpitters, Spitter } from '../entities/Spitter';
 import { LootPickup } from '../entities/Loot';
 import { CombatSystem } from '../combat/CombatSystem';
 import { HUD } from '../ui/HUD';
@@ -19,7 +20,7 @@ export class Game {
   private readonly loop: GameLoop;
   private readonly meadow: MeadowBiome;
   private readonly player: Player;
-  private readonly mobs: Mob[];
+  private readonly mobs: Enemy[];
   private readonly loot: LootPickup[] = [];
   private readonly combat: CombatSystem;
   private readonly hud: HUD;
@@ -31,6 +32,7 @@ export class Game {
   private readonly forward = new THREE.Vector3();
   private readonly right = new THREE.Vector3();
   private readonly sepPush = new THREE.Vector3();
+  private readonly navTarget = new THREE.Vector3();
 
   private lootCount = 0;
   private kills = 0;
@@ -67,7 +69,7 @@ export class Game {
     this.player = new Player();
     this.scene.add(this.player.mesh);
 
-    this.mobs = createStarterMobs();
+    this.mobs = [...createStarterMobs(), ...createStarterSpitters()];
     for (const mob of this.mobs) this.scene.add(mob.mesh);
 
     this.cameraRig = new FollowCamera(window.innerWidth / window.innerHeight);
@@ -77,7 +79,9 @@ export class Game {
     this.hud = new HUD(hudHost);
     this.healthBars = new HealthBars(this.scene);
     this.healthBars.track(this.player, 2.45);
-    for (const mob of this.mobs) this.healthBars.track(mob, 1.55);
+    for (const mob of this.mobs) {
+      this.healthBars.track(mob, mob instanceof Spitter ? 2.05 : 1.55);
+    }
 
     this.combat = new CombatSystem(this.scene, {
       onLootDrop: (pickup) => {
@@ -87,9 +91,10 @@ export class Game {
       onPlayerDamaged: () => {
         /* flash / i-frames handled on entity + combat */
       },
-      onKill: () => {
+      onKill: (enemy) => {
         this.kills += 1;
-        this.hud.showToast('Blob defeated!', 1.0);
+        const label = enemy.kind === 'spitter' ? 'Spitter defeated!' : 'Blob defeated!';
+        this.hud.showToast(label, 1.0);
       },
       onQuakeImpact: () => {
         this.cameraRig.addImpactPunch(0.16);
@@ -195,13 +200,20 @@ export class Game {
       if (!mob.alive) {
         if (mob.readyToRespawn()) {
           mob.respawnNearHome();
-          this.hud.showToast('A blob reforms nearby…', 1.0);
+          const label =
+            mob.kind === 'spitter' ? 'A spitter reforms nearby…' : 'A blob reforms nearby…';
+          this.hud.showToast(label, 1.0);
         }
         continue;
       }
 
       if (mob.isStunned) {
         // Shield Bash hold — no chase/leash while dazed.
+      } else if (mob instanceof Spitter) {
+        const target = mob.getMoveTarget(this.player.position, this.navTarget);
+        if (target) {
+          mob.moveToward(target, dt, (p) => this.constrainEntity(p, mob.radius));
+        }
       } else if (mob.ai === 'chase') {
         mob.moveToward(this.player.position, dt, (p) => this.constrainEntity(p, mob.radius));
       } else if (mob.ai === 'leash') {
@@ -236,7 +248,7 @@ export class Game {
     }
 
     this.player.update(dt);
-    this.combat.update(dt);
+    this.combat.update(dt, this.player);
     this.cameraRig.update(this.player.position, dt);
     // Keep the sun shadow frustum centered on the player (cheap soft shadows).
     this.sun.target.position.copy(this.player.position);
