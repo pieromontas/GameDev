@@ -41,6 +41,16 @@ export class HealthBars {
     this.bars.push({ root: group, fill, entity });
   }
 
+  /** Drop HP bar for despawned shrine-wave (or other transient) enemies. */
+  untrack(entity: Entity): void {
+    for (let i = this.bars.length - 1; i >= 0; i--) {
+      const bar = this.bars[i]!;
+      if (bar.entity !== entity) continue;
+      entity.mesh.remove(bar.root);
+      this.bars.splice(i, 1);
+    }
+  }
+
   update(camera: THREE.Camera): void {
     for (const bar of this.bars) {
       const visible = bar.entity.alive && bar.entity.hp < bar.entity.maxHp;

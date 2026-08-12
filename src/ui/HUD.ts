@@ -17,6 +17,9 @@ export class HUD {
   private hintHidden = false;
   private readonly prevReady: Record<SkillId, boolean> = { basic: true, slam: true, bash: true };
   private readonly loading: HTMLElement;
+  private readonly interactPrompt: HTMLElement;
+  private readonly objectiveBanner: HTMLElement;
+  private readonly buffChip: HTMLElement;
   private shownClass: PlayerClass | null = null;
 
   constructor(host: HTMLElement) {
@@ -48,8 +51,12 @@ export class HUD {
         LMB / 1 — skill 1<br/>
         2 / 3 — skills 2 &amp; 3<br/>
         <kbd>C</kbd> — switch Warrior / Mage<br/>
+        <kbd>E</kbd> — awaken east shrine<br/>
         RMB drag — rotate camera
       </div>
+      <div class="interact-prompt" id="interact-prompt" hidden></div>
+      <div class="objective-banner" id="objective-banner" hidden></div>
+      <div class="buff-chip" id="buff-chip" hidden></div>
       <div class="toast" id="toast"></div>
     `;
 
@@ -62,6 +69,9 @@ export class HUD {
     this.toast = this.root.querySelector('#toast')!;
     this.hint = this.root.querySelector('#controls-hint')!;
     this.loading = this.root.querySelector('#loading-overlay')!;
+    this.interactPrompt = this.root.querySelector('#interact-prompt')!;
+    this.objectiveBanner = this.root.querySelector('#objective-banner')!;
+    this.buffChip = this.root.querySelector('#buff-chip')!;
 
     const skillsHost = this.root.querySelector('#skills')!;
     this.skillEls = {
@@ -147,6 +157,40 @@ export class HUD {
         this.hint.classList.add('fade');
         this.hintHidden = true;
       }
+    }
+
+    if (player.hasShrineBuff) {
+      this.buffChip.hidden = false;
+      this.buffChip.textContent = `Shrine Blessing  ·  ${Math.ceil(player.shrineBuffRemain)}s`;
+    } else {
+      this.buffChip.hidden = true;
+    }
+  }
+
+  /** Proximity prompt + defense objective / cooldown readouts for the east shrine. */
+  setShrineHud(state: {
+    promptVisible: boolean;
+    promptText: string;
+    objectiveVisible: boolean;
+    objectiveText: string;
+    cooldownVisible: boolean;
+    cooldownText: string;
+  }): void {
+    if (state.promptVisible) {
+      this.interactPrompt.hidden = false;
+      this.interactPrompt.textContent = state.promptText;
+    } else {
+      this.interactPrompt.hidden = true;
+    }
+
+    if (state.objectiveVisible) {
+      this.objectiveBanner.hidden = false;
+      this.objectiveBanner.textContent = state.objectiveText;
+    } else if (state.cooldownVisible) {
+      this.objectiveBanner.hidden = false;
+      this.objectiveBanner.textContent = state.cooldownText;
+    } else {
+      this.objectiveBanner.hidden = true;
     }
   }
 

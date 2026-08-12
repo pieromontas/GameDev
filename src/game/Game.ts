@@ -3,6 +3,7 @@ import { GameLoop } from './loop';
 import { InputManager } from '../input/InputManager';
 import { FollowCamera } from '../camera/FollowCamera';
 import { MeadowBiome } from '../world/MeadowBiome';
+import { ShrineObjective } from '../world/ShrineObjective';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
@@ -19,6 +20,7 @@ export class Game {
   private readonly input: InputManager;
   private readonly loop: GameLoop;
   private readonly meadow: MeadowBiome;
+  private readonly shrine: ShrineObjective;
   private readonly player: Player;
   private readonly mobs: Enemy[];
   private readonly loot: LootPickup[] = [];
@@ -104,6 +106,18 @@ export class Game {
       },
     });
 
+    this.shrine = new ShrineObjective(this.meadow, {
+      onSpawnEnemy: (enemy) => this.addEnemy(enemy),
+      onDespawnEnemy: (enemy) => this.removeEnemy(enemy),
+      onLootBurst: (pickups) => {
+        for (const pickup of pickups) {
+          this.loot.push(pickup);
+          this.scene.add(pickup.mesh);
+        }
+      },
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+    });
+
     this.loop = new GameLoop({
       update: (dt) => this.update(dt),
       render: () => this.render(),
@@ -127,7 +141,7 @@ export class Game {
     } else if (!result.mage) {
       this.hud.showToast('Mage model failed — Warrior still playable', 3.2);
     } else {
-      this.hud.showToast('Welcome — press C to switch Warrior / Mage', 2.6);
+      this.hud.showToast('Welcome — press C to switch · E at the east shrine', 2.8);
     }
     this.loop.start();
   }
@@ -137,6 +151,20 @@ export class Game {
     this.input.dispose();
     window.removeEventListener('resize', this.onResize);
     this.renderer.dispose();
+  }
+
+  private addEnemy(enemy: Enemy): void {
+    this.mobs.push(enemy);
+    this.scene.add(enemy.mesh);
+    this.healthBars.track(enemy, enemy instanceof Spitter ? 2.05 : 1.55);
+  }
+
+  private removeEnemy(enemy: Enemy): void {
+    const idx = this.mobs.indexOf(enemy);
+    if (idx >= 0) this.mobs.splice(idx, 1);
+    this.scene.remove(enemy.mesh);
+    this.healthBars.untrack(enemy);
+    enemy.mesh.visible = false;
   }
 
   private addLights(): THREE.DirectionalLight {
@@ -185,6 +213,7 @@ export class Game {
       this.updatePlayerMovement(dt);
       this.handleClassSwitch();
       this.handlePlayerSkills();
+      this.handleShrineInteract();
     } else if (this.playerRespawnTimer >= 0) {
       this.playerRespawnTimer -= dt;
       if (this.playerRespawnTimer <= 0) {
@@ -198,6 +227,8 @@ export class Game {
     for (const mob of this.mobs) {
       mob.update(dt);
       if (!mob.alive) {
+        // Shrine wave spawns are despawned by ShrineObjective — never reform in the meadow.
+        if (this.shrine.isWaveEnemy(mob)) continue;
         if (mob.readyToRespawn()) {
           mob.respawnNearHome();
           const label =
@@ -228,6 +259,9 @@ export class Game {
       this.playerRespawnTimer = 2.2;
       this.hud.showToast('Defeated — respawning…', 2);
     }
+
+    this.shrine.update(dt, this.player);
+    this.hud.setShrineHud(this.shrine.getHudState(this.player));
 
     for (let i = this.loot.length - 1; i >= 0; i--) {
       const pickup = this.loot[i]!;
@@ -333,6 +367,12 @@ export class Game {
           ? 'Bolt / Frost Nova / Arcane Ward'
           : 'Slash / Quake / Shield Bash';
       this.hud.showToast(`${label} ready — ${kit}`, 1.8);
+    }
+  }
+
+  private handleShrineInteract(): void {
+    if (this.input.wasPressed('KeyE')) {
+      this.shrine.tryInteract(this.player);
     }
   }
 

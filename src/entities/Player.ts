@@ -25,6 +25,11 @@ export class Player extends Entity {
   invuln = 0;
   /** Seconds since last combat event; regen starts after a short delay. */
   outOfCombat = 0;
+  /** Temporary shrine blessing — multiplies outgoing skill damage. */
+  damageBuffMult = 1;
+  /** Temporary shrine blessing — multiplies move speed cap. */
+  moveBuffMult = 1;
+  private buffRemain = 0;
   private classId: PlayerClass = 'warrior';
 
   private readonly velocity = new THREE.Vector3();
@@ -122,7 +127,31 @@ export class Player extends Entity {
   }
 
   get moveSpeed(): number {
-    return this.maxSpeed;
+    return this.maxSpeed * this.moveBuffMult;
+  }
+
+  get hasShrineBuff(): boolean {
+    return this.buffRemain > 0;
+  }
+
+  get shrineBuffRemain(): number {
+    return this.buffRemain;
+  }
+
+  /**
+   * Apply (or refresh) a shrine blessing — damage + move speed for a short window.
+   * Works for Warrior and Mage; stacks by refresh, not multiply-on-multiply.
+   */
+  applyShrineBuff(duration: number, damageMult = 1.4, moveMult = 1.22): void {
+    this.buffRemain = Math.max(this.buffRemain, duration);
+    this.damageBuffMult = damageMult;
+    this.moveBuffMult = moveMult;
+  }
+
+  clearShrineBuff(): void {
+    this.buffRemain = 0;
+    this.damageBuffMult = 1;
+    this.moveBuffMult = 1;
   }
 
   get animState(): PlayerAnim {
@@ -136,6 +165,13 @@ export class Player extends Entity {
       }
     }
     if (this.invuln > 0) this.invuln = Math.max(0, this.invuln - dt);
+    if (this.buffRemain > 0) {
+      this.buffRemain = Math.max(0, this.buffRemain - dt);
+      if (this.buffRemain <= 0) {
+        this.damageBuffMult = 1;
+        this.moveBuffMult = 1;
+      }
+    }
   }
 
   canUse(id: SkillId): boolean {
@@ -194,7 +230,7 @@ export class Player extends Entity {
       this.velocity.x += wishDir.x * this.accel * accelScale * dt;
       this.velocity.z += wishDir.z * this.accel * accelScale * dt;
       const speed = Math.hypot(this.velocity.x, this.velocity.z);
-      const cap = attacking ? this.maxSpeed * 0.45 : this.maxSpeed;
+      const cap = attacking ? this.moveSpeed * 0.45 : this.moveSpeed;
       if (speed > cap) {
         const s = cap / speed;
         this.velocity.x *= s;
@@ -249,7 +285,7 @@ export class Player extends Entity {
 
     this.updateYaw(dt);
 
-    this.visual.syncAnim(this.anim, speed, this.maxSpeed, this.animT, this.animDur);
+    this.visual.syncAnim(this.anim, speed, this.moveSpeed, this.animT, this.animDur);
     this.visual.update(dt);
 
     if (this.hitFlash > 0) this.hitFlash -= dt;
@@ -291,6 +327,7 @@ export class Player extends Entity {
     this.mesh.visible = true;
     this.invuln = 1.6;
     this.outOfCombat = 0;
+    // Buff persists through death — shrine blessing shouldn't soft-punish a wipe mid-meadow.
     this.anim = 'idle';
     this.animT = 0;
     this.animDur = 0;
