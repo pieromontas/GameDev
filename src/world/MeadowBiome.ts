@@ -2121,7 +2121,7 @@ export class MeadowBiome {
     for (let i = 0; i < this.treePlacements.length; i += 2) {
       const t = this.treePlacements[i]!;
       const ang = hash2(t.z, t.x) * Math.PI * 2;
-      const r = 1.8 + hash2(t.x, i) * 1.0;
+      const r = 2.4 + hash2(t.x, i) * 1.2;
       spots.push([
         t.x + Math.cos(ang) * r,
         t.z + Math.sin(ang) * r,

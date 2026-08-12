@@ -45,13 +45,14 @@ const FOREST_BUSHES = [
 
 /**
  * Adventurers hero is normalized to ~1.95 world units (`PlayerVisual.targetHeight`).
- * `BASE_HEIGHT` matched the old toy procedural silhouettes; at that size the knight
- * stood nearly as tall as the cottage eaves and the well sat at waist height.
  *
- * Tweak `PROP_SCALE` (not the hero) to rebalance. Effective target height =
+ * BEFORE reference (playtest screenshot): knight helmet ≈ cottage eaves, well
+ * (roof included) ≈ waist, trees barely taller than the hero — props read ~⅓–½
+ * of a correct Adventurers-relative size.
+ *
+ * `BASE_HEIGHT` = old toy procedural-matched heights. Tweak `PROP_SCALE` (not the
+ * hero) to rebalance. Effective target height =
  * `BASE_HEIGHT[k] * PROP_SCALE[k]` (plus any per-instance scale in `instantiate`).
- *
- * Prior procedural-matched heights — kept as the baseline for ratio tweaks.
  */
 const BASE_HEIGHT = {
   tree: 3.55,
@@ -63,20 +64,24 @@ const BASE_HEIGHT = {
 } as const;
 
 /**
- * Per-category multipliers vs `BASE_HEIGHT` so KayKit props match Adventurers scale (~1.95 hero).
- * - cottage ~2× → peak well above head; doorway roughly character-accessible
- * - well ~1.9× → full structure ~chest+ (rim reads torso height, not waist)
- * - windmill ~2.4× → landmark bulk
- * - trees ~2× → clearly taller than the knight
- * - rocks / bushes slightly larger so they stay proportionate under bigger trees
+ * Per-category multipliers vs `BASE_HEIGHT` — calibrated from the before screenshot
+ * so KayKit props match Adventurers scale (~1.95 hero). ~3× on buildings (not ~2×):
+ * the KayKit cottage roof starts high on the mesh, so eaves need extra headroom.
+ *
+ * Effective heights (cottage includes createCottage’s ×1.15 instance scale):
+ * - cottage peak ~8.8 → eaves clearly above head; door ~character-accessible
+ * - well full ~3.6 → stone rim ~chest/upper-torso (not waist)
+ * - windmill ~14 → landmark bulk
+ * - trees ~10 → clearly taller than the knight
+ * - rocks / bushes scale with the larger forest dressing
  */
 export const PROP_SCALE = {
-  tree: 2.0,
-  rock: 1.45,
-  bush: 1.35,
-  cottage: 2.0,
-  windmill: 2.4,
-  well: 1.9,
+  tree: 2.85,
+  rock: 1.85,
+  bush: 1.65,
+  cottage: 3.0,
+  windmill: 3.2,
+  well: 2.7,
 } as const;
 
 /** World-space target heights after `PROP_SCALE` (fed into template `baseScale`). */
@@ -92,8 +97,8 @@ const TARGET = {
 /** Soft-collision radius multipliers — same knobs as visuals (uniform scale). */
 export const PROP_COLLISION_SCALE = PROP_SCALE;
 
-/** Well offset from cottage center so the larger cottage footprint doesn't swallow it. */
-export const WELL_OFFSET = { x: 4.0, z: -1.7 } as const;
+/** Well offset from cottage center — clears the ~3× cottage footprint. */
+export const WELL_OFFSET = { x: 5.4, z: -2.3 } as const;
 
 type Template = {
   root: THREE.Object3D;
