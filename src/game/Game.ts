@@ -30,6 +30,20 @@ export class Game {
   private readonly sun: THREE.DirectionalLight;
   private readonly sky: THREE.Object3D;
 
+  /** DevTools / playtest access — shrine mini-objective controller. */
+  get shrineObjective(): ShrineObjective {
+    return this.shrine;
+  }
+
+  get hero(): Player {
+    return this.player;
+  }
+
+  /** Playtest/debug: remaining player respawn countdown (−1 when idle). */
+  get respawnTimer(): number {
+    return this.playerRespawnTimer;
+  }
+
   private readonly moveDir = new THREE.Vector3();
   private readonly forward = new THREE.Vector3();
   private readonly right = new THREE.Vector3();
@@ -207,8 +221,6 @@ export class Game {
 
     this.player.tickSkills(dt);
 
-    const wasAlive = this.player.alive;
-
     if (this.player.alive) {
       this.updatePlayerMovement(dt);
       this.handleClassSwitch();
@@ -255,7 +267,9 @@ export class Game {
     this.separateMobs();
 
     this.combat.updateMobCombat(this.mobs, this.player);
-    if (wasAlive && !this.player.alive) {
+    // Always arm respawn when dead with no timer — covers same-frame death right after
+    // a prior respawn (wasAlive was false at frame start), which previously softlocked.
+    if (!this.player.alive && this.playerRespawnTimer < 0) {
       this.playerRespawnTimer = 2.2;
       this.hud.showToast('Defeated — respawning…', 2);
     }
