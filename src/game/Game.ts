@@ -74,8 +74,8 @@ export class Game {
     this.input = new InputManager(canvas);
     this.hud = new HUD(hudHost);
     this.healthBars = new HealthBars(this.scene);
-    this.healthBars.track(this.player, 2.3);
-    for (const mob of this.mobs) this.healthBars.track(mob, 1.5);
+    this.healthBars.track(this.player, 2.45);
+    for (const mob of this.mobs) this.healthBars.track(mob, 1.55);
 
     this.combat = new CombatSystem(this.scene, {
       onLootDrop: (pickup) => {

@@ -3,36 +3,59 @@ import {
   Palette,
   createToonMaterial,
   paintGroundVertexColors,
+  displaceGroundHeight,
+  meadowPathInfluence,
+  hash2,
 } from '../render/stylized';
 
 export type Obstacle = { x: number; z: number; radius: number };
 
-/** Shared stylized meadow: green ground, trees, rocks. Reuses geometries/materials. */
+/** Shared stylized meadow: living ground, tiered trees, rocks, landmarks. */
 export class MeadowBiome {
   readonly root = new THREE.Group();
   readonly groundSize = 80;
   readonly playRadius = 34;
-  /** Solid props used for soft collision (trees + rocks). */
+  /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
 
-  private readonly treeGeo = new THREE.ConeGeometry(0.95, 2.2, 7);
-  private readonly treeTopGeo = new THREE.ConeGeometry(0.62, 1.35, 7);
-  private readonly trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 1.05, 7);
-  private readonly rockGeo = new THREE.DodecahedronGeometry(0.58, 0);
-  private readonly rockSmallGeo = new THREE.DodecahedronGeometry(0.28, 0);
-  private readonly flowerPetalGeo = new THREE.SphereGeometry(0.13, 7, 7);
-  private readonly flowerCenterGeo = new THREE.SphereGeometry(0.07, 6, 6);
-  private readonly stemGeo = new THREE.CylinderGeometry(0.025, 0.035, 0.28, 5);
+  private readonly canopyLowGeo = new THREE.ConeGeometry(1.15, 1.55, 7);
+  private readonly canopyMidGeo = new THREE.ConeGeometry(0.88, 1.35, 7);
+  private readonly canopyTopGeo = new THREE.ConeGeometry(0.55, 1.1, 7);
+  private readonly trunkGeo = new THREE.CylinderGeometry(0.18, 0.32, 1.25, 7);
+  private readonly trunkFatGeo = new THREE.CylinderGeometry(0.22, 0.38, 1.05, 7);
+  private readonly rockGeo = new THREE.DodecahedronGeometry(0.62, 0);
+  private readonly rockSmallGeo = new THREE.DodecahedronGeometry(0.3, 0);
+  private readonly rockChunkGeo = new THREE.DodecahedronGeometry(0.4, 0);
+  private readonly flowerPetalGeo = new THREE.SphereGeometry(0.12, 7, 7);
+  private readonly flowerCenterGeo = new THREE.SphereGeometry(0.065, 6, 6);
+  private readonly stemGeo = new THREE.CylinderGeometry(0.022, 0.032, 0.26, 5);
+  private readonly grassBladeGeo = this.makeGrassTuftGeo();
 
-  // White base so vertex colors carry the meadow mottling without a second multiply.
   private readonly grassMat = createToonMaterial(0xffffff);
   private readonly leafMat = createToonMaterial(Palette.leafA);
   private readonly leafMatB = createToonMaterial(Palette.leafB);
   private readonly leafMatC = createToonMaterial(Palette.leafC);
+  private readonly leafDark = createToonMaterial(Palette.leafDark);
   private readonly trunkMat = createToonMaterial(Palette.trunk);
+  private readonly trunkDarkMat = createToonMaterial(Palette.trunkDark);
   private readonly rockMat = createToonMaterial(Palette.rock);
+  private readonly rockShadowMat = createToonMaterial(Palette.rockShadow);
+  private readonly rockLightMat = createToonMaterial(Palette.rockLight);
   private readonly mossMat = createToonMaterial(Palette.moss);
+  private readonly cliffMat = createToonMaterial(Palette.cliff);
   private readonly stemMat = createToonMaterial(Palette.stem);
+  private readonly grassTuftMat = createToonMaterial(Palette.grassTuft);
+  private readonly woodMat = createToonMaterial(Palette.wood);
+  private readonly woodDarkMat = createToonMaterial(Palette.woodDark);
+  private readonly roofMat = createToonMaterial(Palette.roofTile);
+  private readonly pondMat = createToonMaterial(Palette.pond, {
+    transparent: true,
+    opacity: 0.82,
+    emissive: Palette.pond,
+    emissiveIntensity: 0.08,
+  });
+  private readonly pondDeepMat = createToonMaterial(Palette.pondDeep);
+  private readonly signBoardMat = createToonMaterial(Palette.signBoard);
   private readonly flowerCenterMat = createToonMaterial(Palette.flowerWhite, {
     emissive: Palette.flowerYellow,
     emissiveIntensity: 0.12,
@@ -41,150 +64,246 @@ export class MeadowBiome {
     createToonMaterial(Palette.flowerPink),
     createToonMaterial(Palette.flowerYellow),
     createToonMaterial(Palette.flowerCyan),
+    createToonMaterial(Palette.flowerPurple),
   ];
-  private readonly pathMat = createToonMaterial(Palette.path);
 
   constructor() {
     this.root.name = 'MeadowBiome';
     this.grassMat.vertexColors = true;
     this.buildGround();
+    this.buildGrassInstances();
     this.buildRingOfTrees();
     this.scatterProps();
+    this.buildLandmarks();
+    this.buildEdgeLedges();
+  }
+
+  private makeGrassTuftGeo(): THREE.BufferGeometry {
+    // Three crossed flat blades — cheap tuft silhouette.
+    const geo = new THREE.BufferGeometry();
+    const positions: number[] = [];
+    const blades = 3;
+    for (let i = 0; i < blades; i++) {
+      const a = (i / blades) * Math.PI;
+      const hx = Math.cos(a) * 0.12;
+      const hz = Math.sin(a) * 0.12;
+      // triangle blade
+      positions.push(-hx, 0, -hz, hx, 0, hz, 0, 0.38 + (i % 2) * 0.08, 0);
+    }
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.computeVertexNormals();
+    return geo;
   }
 
   private buildGround(): void {
-    // Higher segment count so vertex-color mottling reads as meadow, not flat paint.
-    const groundGeo = new THREE.CircleGeometry(this.groundSize * 0.5, 64);
-    paintGroundVertexColors(groundGeo, {
-      a: Palette.grassA,
-      b: Palette.grassB,
-      c: Palette.grassC,
+    const groundGeo = new THREE.CircleGeometry(this.groundSize * 0.5, 72);
+    displaceGroundHeight(groundGeo, {
+      amplitude: 0.28,
+      pathFn: meadowPathInfluence,
     });
+    paintGroundVertexColors(
+      groundGeo,
+      { a: Palette.grassA, b: Palette.grassB, c: Palette.grassC },
+      {
+        pathFn: meadowPathInfluence,
+        pathColor: Palette.path,
+        pathEdge: Palette.pathEdge,
+      },
+    );
     const ground = new THREE.Mesh(groundGeo, this.grassMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.root.add(ground);
 
-    // Soft color band for mid-field depth without a second texture.
+    // Soft outer meadow band for depth (sits above displaced ground)
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(17, 27, 48),
-      createToonMaterial(Palette.grassC),
+      new THREE.RingGeometry(26, 34, 56),
+      createToonMaterial(Palette.grassB),
     );
     ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.012;
+    ring.position.y = 0.03;
     ring.receiveShadow = true;
     this.root.add(ring);
+  }
 
-    const path = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 24), this.pathMat);
-    path.rotation.x = -Math.PI / 2;
-    path.position.set(0, 0.02, 3.5);
-    path.receiveShadow = true;
-    this.root.add(path);
-
-    // Warm rim path accents so the dirt reads intentional, not a lone plane.
-    const pathEdgeMat = createToonMaterial(Palette.pathEdge);
-    for (const x of [-1.95, 1.95]) {
-      const edge = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 24), pathEdgeMat);
-      edge.rotation.x = -Math.PI / 2;
-      edge.position.set(x, 0.021, 3.5);
-      this.root.add(edge);
+  private buildGrassInstances(): void {
+    const count = 420;
+    const mesh = new THREE.InstancedMesh(this.grassBladeGeo, this.grassTuftMat, count);
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    const dummy = new THREE.Object3D();
+    let placed = 0;
+    let guard = 0;
+    while (placed < count && guard < count * 8) {
+      guard += 1;
+      const ang = hash2(placed * 1.7, guard * 0.3) * Math.PI * 2;
+      const rad = 3 + hash2(guard * 2.1, placed * 0.9) * 28;
+      const x = Math.cos(ang) * rad;
+      const z = Math.sin(ang) * rad;
+      if (Math.hypot(x, z) > this.playRadius - 1) continue;
+      // Keep path and spawn camp clearer
+      if (meadowPathInfluence(x, z) > 0.55) continue;
+      if (Math.hypot(x, z - 6) < 3.2) continue;
+      const s = 0.7 + hash2(x, z) * 0.9;
+      dummy.position.set(x, 0.01, z);
+      dummy.rotation.y = hash2(z, x) * Math.PI * 2;
+      dummy.scale.set(s, s * (0.85 + hash2(x * 2, z) * 0.4), s);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(placed, dummy.matrix);
+      placed += 1;
     }
+    mesh.count = placed;
+    mesh.instanceMatrix.needsUpdate = true;
+    this.root.add(mesh);
   }
 
   private buildRingOfTrees(): void {
-    const count = 28;
+    const count = 30;
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
-      const radius = 30 + (i % 3) * 1.5;
+      const radius = 29.5 + (i % 4) * 1.35;
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
-      this.addTree(x, z, 0.85 + (i % 4) * 0.08);
+      this.addTree(x, z, 0.88 + (i % 5) * 0.07);
     }
   }
 
   private scatterProps(): void {
     const treeSpots: Array<[number, number, number]> = [
-      [-8, -6, 1],
-      [10, -4, 1.1],
-      [-12, 8, 0.9],
-      [6, 12, 1.05],
-      [-3, 16, 0.95],
-      [14, 6, 1],
-      [-16, -2, 1.15],
-      [3, -12, 1],
+      [-8, -6, 1.05],
+      [10, -4, 1.15],
+      [-12, 8, 0.95],
+      [6, 12, 1.1],
+      [-3, 16, 1],
+      [14, 6, 1.05],
+      [-16, -2, 1.2],
+      [3, -12, 1.05],
+      [-18, 10, 0.92],
+      [16, -12, 1.08],
     ];
     for (const [x, z, s] of treeSpots) this.addTree(x, z, s);
 
-    // Deterministic rock placements so collision matches visuals across reloads
     const rockSpots: Array<[number, number, number]> = [
-      [4.2, -3.1, 0.85],
-      [-5.5, 2.4, 1.05],
-      [9.1, 5.8, 0.7],
-      [-9.4, -7.2, 0.95],
-      [1.6, 11.3, 0.8],
-      [-13.2, 1.1, 1.1],
-      [11.8, -9.4, 0.75],
-      [-2.8, -10.6, 0.9],
-      [7.4, 14.2, 0.65],
-      [-7.1, 12.5, 1.0],
-      [15.2, 1.8, 0.85],
-      [-14.6, -5.3, 0.7],
-      [5.9, -14.1, 0.95],
-      [-0.8, 7.6, 0.6],
-      [12.4, 10.1, 0.8],
-      [-10.8, 8.9, 0.75],
-      [3.3, 3.7, 0.55],
-      [-6.2, -13.4, 0.9],
+      [4.2, -3.1, 0.9],
+      [-5.5, 2.4, 1.1],
+      [9.1, 5.8, 0.75],
+      [-9.4, -7.2, 1],
+      [1.6, 11.3, 0.85],
+      [-13.2, 1.1, 1.15],
+      [11.8, -9.4, 0.8],
+      [-2.8, -10.6, 0.95],
+      [7.4, 14.2, 0.7],
+      [-7.1, 12.5, 1.05],
+      [15.2, 1.8, 0.9],
+      [-14.6, -5.3, 0.75],
+      [5.9, -14.1, 1],
+      [-0.8, 7.6, 0.65],
+      [12.4, 10.1, 0.85],
+      [-10.8, 8.9, 0.8],
+      [3.3, 3.7, 0.6],
+      [-6.2, -13.4, 0.95],
+      [18, 8, 1.2],
+      [-17, -10, 1.05],
     ];
     for (const [x, z, s] of rockSpots) this.addRock(x, z, s);
 
-    const flowerSpots: Array<[number, number]> = [
-      [2, 1],
-      [-3, 4],
-      [5, -2],
-      [-6, -1],
-      [8, 3],
-      [-1, -5],
-      [4, 8],
-      [-8, 6],
-      [10, -7],
-      [-4, 10],
-      [1, 13],
-      [-11, -3],
-      [7, 9],
-      [-9, 0],
-      [13, 4],
-      [0, -9],
-      [6, -11],
-      [-5, -8],
-      [9, 12],
-      [-12, 5],
-      [3, -6],
-      [-2, 2],
-      [11, -1],
-      [-7, -11],
-      [14, 7],
-      [-13, 9],
-      [2, -13],
-      [8, -4],
-      [-10, 11],
-      [5, 5],
-      [-3, -14],
-      [12, -12],
-      [-1, 8],
-      [4, -8],
-      [-14, -1],
-      [0, 4],
-      [7, 1],
-      [-6, 7],
-      [10, 8],
-      [-8, -6],
+    // Flower clusters — denser patches rather than lonely singles
+    const clusters: Array<[number, number, number]> = [
+      [2, 1, 5],
+      [-3, 4, 4],
+      [5, -2, 6],
+      [-6, -1, 4],
+      [8, 3, 5],
+      [-1, -5, 4],
+      [4, 8, 5],
+      [-8, 6, 4],
+      [10, -7, 5],
+      [-4, 10, 6],
+      [1, 13, 4],
+      [-11, -3, 5],
+      [7, 9, 4],
+      [13, 4, 5],
+      [0, -9, 4],
+      [6, -11, 5],
+      [-5, -8, 4],
+      [9, 12, 5],
+      [-12, 5, 4],
+      [14, 7, 5],
+      [-13, 9, 4],
+      [2, -13, 5],
+      [-10, 11, 4],
+      [5, 5, 6],
+      [-3, -14, 4],
+      [12, -12, 5],
+      [-14, -1, 4],
+      [10, 8, 5],
+      [-8, -6, 4],
+      [16, -3, 5],
     ];
-    for (const [x, z] of flowerSpots) this.addFlower(x, z);
+    for (const [cx, cz, n] of clusters) {
+      for (let i = 0; i < n; i++) {
+        const ox = (hash2(cx + i, cz) - 0.5) * 1.6;
+        const oz = (hash2(cz + i, cx) - 0.5) * 1.6;
+        this.addFlower(cx + ox, cz + oz);
+      }
+    }
+  }
+
+  private buildLandmarks(): void {
+    // Wooden signpost near spawn — “Prontera South” vibe without text textures
+    this.addSignpost(2.8, 8.4);
+    // Quiet pond off the path
+    this.addPond(-11.5, -11.5);
+    // Ruin pillar cluster for a read-able landmark
+    this.addRuinPillar(15.5, -6.5);
+    // Tiny cottage + windmill silhouette on the rim (out of play collision mostly)
+    this.addCottage(-22, 16);
+    this.addWindmill(24, 12);
+  }
+
+  private buildEdgeLedges(): void {
+    const ledges: Array<[number, number, number, number]> = [
+      [20, -18, 1.2, 0.9],
+      [-22, -14, 1.4, 1],
+      [18, 20, 1.1, 0.85],
+      [-19, 22, 1.3, 0.95],
+      [26, 0, 1.5, 1.1],
+      [-26, 4, 1.35, 1],
+    ];
+    for (const [x, z, s, h] of ledges) {
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+
+      const top = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.8 * s, 2.1 * s, 0.35 * h, 7),
+        this.mossMat,
+      );
+      top.position.y = 0.55 * h;
+      top.castShadow = true;
+      top.receiveShadow = true;
+      group.add(top);
+
+      const cliff = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.7 * s, 2.0 * s, 1.1 * h, 7),
+        this.cliffMat,
+      );
+      cliff.position.y = 0.05;
+      cliff.castShadow = true;
+      group.add(cliff);
+
+      // Rocky face accents
+      const face = new THREE.Mesh(this.rockChunkGeo, this.rockShadowMat);
+      face.position.set(0.9 * s, 0.35 * h, 0.2);
+      face.scale.set(0.9, 1.1, 0.7);
+      group.add(face);
+
+      this.root.add(group);
+      this.obstacles.push({ x, z, radius: 1.5 * s });
+    }
   }
 
   private pickLeafMat(x: number, z: number): THREE.MeshToonMaterial {
-    const n = (Math.abs(Math.sin(x * 12.9898 + z * 78.233)) * 43758.5453) % 1;
+    const n = hash2(x * 1.3, z * 1.7);
     if (n > 0.66) return this.leafMatB;
     if (n > 0.33) return this.leafMat;
     return this.leafMatC;
@@ -194,26 +313,40 @@ export class MeadowBiome {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
     group.scale.setScalar(scale);
+    group.rotation.y = hash2(x, z) * Math.PI * 2;
 
-    const trunk = new THREE.Mesh(this.trunkGeo, this.trunkMat);
-    trunk.position.y = 0.52;
+    const fat = hash2(z, x) > 0.55;
+    const trunk = new THREE.Mesh(fat ? this.trunkFatGeo : this.trunkGeo, this.trunkMat);
+    trunk.position.y = fat ? 0.52 : 0.62;
     trunk.castShadow = true;
     group.add(trunk);
 
-    const leafMat = this.pickLeafMat(x, z);
-    const canopy = new THREE.Mesh(this.treeGeo, leafMat);
-    canopy.position.y = 1.85;
-    canopy.castShadow = true;
-    group.add(canopy);
+    // Root flare
+    const flare = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.35, 0.48, 0.22, 6),
+      this.trunkDarkMat,
+    );
+    flare.position.y = 0.1;
+    group.add(flare);
 
-    // Second cone for a chunkier low-poly silhouette (still one shared geo).
-    const top = new THREE.Mesh(this.treeTopGeo, leafMat);
-    top.position.y = 2.85;
+    const leafMat = this.pickLeafMat(x, z);
+    const low = new THREE.Mesh(this.canopyLowGeo, leafMat);
+    low.position.y = 1.55;
+    low.castShadow = true;
+    group.add(low);
+
+    const mid = new THREE.Mesh(this.canopyMidGeo, hash2(x + 1, z) > 0.5 ? leafMat : this.leafDark);
+    mid.position.y = 2.45;
+    mid.castShadow = true;
+    group.add(mid);
+
+    const top = new THREE.Mesh(this.canopyTopGeo, leafMat);
+    top.position.y = 3.25;
     top.castShadow = true;
     group.add(top);
 
     this.root.add(group);
-    this.obstacles.push({ x, z, radius: 0.55 * scale });
+    this.obstacles.push({ x, z, radius: 0.6 * scale });
   }
 
   private addRock(x: number, z: number, scale: number): void {
@@ -221,45 +354,222 @@ export class MeadowBiome {
     group.position.set(x, 0, z);
 
     const rock = new THREE.Mesh(this.rockGeo, this.rockMat);
-    rock.position.y = 0.28 * scale;
-    rock.scale.set(scale, scale * 0.72, scale * 1.12);
+    rock.position.y = 0.3 * scale;
+    rock.scale.set(scale, scale * 0.7, scale * 1.15);
     rock.rotation.y = (x * 1.7 + z * 2.3) % (Math.PI * 2);
-    rock.rotation.z = 0.12;
+    rock.rotation.z = 0.14;
     rock.castShadow = true;
     rock.receiveShadow = true;
     group.add(rock);
 
-    // Tiny moss cap — cheap color block so rocks aren't pure gray.
+    const chunk = new THREE.Mesh(this.rockChunkGeo, this.rockShadowMat);
+    chunk.position.set(-0.25 * scale, 0.18 * scale, 0.2 * scale);
+    chunk.scale.set(scale * 0.55, scale * 0.4, scale * 0.5);
+    chunk.rotation.y = 0.7;
+    chunk.castShadow = true;
+    group.add(chunk);
+
     const moss = new THREE.Mesh(this.rockSmallGeo, this.mossMat);
-    moss.position.set(0.08 * scale, 0.42 * scale, 0.05 * scale);
-    moss.scale.set(scale * 0.55, scale * 0.28, scale * 0.5);
+    moss.position.set(0.1 * scale, 0.48 * scale, 0.05 * scale);
+    moss.scale.set(scale * 0.65, scale * 0.3, scale * 0.55);
     moss.castShadow = true;
     group.add(moss);
 
+    // Tiny lichen highlight
+    const lichen = new THREE.Mesh(this.rockSmallGeo, this.rockLightMat);
+    lichen.position.set(-0.05 * scale, 0.4 * scale, -0.15 * scale);
+    lichen.scale.set(scale * 0.35, scale * 0.18, scale * 0.3);
+    group.add(lichen);
+
     this.root.add(group);
-    this.obstacles.push({ x, z, radius: 0.42 * scale });
+    this.obstacles.push({ x, z, radius: 0.45 * scale });
   }
 
   private addFlower(x: number, z: number): void {
+    if (meadowPathInfluence(x, z) > 0.7) return;
     const idx = Math.abs(Math.floor(x * 3 + z * 5)) % this.flowerMats.length;
     const petalMat = this.flowerMats[idx]!;
     const group = new THREE.Group();
     group.position.set(x, 0, z);
 
     const stem = new THREE.Mesh(this.stemGeo, this.stemMat);
-    stem.position.y = 0.14;
+    stem.position.y = 0.13;
     group.add(stem);
 
     const petals = new THREE.Mesh(this.flowerPetalGeo, petalMat);
-    petals.position.y = 0.32;
-    petals.scale.set(1.05, 0.7, 1.05);
+    petals.position.y = 0.3;
+    petals.scale.set(1.05, 0.65, 1.05);
     group.add(petals);
 
     const center = new THREE.Mesh(this.flowerCenterGeo, this.flowerCenterMat);
-    center.position.y = 0.38;
+    center.position.y = 0.36;
     group.add(center);
 
     this.root.add(group);
+  }
+
+  private addSignpost(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.6, 6), this.woodDarkMat);
+    post.position.y = 0.8;
+    post.castShadow = true;
+    group.add(post);
+
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.42, 0.08), this.signBoardMat);
+    board.position.set(0.35, 1.35, 0);
+    board.rotation.z = -0.08;
+    board.castShadow = true;
+    group.add(board);
+
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.09), this.woodMat);
+    stripe.position.set(0.35, 1.35, 0.02);
+    stripe.rotation.z = -0.08;
+    group.add(stripe);
+
+    // Arrow tip
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.28, 3), this.signBoardMat);
+    arrow.rotation.z = -Math.PI / 2;
+    arrow.position.set(0.95, 1.32, 0);
+    group.add(arrow);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.35 });
+  }
+
+  private addPond(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
+    const bed = new THREE.Mesh(new THREE.CircleGeometry(2.6, 24), this.pondDeepMat);
+    bed.rotation.x = -Math.PI / 2;
+    bed.position.y = 0.03;
+    bed.receiveShadow = true;
+    group.add(bed);
+
+    const water = new THREE.Mesh(new THREE.CircleGeometry(2.35, 24), this.pondMat);
+    water.rotation.x = -Math.PI / 2;
+    water.position.y = 0.08;
+    group.add(water);
+
+    // Shore stones
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      const r = 2.5 + hash2(i, x) * 0.35;
+      const stone = new THREE.Mesh(this.rockSmallGeo, this.rockMat);
+      stone.position.set(Math.cos(a) * r, 0.12, Math.sin(a) * r);
+      stone.scale.setScalar(0.55 + hash2(z, i) * 0.4);
+      stone.castShadow = true;
+      group.add(stone);
+    }
+
+    // Reed-like stems
+    for (let i = 0; i < 5; i++) {
+      const a = hash2(i * 3, z) * Math.PI * 2;
+      const reed = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.03, 0.04, 0.7, 4),
+        this.stemMat,
+      );
+      reed.position.set(Math.cos(a) * 2.2, 0.35, Math.sin(a) * 2.2);
+      reed.rotation.z = (hash2(i, a) - 0.5) * 0.3;
+      group.add(reed);
+    }
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 2.4 });
+  }
+
+  private addRuinPillar(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.7, 0.35, 8), this.rockMat);
+    base.position.y = 0.18;
+    base.castShadow = true;
+    group.add(base);
+
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 2.4, 8), this.rockLightMat);
+    pillar.position.y = 1.35;
+    pillar.castShadow = true;
+    group.add(pillar);
+
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.35, 0.28, 8), this.rockMat);
+    cap.position.y = 2.6;
+    group.add(cap);
+
+    const broken = new THREE.Mesh(this.rockChunkGeo, this.rockShadowMat);
+    broken.position.set(0.7, 0.25, -0.3);
+    broken.scale.set(0.8, 0.5, 0.7);
+    broken.rotation.y = 0.6;
+    group.add(broken);
+
+    const moss = new THREE.Mesh(this.rockSmallGeo, this.mossMat);
+    moss.position.set(0.15, 2.1, 0.2);
+    moss.scale.set(0.5, 0.25, 0.4);
+    group.add(moss);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.75 });
+  }
+
+  private addCottage(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.scale.setScalar(1.15);
+
+    const walls = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.5, 2.0), this.rockLightMat);
+    walls.position.y = 0.75;
+    walls.castShadow = true;
+    group.add(walls);
+
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(1.9, 1.2, 4), this.roofMat);
+    roof.position.y = 2.05;
+    roof.rotation.y = Math.PI / 4;
+    roof.castShadow = true;
+    group.add(roof);
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.75, 0.08), this.woodDarkMat);
+    door.position.set(0, 0.4, 1.02);
+    group.add(door);
+
+    const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.7, 0.35), this.rockMat);
+    chimney.position.set(0.7, 2.1, -0.3);
+    group.add(chimney);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.6 });
+  }
+
+  private addWindmill(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.75, 3.2, 8), this.woodMat);
+    tower.position.y = 1.6;
+    tower.castShadow = true;
+    group.add(tower);
+
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.85, 0.9, 8), this.roofMat);
+    cap.position.y = 3.5;
+    cap.castShadow = true;
+    group.add(cap);
+
+    const hub = new THREE.Group();
+    hub.position.set(0, 2.8, 0.7);
+    group.add(hub);
+    // Static blades — readable landmark silhouette (no need to spin every frame)
+    for (let i = 0; i < 4; i++) {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.8, 0.08), this.woodDarkMat);
+      blade.position.y = 0.9;
+      const arm = new THREE.Group();
+      arm.rotation.z = (i / 4) * Math.PI * 2 + 0.4;
+      arm.add(blade);
+      hub.add(arm);
+    }
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.1 });
   }
 
   /** Keep entities inside the meadow play circle. */

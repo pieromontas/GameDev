@@ -2,7 +2,14 @@ import * as THREE from 'three';
 import { Entity } from './Entity';
 import { SkillId, SkillState, createWarriorSkills } from '../combat/Skills';
 import { Palette, createToonMaterial } from '../render/stylized';
+import { clamp01, easeOutCubic, smoothstep, strikeCurve } from '../anim/ease';
 
+export type PlayerAnim = 'idle' | 'move' | 'slash' | 'quake';
+
+/**
+ * Stylized novice swordsman — articulated low-poly rig with procedural anims.
+ * Gameplay hit radius / movement stay on the Entity root.
+ */
 export class Player extends Entity {
   readonly maxSpeed = 7.8;
   readonly accel = 52;
@@ -12,117 +19,304 @@ export class Player extends Entity {
   invuln = 0;
   /** Seconds since last combat event; regen starts after a short delay. */
   outOfCombat = 0;
-  private bob = 0;
-  private readonly body: THREE.Mesh;
-  private readonly bodyMat: THREE.MeshToonMaterial;
-  private readonly baseColor = Palette.warriorCloth;
+
   private readonly velocity = new THREE.Vector3();
+  private anim: PlayerAnim = 'idle';
+  private animT = 0;
+  private animDur = 0;
+  private movePhase = 0;
+  private breathe = 0;
+
+  // Rig nodes
+  private readonly hips: THREE.Group;
+  private readonly torso: THREE.Group;
+  private readonly head: THREE.Group;
+  private readonly leftShoulder: THREE.Group;
+  private readonly rightShoulder: THREE.Group;
+  private readonly leftArm: THREE.Group;
+  private readonly rightArm: THREE.Group;
+  private readonly swordPivot: THREE.Group;
+  private readonly leftLeg: THREE.Group;
+  private readonly rightLeg: THREE.Group;
+  private readonly shield: THREE.Object3D;
+  private readonly chestMats: THREE.MeshToonMaterial[] = [];
+  private readonly baseLeather = Palette.warriorLeather;
 
   constructor() {
     const group = new THREE.Group();
 
-    const cloth = createToonMaterial(Palette.warriorCloth);
-    const clothDark = createToonMaterial(Palette.warriorClothDark);
+    const leather = createToonMaterial(Palette.warriorLeather);
+    const leatherDark = createToonMaterial(Palette.warriorLeatherDark);
+    const leatherLight = createToonMaterial(Palette.warriorLeatherLight);
     const trim = createToonMaterial(Palette.warriorTrim, {
       emissive: Palette.warriorTrim,
-      emissiveIntensity: 0.08,
+      emissiveIntensity: 0.06,
+    });
+    const gold = createToonMaterial(Palette.warriorTrimGold, {
+      emissive: Palette.warriorTrimGold,
+      emissiveIntensity: 0.12,
     });
     const skin = createToonMaterial(Palette.warriorSkin);
+    const hair = createToonMaterial(Palette.warriorHair);
     const steel = createToonMaterial(Palette.warriorSteel);
+    const steelDark = createToonMaterial(Palette.warriorSteelDark);
     const boot = createToonMaterial(Palette.warriorBoot);
+    const cloth = createToonMaterial(Palette.warriorCloth);
 
-    // Torso — slightly wider capsule for a readable armored silhouette
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 0.72, 4, 10), cloth);
-    body.position.y = 0.95;
-    body.castShadow = true;
-    group.add(body);
+    const hips = new THREE.Group();
+    hips.position.y = 0.72;
+    group.add(hips);
 
-    // Shoulder pads (gold trim blocks)
-    const shoulderGeo = new THREE.BoxGeometry(0.28, 0.16, 0.34);
-    const leftPad = new THREE.Mesh(shoulderGeo, trim);
-    leftPad.position.set(-0.42, 1.35, 0);
-    leftPad.rotation.z = 0.25;
-    leftPad.castShadow = true;
-    const rightPad = new THREE.Mesh(shoulderGeo, trim);
-    rightPad.position.set(0.42, 1.35, 0);
-    rightPad.rotation.z = -0.25;
-    rightPad.castShadow = true;
-    group.add(leftPad, rightPad);
+    // Pelvis / skirt flap for silhouette
+    const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.28, 0.4), leatherDark);
+    pelvis.position.y = -0.02;
+    pelvis.castShadow = true;
+    hips.add(pelvis);
 
-    // Belt / mid stripe for color blocking
-    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.12, 0.5), trim);
-    belt.position.y = 0.72;
-    group.add(belt);
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.1, 0.44), gold);
+    belt.position.y = 0.12;
+    hips.add(belt);
+    const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.08), trim);
+    buckle.position.set(0, 0.12, 0.2);
+    hips.add(buckle);
 
-    // Boots
-    const bootGeo = new THREE.BoxGeometry(0.22, 0.22, 0.28);
+    // Legs
+    const leftLeg = new THREE.Group();
+    leftLeg.position.set(-0.16, -0.08, 0);
+    hips.add(leftLeg);
+    const rightLeg = new THREE.Group();
+    rightLeg.position.set(0.16, -0.08, 0);
+    hips.add(rightLeg);
+
+    const thighGeo = new THREE.CapsuleGeometry(0.11, 0.28, 3, 6);
+    const leftThigh = new THREE.Mesh(thighGeo, leather);
+    leftThigh.position.y = -0.22;
+    leftThigh.castShadow = true;
+    leftLeg.add(leftThigh);
+    const rightThigh = new THREE.Mesh(thighGeo, leather);
+    rightThigh.position.y = -0.22;
+    rightThigh.castShadow = true;
+    rightLeg.add(rightThigh);
+
+    const shinGeo = new THREE.CapsuleGeometry(0.095, 0.22, 3, 6);
+    const leftShin = new THREE.Mesh(shinGeo, leatherDark);
+    leftShin.position.y = -0.52;
+    leftShin.castShadow = true;
+    leftLeg.add(leftShin);
+    const rightShin = new THREE.Mesh(shinGeo, leatherDark);
+    rightShin.position.y = -0.52;
+    rightShin.castShadow = true;
+    rightLeg.add(rightShin);
+
+    // Greaves / boots with silver trim plates
+    const bootGeo = new THREE.BoxGeometry(0.2, 0.16, 0.32);
     const leftBoot = new THREE.Mesh(bootGeo, boot);
-    leftBoot.position.set(-0.16, 0.12, 0.02);
+    leftBoot.position.set(0, -0.7, 0.04);
     leftBoot.castShadow = true;
+    leftLeg.add(leftBoot);
     const rightBoot = new THREE.Mesh(bootGeo, boot);
-    rightBoot.position.set(0.16, 0.12, 0.02);
+    rightBoot.position.set(0, -0.7, 0.04);
     rightBoot.castShadow = true;
-    group.add(leftBoot, rightBoot);
+    rightLeg.add(rightBoot);
 
-    // Head + helm
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 12), skin);
-    head.position.y = 1.72;
-    head.castShadow = true;
-    group.add(head);
+    const greaveGeo = new THREE.BoxGeometry(0.22, 0.14, 0.18);
+    const leftGreave = new THREE.Mesh(greaveGeo, trim);
+    leftGreave.position.set(0, -0.58, 0.06);
+    leftLeg.add(leftGreave);
+    const rightGreave = new THREE.Mesh(greaveGeo, trim);
+    rightGreave.position.set(0, -0.58, 0.06);
+    rightLeg.add(rightGreave);
 
-    const helm = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.24, 0.58), trim);
-    helm.position.y = 1.9;
-    helm.castShadow = true;
-    group.add(helm);
+    // Torso
+    const torso = new THREE.Group();
+    torso.position.y = 0.18;
+    hips.add(torso);
 
-    // Small crest so the warrior pops from behind at distance
-    const crest = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.18), clothDark);
-    crest.position.set(0, 2.1, -0.05);
-    group.add(crest);
+    const chest = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.7, 0.46), leather);
+    chest.position.y = 0.38;
+    chest.castShadow = true;
+    torso.add(chest);
 
-    // Sword: blade + gold guard + grip
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.95, 0.1), steel);
-    blade.position.set(0.58, 1.05, 0.12);
-    blade.rotation.z = -0.35;
-    blade.castShadow = true;
-    group.add(blade);
+    const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.12), leatherLight);
+    chestPlate.position.set(0, 0.4, 0.2);
+    torso.add(chestPlate);
 
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.08, 0.14), trim);
-    guard.position.set(0.48, 0.62, 0.08);
-    guard.rotation.z = -0.35;
-    group.add(guard);
+    const collar = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.12, 0.4), cloth);
+    collar.position.y = 0.74;
+    torso.add(collar);
 
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.28, 0.09), boot);
-    grip.position.set(0.42, 0.42, 0.05);
-    grip.rotation.z = -0.35;
-    group.add(grip);
+    // Head
+    const head = new THREE.Group();
+    head.position.y = 0.95;
+    torso.add(head);
 
-    // Small round shield on the off-hand for silhouette / color pop
-    const shield = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.32, 0.32, 0.08, 10),
-      clothDark,
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), skin);
+    skull.scale.set(1, 1.05, 0.95);
+    skull.castShadow = true;
+    head.add(skull);
+
+    // Messy brown hair clumps
+    const hairMain = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 8), hair);
+    hairMain.position.set(0, 0.08, -0.02);
+    hairMain.scale.set(1.05, 0.85, 1.1);
+    head.add(hairMain);
+    const bangL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), hair);
+    bangL.position.set(-0.14, 0.06, 0.18);
+    bangL.scale.set(0.8, 1.1, 0.7);
+    head.add(bangL);
+    const bangR = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), hair);
+    bangR.position.set(0.12, 0.1, 0.16);
+    bangR.scale.set(0.75, 1.2, 0.7);
+    head.add(bangR);
+    const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), hair);
+    tuft.position.set(0.05, 0.26, -0.05);
+    tuft.scale.set(0.7, 1.3, 0.7);
+    head.add(tuft);
+
+    // Tiny eyes for readable face at isometric distance
+    const eyeGeo = new THREE.SphereGeometry(0.035, 6, 6);
+    const eyeMat = createToonMaterial(0x2a1a14);
+    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeL.position.set(-0.08, 0.02, 0.21);
+    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeR.position.set(0.08, 0.02, 0.21);
+    head.add(eyeL, eyeR);
+
+    // Shoulders / arms
+    const leftShoulder = new THREE.Group();
+    leftShoulder.position.set(-0.42, 0.68, 0);
+    torso.add(leftShoulder);
+    const rightShoulder = new THREE.Group();
+    rightShoulder.position.set(0.42, 0.68, 0);
+    torso.add(rightShoulder);
+
+    const padGeo = new THREE.BoxGeometry(0.34, 0.2, 0.4);
+    const leftPad = new THREE.Mesh(padGeo, leatherDark);
+    leftPad.position.set(-0.06, 0.04, 0);
+    leftPad.rotation.z = 0.35;
+    leftPad.castShadow = true;
+    leftShoulder.add(leftPad);
+    const leftPadTrim = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.08, 0.42), trim);
+    leftPadTrim.position.set(-0.06, 0.12, 0);
+    leftPadTrim.rotation.z = 0.35;
+    leftShoulder.add(leftPadTrim);
+
+    const rightPad = new THREE.Mesh(padGeo, leatherDark);
+    rightPad.position.set(0.06, 0.04, 0);
+    rightPad.rotation.z = -0.35;
+    rightPad.castShadow = true;
+    rightShoulder.add(rightPad);
+    const rightPadTrim = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.08, 0.42), trim);
+    rightPadTrim.position.set(0.06, 0.12, 0);
+    rightPadTrim.rotation.z = -0.35;
+    rightShoulder.add(rightPadTrim);
+
+    const leftArm = new THREE.Group();
+    leftArm.position.set(-0.1, -0.08, 0);
+    leftShoulder.add(leftArm);
+    const rightArm = new THREE.Group();
+    rightArm.position.set(0.1, -0.08, 0);
+    rightShoulder.add(rightArm);
+
+    const upperArmGeo = new THREE.CapsuleGeometry(0.09, 0.26, 3, 6);
+    const leftUpper = new THREE.Mesh(upperArmGeo, leather);
+    leftUpper.position.y = -0.2;
+    leftUpper.castShadow = true;
+    leftArm.add(leftUpper);
+    const rightUpper = new THREE.Mesh(upperArmGeo, leather);
+    rightUpper.position.y = -0.2;
+    rightUpper.castShadow = true;
+    rightArm.add(rightUpper);
+
+    const gauntletGeo = new THREE.BoxGeometry(0.16, 0.22, 0.16);
+    const leftGaunt = new THREE.Mesh(gauntletGeo, trim);
+    leftGaunt.position.y = -0.42;
+    leftArm.add(leftGaunt);
+    const rightGaunt = new THREE.Mesh(gauntletGeo, trim);
+    rightGaunt.position.y = -0.42;
+    rightArm.add(rightGaunt);
+
+    // Round shield (off-hand)
+    const shield = new THREE.Group();
+    shield.position.set(-0.12, -0.48, 0.12);
+    leftArm.add(shield);
+    const shieldDisk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.34, 0.36, 0.08, 12),
+      leatherDark,
     );
-    shield.rotation.z = Math.PI / 2;
-    shield.rotation.y = 0.35;
-    shield.position.set(-0.55, 1.05, 0.05);
-    shield.castShadow = true;
-    group.add(shield);
+    shieldDisk.rotation.z = Math.PI / 2;
+    shieldDisk.rotation.y = 0.45;
+    shieldDisk.castShadow = true;
+    shield.add(shieldDisk);
+    const shieldBoss = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), gold);
+    shieldBoss.position.set(-0.05, 0, 0.08);
+    shield.add(shieldBoss);
+    const shieldRim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.34, 0.03, 6, 16),
+      trim,
+    );
+    shieldRim.rotation.y = Math.PI / 2 + 0.45;
+    shield.add(shieldRim);
 
-    const boss = new THREE.Mesh(new THREE.CircleGeometry(0.12, 10), trim);
-    boss.position.set(-0.6, 1.05, 0.05);
-    boss.rotation.y = Math.PI / 2 + 0.35;
-    group.add(boss);
+    // Sword with readable swing mass
+    const swordPivot = new THREE.Group();
+    swordPivot.position.set(0.08, -0.45, 0.05);
+    rightArm.add(swordPivot);
+
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.08), boot);
+    grip.position.y = -0.05;
+    swordPivot.add(grip);
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.07, 0.12), gold);
+    guard.position.y = 0.12;
+    swordPivot.add(guard);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.05, 0.06), steel);
+    blade.position.y = 0.68;
+    blade.castShadow = true;
+    swordPivot.add(blade);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.16, 6), steel);
+    tip.position.y = 1.26;
+    swordPivot.add(tip);
+    const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.7, 0.07), steelDark);
+    fuller.position.y = 0.65;
+    swordPivot.add(fuller);
+    const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), gold);
+    pommel.position.y = -0.22;
+    swordPivot.add(pommel);
+
+    // Soft contact shadow disc
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.42, 16),
+      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.28 }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.02;
+    group.add(shadow);
 
     super(group, 'player', 120, 0.5);
-    this.body = body;
-    this.bodyMat = cloth;
+    this.hips = hips;
+    this.torso = torso;
+    this.head = head;
+    this.leftShoulder = leftShoulder;
+    this.rightShoulder = rightShoulder;
+    this.leftArm = leftArm;
+    this.rightArm = rightArm;
+    this.swordPivot = swordPivot;
+    this.leftLeg = leftLeg;
+    this.rightLeg = rightLeg;
+    this.shield = shield;
+    this.chestMats.push(leather, leatherLight, leatherDark);
     this.skills = createWarriorSkills();
     this.position.set(0, 0, 6);
     this.syncMesh();
+    this.resetPose();
   }
 
   get moveSpeed(): number {
     return this.maxSpeed;
+  }
+
+  get animState(): PlayerAnim {
+    return this.anim;
   }
 
   tickSkills(dt: number): void {
@@ -147,6 +341,20 @@ export class Player extends Entity {
     this.outOfCombat = 0;
   }
 
+  /** Trigger Slash swing — duration synced to ~0.4s basic CD window. */
+  playSlash(): void {
+    this.anim = 'slash';
+    this.animT = 0;
+    this.animDur = 0.38;
+  }
+
+  /** Trigger Quake stomp / impact pose. */
+  playQuake(): void {
+    this.anim = 'quake';
+    this.animT = 0;
+    this.animDur = 0.55;
+  }
+
   faceDirection(dir: THREE.Vector3): void {
     if (dir.lengthSq() < 1e-6) return;
     this.facing.copy(dir).normalize();
@@ -159,16 +367,20 @@ export class Player extends Entity {
    * Returns true if the player has meaningful horizontal velocity.
    */
   applyMovement(wishDir: THREE.Vector3, dt: number): boolean {
+    // Lock locomotion facing during attack poses, but still allow small drift.
+    const attacking = this.anim === 'slash' || this.anim === 'quake';
     if (wishDir.lengthSq() > 1e-6) {
-      this.velocity.x += wishDir.x * this.accel * dt;
-      this.velocity.z += wishDir.z * this.accel * dt;
+      const accelScale = attacking ? 0.35 : 1;
+      this.velocity.x += wishDir.x * this.accel * accelScale * dt;
+      this.velocity.z += wishDir.z * this.accel * accelScale * dt;
       const speed = Math.hypot(this.velocity.x, this.velocity.z);
-      if (speed > this.maxSpeed) {
-        const s = this.maxSpeed / speed;
+      const cap = attacking ? this.maxSpeed * 0.45 : this.maxSpeed;
+      if (speed > cap) {
+        const s = cap / speed;
         this.velocity.x *= s;
         this.velocity.z *= s;
       }
-      this.faceDirection(wishDir);
+      if (!attacking) this.faceDirection(wishDir);
     } else {
       const speed = Math.hypot(this.velocity.x, this.velocity.z);
       if (speed > 0) {
@@ -189,26 +401,43 @@ export class Player extends Entity {
   }
 
   update(dt: number): void {
-    this.bob += dt * 8;
+    this.breathe += dt;
     this.outOfCombat += dt;
+    const speed = Math.hypot(this.velocity.x, this.velocity.z);
 
-    if (this.hitFlash > 0) {
-      this.hitFlash -= dt;
-      this.bodyMat.color.setHex(0xffffff);
-    } else if (this.invuln > 0) {
-      // Soft blink while i-framed after a hit / respawn
-      const blink = Math.sin(this.invuln * 28) > 0;
-      this.bodyMat.color.setHex(blink ? 0xa8d4ff : this.baseColor);
+    if (this.anim === 'slash' || this.anim === 'quake') {
+      this.animT += dt;
+      if (this.animT >= this.animDur) {
+        this.anim = speed > 0.4 ? 'move' : 'idle';
+        this.animT = 0;
+      }
     } else {
-      this.bodyMat.color.setHex(this.baseColor);
+      this.anim = speed > 0.35 ? 'move' : 'idle';
     }
 
-    // subtle idle / run bob on body
-    const speed = Math.hypot(this.velocity.x, this.velocity.z);
-    const bobAmp = 0.02 + Math.min(0.05, speed * 0.008);
-    this.body.position.y = 0.95 + Math.sin(this.bob) * bobAmp;
+    if (this.anim === 'move') {
+      this.movePhase += dt * (8.5 + speed * 0.55);
+    } else if (this.anim === 'idle') {
+      this.movePhase += dt * 2.2;
+    }
 
-    // Light out-of-combat regen so mistakes are recoverable without a full wipe
+    this.applyPose(speed);
+
+    // Hit / i-frame material flash on leather mats
+    if (this.hitFlash > 0) {
+      this.hitFlash -= dt;
+      for (const m of this.chestMats) m.color.setHex(0xffffff);
+    } else if (this.invuln > 0) {
+      const blink = Math.sin(this.invuln * 28) > 0;
+      for (const m of this.chestMats) {
+        m.color.setHex(blink ? 0xc8b090 : this.baseLeather);
+      }
+    } else {
+      this.chestMats[0]!.color.setHex(Palette.warriorLeather);
+      this.chestMats[1]!.color.setHex(Palette.warriorLeatherLight);
+      this.chestMats[2]!.color.setHex(Palette.warriorLeatherDark);
+    }
+
     if (this.alive && this.outOfCombat > 2.4 && this.hp < this.maxHp) {
       this.heal(8 * dt);
     }
@@ -222,6 +451,124 @@ export class Player extends Entity {
     this.mesh.visible = true;
     this.invuln = 1.6;
     this.outOfCombat = 0;
+    this.anim = 'idle';
+    this.animT = 0;
+    this.resetPose();
     this.syncMesh();
+  }
+
+  private resetPose(): void {
+    this.hips.position.y = 0.72;
+    this.hips.rotation.set(0, 0, 0);
+    this.torso.position.set(0, 0, 0);
+    this.torso.scale.set(1, 1, 1);
+    this.torso.rotation.set(0, 0, 0);
+    this.head.rotation.set(0, 0, 0);
+    this.leftShoulder.rotation.set(0, 0, 0);
+    this.rightShoulder.rotation.set(0, 0, 0);
+    this.leftArm.rotation.set(0.15, 0, 0.2);
+    this.rightArm.rotation.set(0.15, 0, -0.2);
+    this.swordPivot.rotation.set(0.15, 0, -0.55);
+    this.leftLeg.rotation.set(0, 0, 0);
+    this.rightLeg.rotation.set(0, 0, 0);
+    this.shield.rotation.set(0, 0, 0);
+  }
+
+  private applyPose(speed: number): void {
+    this.resetPose();
+    const breath = Math.sin(this.breathe * 2.4) * 0.015;
+
+    if (this.anim === 'slash') {
+      this.applySlashPose(this.animT / this.animDur);
+      return;
+    }
+    if (this.anim === 'quake') {
+      this.applyQuakePose(this.animT / this.animDur);
+      return;
+    }
+
+    // Idle breathe / walk cycle
+    this.torso.position.y = breath;
+    this.torso.scale.set(1 + breath * 0.6, 1 + breath * 1.2, 1 + breath * 0.6);
+    this.head.rotation.x = breath * 0.8;
+
+    if (this.anim === 'idle') {
+      this.leftArm.rotation.x = 0.12 + Math.sin(this.breathe * 1.6) * 0.04;
+      this.rightArm.rotation.x = 0.12 + Math.sin(this.breathe * 1.6 + 0.4) * 0.04;
+      this.swordPivot.rotation.z = -0.55 + Math.sin(this.breathe * 1.3) * 0.04;
+      this.hips.position.y = 0.72 + Math.abs(Math.sin(this.breathe * 1.8)) * 0.01;
+      return;
+    }
+
+    // Walk / run cycle
+    const phase = this.movePhase;
+    const amp = THREE.MathUtils.clamp(speed / this.maxSpeed, 0.35, 1);
+    const legSwing = Math.sin(phase) * 0.7 * amp;
+    const armSwing = Math.sin(phase) * 0.55 * amp;
+    const bob = Math.abs(Math.sin(phase)) * 0.06 * amp;
+
+    this.hips.position.y = 0.72 + bob;
+    this.hips.rotation.y = Math.sin(phase) * 0.08 * amp;
+    this.torso.rotation.z = Math.sin(phase) * 0.05 * amp;
+    this.torso.rotation.x = -0.06 * amp;
+
+    this.leftLeg.rotation.x = legSwing;
+    this.rightLeg.rotation.x = -legSwing;
+    this.leftArm.rotation.x = -armSwing + 0.1;
+    this.rightArm.rotation.x = armSwing + 0.1;
+    this.swordPivot.rotation.x = armSwing * 0.35;
+    this.swordPivot.rotation.z = -0.5 - Math.abs(armSwing) * 0.1;
+    this.head.rotation.y = Math.sin(phase * 0.5) * 0.06;
+  }
+
+  private applySlashPose(t: number): void {
+    const k = strikeCurve(t, 0.28);
+    const wind = smoothstep(clamp01(t / 0.28));
+    const follow = easeOutCubic(clamp01((t - 0.28) / 0.72));
+
+    // Wind-up: sword up/back, then horizontal sweep
+    this.hips.rotation.y = THREE.MathUtils.lerp(0.35, -0.55, k);
+    this.torso.rotation.y = THREE.MathUtils.lerp(0.45, -0.7, k);
+    this.torso.rotation.z = THREE.MathUtils.lerp(0.08, -0.12, k);
+
+    this.rightShoulder.rotation.y = THREE.MathUtils.lerp(-0.2, 0.9, k);
+    this.rightArm.rotation.x = THREE.MathUtils.lerp(-0.9, 0.35, k);
+    this.rightArm.rotation.z = THREE.MathUtils.lerp(0.4, -0.85, k);
+    this.swordPivot.rotation.x = THREE.MathUtils.lerp(-0.4, 0.5, k);
+    this.swordPivot.rotation.z = THREE.MathUtils.lerp(-1.4, 0.2, k);
+    this.swordPivot.rotation.y = THREE.MathUtils.lerp(0.2, -0.4, k);
+
+    this.leftArm.rotation.x = -0.2 - wind * 0.2;
+    this.leftArm.rotation.z = 0.55;
+    this.shield.rotation.y = -0.2;
+
+    this.leftLeg.rotation.x = THREE.MathUtils.lerp(-0.25, 0.35, follow);
+    this.rightLeg.rotation.x = THREE.MathUtils.lerp(0.15, -0.2, follow);
+    this.hips.position.y = 0.72 + Math.sin(k * Math.PI) * 0.04;
+    this.head.rotation.y = this.torso.rotation.y * 0.35;
+  }
+
+  private applyQuakePose(t: number): void {
+    const crouch = smoothstep(clamp01(t / 0.22));
+    const launch = smoothstep(clamp01((t - 0.18) / 0.18));
+    const impact = easeOutCubic(clamp01((t - 0.32) / 0.25));
+    const settle = smoothstep(clamp01((t - 0.55) / 0.45));
+
+    const down = crouch * (1 - launch) * 0.16;
+    const hop = launch * (1 - impact) * 0.14;
+    this.hips.position.y = 0.72 - down + hop - impact * 0.05 * (1 - settle);
+
+    this.torso.rotation.x = crouch * 0.35 * (1 - launch) - impact * 0.15;
+    this.leftLeg.rotation.x = -crouch * 0.55 + impact * 0.2;
+    this.rightLeg.rotation.x = -crouch * 0.45 + impact * 0.15;
+
+    // Arms raise then slam down
+    const armsUp = Math.max(crouch, launch) * (1 - impact * 0.7);
+    this.leftArm.rotation.x = -armsUp * 1.4 + impact * 0.5;
+    this.rightArm.rotation.x = -armsUp * 1.5 + impact * 0.6;
+    this.rightArm.rotation.z = -0.35;
+    this.swordPivot.rotation.x = -armsUp * 0.8 + impact * 1.1;
+    this.swordPivot.rotation.z = -0.3;
+    this.head.rotation.x = -crouch * 0.2 + impact * 0.1;
   }
 }

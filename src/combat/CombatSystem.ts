@@ -12,19 +12,22 @@ export type CombatHooks = {
   onKill: () => void;
 };
 
-/** Lightweight VFX rings / slash arcs using shared geometry. */
+/** Lightweight VFX rings / slash arcs / seals using shared geometry. */
 class SkillFx {
   private readonly items: Array<{
-    mesh: THREE.Mesh;
+    mesh: THREE.Object3D;
     age: number;
     life: number;
     grow: number;
+    kind: 'ring' | 'slash' | 'seal';
   }> = [];
-  private readonly ringGeo = new THREE.RingGeometry(0.2, 0.55, 24);
-  private readonly slashGeo = new THREE.PlaneGeometry(2.1, 0.42);
+  private readonly ringGeo = new THREE.RingGeometry(0.2, 0.55, 28);
+  private readonly slashGeo = new THREE.RingGeometry(0.9, 1.45, 22, 1, 0, Math.PI * 0.85);
+  private readonly sealGeo = new THREE.RingGeometry(0.55, 0.7, 6);
 
   constructor(private readonly scene: THREE.Scene) {
     this.ringGeo.rotateX(-Math.PI / 2);
+    this.sealGeo.rotateX(-Math.PI / 2);
   }
 
   spawnRing(pos: THREE.Vector3, color: number, finalRadius: number): void {
@@ -34,7 +37,6 @@ class SkillFx {
       opacity: 0.95,
       side: THREE.DoubleSide,
       depthWrite: false,
-      // Additive pop without a post-process bloom stack
       blending: THREE.AdditiveBlending,
     });
     const mesh = new THREE.Mesh(this.ringGeo, mat);
@@ -42,9 +44,31 @@ class SkillFx {
     mesh.scale.setScalar(0.35);
     mesh.renderOrder = 2;
     this.scene.add(mesh);
-    // RingGeometry outer ~0.55 → scale so visual ≈ skill radius
     const targetScale = (finalRadius / 0.55) * 1.05;
-    this.items.push({ mesh, age: 0, life: 0.48, grow: targetScale });
+    this.items.push({ mesh, age: 0, life: 0.48, grow: targetScale, kind: 'ring' });
+  }
+
+  spawnSeal(pos: THREE.Vector3, color: number): void {
+    const group = new THREE.Group();
+    group.position.set(pos.x, 0.06, pos.z);
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const outer = new THREE.Mesh(this.sealGeo, mat);
+    group.add(outer);
+    const inner = new THREE.Mesh(this.sealGeo, mat.clone());
+    inner.scale.setScalar(0.55);
+    inner.rotation.y = Math.PI / 6;
+    group.add(inner);
+    group.scale.setScalar(0.4);
+    group.renderOrder = 2;
+    this.scene.add(group);
+    this.items.push({ mesh: group, age: 0, life: 0.42, grow: 1.35, kind: 'seal' });
   }
 
   spawnSlash(pos: THREE.Vector3, facing: THREE.Vector3, color: number): void {
@@ -57,12 +81,14 @@ class SkillFx {
       blending: THREE.AdditiveBlending,
     });
     const mesh = new THREE.Mesh(this.slashGeo, mat);
-    mesh.position.set(pos.x + facing.x * 1.15, 1.15, pos.z + facing.z * 1.15);
+    // Stand the arc up in the swing plane
+    mesh.position.set(pos.x + facing.x * 0.85, 1.15, pos.z + facing.z * 0.85);
     mesh.rotation.y = Math.atan2(facing.x, facing.z);
-    mesh.rotation.z = -0.35;
+    mesh.rotation.x = Math.PI / 2;
+    mesh.rotation.z = -0.2;
     mesh.renderOrder = 2;
     this.scene.add(mesh);
-    this.items.push({ mesh, age: 0, life: 0.2, grow: 0 });
+    this.items.push({ mesh, age: 0, life: 0.22, grow: 0, kind: 'slash' });
   }
 
   update(dt: number): void {
@@ -70,17 +96,35 @@ class SkillFx {
       const item = this.items[i]!;
       item.age += dt;
       const t = item.age / item.life;
-      if (item.grow > 0) {
+      if (item.kind === 'ring' || item.kind === 'seal') {
         const s = 0.35 + t * (item.grow - 0.35);
         item.mesh.scale.setScalar(s);
+        if (item.kind === 'seal') {
+          item.mesh.rotation.y += dt * 2.5;
+        }
       } else {
-        item.mesh.scale.x = 1 + t * 0.35;
+        item.mesh.scale.set(1 + t * 0.45, 1 + t * 0.2, 1 + t * 0.45);
       }
-      const mat = item.mesh.material as THREE.MeshBasicMaterial;
-      mat.opacity = Math.max(0, 1 - t);
+
+      item.mesh.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if (mesh.material && (mesh.material as THREE.Material).opacity !== undefined) {
+          (mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - t);
+        }
+      });
+
       if (item.age >= item.life) {
         this.scene.remove(item.mesh);
-        mat.dispose();
+        item.mesh.traverse((obj) => {
+          const mesh = obj as THREE.Mesh;
+          if (mesh.material) {
+            const mat = mesh.material as THREE.Material;
+            // Shared geos; dispose only unique materials
+            if (!(mat as THREE.Material & { userData?: { shared?: boolean } }).userData?.shared) {
+              mat.dispose();
+            }
+          }
+        });
         this.items.splice(i, 1);
       }
     }
@@ -120,7 +164,9 @@ export class CombatSystem {
         );
         player.faceDirection(this.tmp);
       }
+      player.playSlash();
       this.fx.spawnSlash(player.position, player.facing, skill.color);
+      this.fx.spawnSeal(player.position, 0xffd76a);
       if (target) {
         this.applyDamageToMob(target, skill.damage, false);
       }
@@ -128,7 +174,9 @@ export class CombatSystem {
     }
 
     // AoE slam centered on player — ring matches gameplay radius
+    player.playQuake();
     this.fx.spawnRing(player.position, skill.color, skill.radius);
+    this.fx.spawnSeal(player.position, skill.color);
     for (const mob of mobs) {
       if (!mob.alive) continue;
       const reach = skill.radius + mob.radius * 0.35;
@@ -178,7 +226,6 @@ export class CombatSystem {
         facing = this.tmp.dot(player.facing);
       }
 
-      // Close-range sticky assist; farther targets need to be roughly ahead
       if (dist > 1.55 && facing < -0.05) continue;
 
       const score = dist - facing * 1.1;
@@ -193,6 +240,7 @@ export class CombatSystem {
   private applyDamageToMob(mob: Mob, damage: number, crit: boolean): void {
     const dealt = mob.takeDamage(damage + (crit ? 4 : 0));
     if (dealt <= 0) return;
+    mob.playHitReact();
     this.damageNumbers.spawn(mob.position, dealt, crit);
     if (!mob.alive) {
       this.hooks.onKill();
