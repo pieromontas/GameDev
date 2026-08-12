@@ -54,7 +54,8 @@ export class Game {
 
     // Fallback clear color under the sky dome; fog tints distance into meadow air.
     this.scene.background = new THREE.Color(Palette.skyHorizon);
-    this.scene.fog = new THREE.Fog(Palette.fog, 22, 62);
+    // Far plane nudged out so the east shrine clearing stays readable
+    this.scene.fog = new THREE.Fog(Palette.fog, 24, 78);
     this.sky = createSkyDome(110);
     this.scene.add(this.sky);
 
@@ -114,7 +115,7 @@ export class Game {
     if (!ok) {
       this.hud.showToast('Warrior model failed to load — check console', 3.5);
     } else {
-      this.hud.showToast('Welcome to the meadow training grounds', 2.2);
+      this.hud.showToast('Welcome to the meadow — a path leads east to the shrine', 2.4);
     }
     this.loop.start();
   }
