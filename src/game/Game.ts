@@ -409,13 +409,6 @@ export class Game {
       this.hud.flashLevelUp();
       this.combat.playLevelUpFx(this.player);
       this.cameraRig.addImpactPunch(0.2);
-
-      // Announce slot-4 unlock on the level that opens it (Warrior Leap / Mage Meteor).
-      const unlock = this.player.consumeSkill4UnlockToast();
-      if (unlock) {
-        // Slightly longer so it isn't buried under the Level Up toast.
-        window.setTimeout(() => this.hud.showToast(unlock, 2.4), 900);
-      }
       return;
     }
 

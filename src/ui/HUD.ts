@@ -18,6 +18,9 @@ export class HUD {
   private hintAge = 0;
   private hintHidden = false;
   private levelFlashTimer = 0;
+  /** Delay before swapping the Level Up toast for the skill-4 unlock line. */
+  private skill4ToastDelay = -1;
+  private skill4ToastMsg: string | null = null;
   private readonly prevReady: Record<SkillId, boolean> = {
     basic: true,
     slam: true,
@@ -176,6 +179,21 @@ export class HUD {
     this.syncSkill('slam', player);
     this.syncSkill('bash', player);
     this.syncSkill('burst', player);
+
+    // Slot-4 unlock toast — works for kill XP and any other gainXp path.
+    const unlock = player.consumeSkill4UnlockToast();
+    if (unlock) {
+      this.skill4ToastMsg = unlock;
+      this.skill4ToastDelay = 0.85;
+    }
+    if (this.skill4ToastDelay >= 0) {
+      this.skill4ToastDelay -= dt;
+      if (this.skill4ToastDelay <= 0 && this.skill4ToastMsg) {
+        this.showToast(this.skill4ToastMsg, 2.4);
+        this.skill4ToastMsg = null;
+        this.skill4ToastDelay = -1;
+      }
+    }
 
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
