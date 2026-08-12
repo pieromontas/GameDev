@@ -49,6 +49,8 @@ export class Mob extends Entity {
 
   ai: MobAIState = 'idle';
   attackTimer = 0;
+  /** Remaining stun from Shield Bash (seconds). Blocks chase / attack. */
+  stunRemain = 0;
   private respawnTimer = 0;
   readonly home: THREE.Vector3;
   private readonly bodyMat: THREE.MeshToonMaterial;
@@ -194,15 +196,39 @@ export class Mob extends Entity {
     }
 
     if (this.attackTimer > 0) this.attackTimer -= dt;
+    if (this.stunRemain > 0) this.stunRemain = Math.max(0, this.stunRemain - dt);
     if (this.hitReactT > 0) this.hitReactT = Math.max(0, this.hitReactT - dt);
     if (this.lungeT >= 0) {
       this.lungeT += dt;
       if (this.lungeT >= 0.28) this.lungeT = -1;
     }
 
-    const moving = this.ai === 'chase' || this.ai === 'leash';
-    this.hopPhase += dt * (moving ? 9.5 : this.ai === 'idle' ? 4.2 : 3.0);
+    const moving = this.stunRemain <= 0 && (this.ai === 'chase' || this.ai === 'leash');
+    this.hopPhase += dt * (moving ? 9.5 : this.ai === 'idle' || this.stunRemain > 0 ? 4.2 : 3.0);
     this.applyLivePose();
+  }
+
+  /** True while Shield Bash (or similar) stun is active. */
+  get isStunned(): boolean {
+    return this.stunRemain > 0;
+  }
+
+  /**
+   * Instant shove + brief stun. `dist` is world units along the XZ push direction.
+   */
+  applyKnockback(dx: number, dz: number, dist: number, stunSeconds = 0.85): void {
+    if (!this.alive) return;
+    const len = Math.hypot(dx, dz);
+    if (len > 1e-4 && dist > 0) {
+      this.position.x += (dx / len) * dist;
+      this.position.z += (dz / len) * dist;
+    }
+    this.stunRemain = Math.max(this.stunRemain, stunSeconds);
+    this.windup = false;
+    this.lungeT = -1;
+    this.attackTimer = Math.max(this.attackTimer, stunSeconds);
+    this.hitReactT = Math.max(this.hitReactT, 0.32);
+    this.syncMesh();
   }
 
   think(playerPos: THREE.Vector3, playerAlive: boolean): void {
@@ -211,6 +237,12 @@ export class Mob extends Entity {
       return;
     }
     if (!playerAlive) {
+      this.ai = 'idle';
+      this.windup = false;
+      return;
+    }
+    if (this.stunRemain > 0) {
+      // Hold still — don't re-aggro or wind up mid-stun.
       this.ai = 'idle';
       this.windup = false;
       return;
@@ -259,7 +291,9 @@ export class Mob extends Entity {
   }
 
   tryAttack(): boolean {
-    if (this.ai !== 'attack' || this.attackTimer > 0 || !this.alive) return false;
+    if (this.ai !== 'attack' || this.attackTimer > 0 || !this.alive || this.stunRemain > 0) {
+      return false;
+    }
     this.attackTimer = this.attackCooldown;
     this.windup = false;
     this.lungeT = 0;
@@ -286,6 +320,7 @@ export class Mob extends Entity {
     this.alive = true;
     this.ai = 'idle';
     this.attackTimer = 0.55;
+    this.stunRemain = 0;
     this.hitReactT = 0;
     this.lungeT = -1;
     this.deathT = -1;
@@ -353,7 +388,7 @@ export class Mob extends Entity {
   private applyLivePose(): void {
     const moving = this.ai === 'chase' || this.ai === 'leash';
 
-    if (this.hitReactT > 0) this.setFace('hurt');
+    if (this.stunRemain > 0 || this.hitReactT > 0) this.setFace('hurt');
     else if (this.windup && this.ai === 'attack') this.setFace('windup');
     else if (this.ai === 'attack' || this.ai === 'chase') this.setFace('mad');
     else this.setFace('happy');
@@ -362,6 +397,21 @@ export class Mob extends Entity {
     let squashY = 1;
     let squashX = 1;
     let zOff = 0;
+
+    if (this.stunRemain > 0) {
+      // Readable daze: soft wobble, no hop chase.
+      const wobble = Math.sin(this.stunRemain * 18);
+      hop = 0.02;
+      squashY = 0.88 + wobble * 0.04;
+      squashX = 1.14 - wobble * 0.05;
+      this.leftEar.rotation.z = 0.65;
+      this.rightEar.rotation.z = -0.65;
+      this.visual.scale.set(squashX, squashY, squashX);
+      this.visual.position.set(wobble * 0.06, 0.62 * squashY + hop, 0);
+      this.shadow.scale.setScalar(Math.max(0.4, 1.05 * squashX));
+      this.shadowMat.opacity = 0.26;
+      return;
+    }
 
     if (moving) {
       const s = Math.sin(this.hopPhase);

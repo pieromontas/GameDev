@@ -1,4 +1,4 @@
-export type SkillId = 'basic' | 'slam';
+export type SkillId = 'basic' | 'slam' | 'bash';
 
 export type SkillDef = {
   id: SkillId;
@@ -37,11 +37,23 @@ export const WARRIOR_SKILLS: Record<SkillId, SkillDef> = {
     radius: 3.55,
     color: 0xff5a5a,
   },
+  bash: {
+    id: 'bash',
+    name: 'Shield Bash',
+    keyHint: '3',
+    // Mid CD utility — less damage than Slash/Quake; pays for stun + knockback.
+    cooldown: 2.0,
+    damage: 12,
+    range: 2.15,
+    radius: 1.35,
+    color: 0x7ec8ff,
+  },
 };
 
 export function createWarriorSkills(): Record<SkillId, SkillState> {
   return {
     basic: { def: WARRIOR_SKILLS.basic, cooldownRemaining: 0 },
     slam: { def: WARRIOR_SKILLS.slam, cooldownRemaining: 0 },
+    bash: { def: WARRIOR_SKILLS.bash, cooldownRemaining: 0 },
   };
 }

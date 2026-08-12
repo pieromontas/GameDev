@@ -94,6 +94,9 @@ export class Game {
       onQuakeImpact: () => {
         this.cameraRig.addImpactPunch(0.16);
       },
+      onBashImpact: () => {
+        this.cameraRig.addImpactPunch(0.1);
+      },
     });
 
     this.loop = new GameLoop({
@@ -192,7 +195,9 @@ export class Game {
         continue;
       }
 
-      if (mob.ai === 'chase') {
+      if (mob.isStunned) {
+        // Shield Bash hold — no chase/leash while dazed.
+      } else if (mob.ai === 'chase') {
         mob.moveToward(this.player.position, dt, (p) => this.constrainEntity(p, mob.radius));
       } else if (mob.ai === 'leash') {
         mob.moveToward(mob.home, dt, (p) => this.constrainEntity(p, mob.radius));
@@ -306,6 +311,16 @@ export class Game {
     }
     if (this.input.wasPressed('Digit2') || this.input.wasPressed('Numpad2')) {
       this.combat.tryPlayerSkill(this.player, 'slam', this.mobs);
+    }
+    if (this.input.wasPressed('Digit3') || this.input.wasPressed('Numpad3')) {
+      if (this.combat.tryPlayerSkill(this.player, 'bash', this.mobs)) {
+        // Clamp knockback so shoved blobs stay in the playable meadow.
+        for (const mob of this.mobs) {
+          if (!mob.alive) continue;
+          this.constrainEntity(mob.position, mob.radius);
+          mob.syncMesh();
+        }
+      }
     }
   }
 

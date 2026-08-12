@@ -199,6 +199,11 @@ body,
   box-shadow: 0 0 0 2px rgba(214, 69, 69, 0.15);
 }
 
+.skill-slot[data-skill='bash'].ready {
+  border-color: rgba(80, 160, 220, 0.6);
+  box-shadow: 0 0 0 2px rgba(80, 160, 220, 0.18);
+}
+
 .skill-slot.pop {
   animation: skill-ready-pop 280ms ease-out;
 }

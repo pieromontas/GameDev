@@ -27,6 +27,8 @@ const CLIP = {
   run: 'Running_A',
   slash: '1H_Melee_Attack_Slice_Horizontal',
   quake: 'Jump_Full_Short',
+  /** Shield Bash — KayKit Block_Attack sells the Round_Shield shove. */
+  bash: 'Block_Attack',
 } as const;
 
 type ClipKey = keyof typeof CLIP;
@@ -41,9 +43,9 @@ type MatFlash = {
 const FADE = {
   /** Idle ↔ Walk / Walk ↔ Run — longer softens side-strafe foot pops. */
   loco: 0.28,
-  /** Enter Slash / Quake — keep snappy for combat timing. */
+  /** Enter Slash / Quake / Bash — keep snappy for combat timing. */
   attackIn: 0.1,
-  /** Leave Slash / Quake back to loco. */
+  /** Leave attack pose back to loco. */
   attackOut: 0.22,
 } as const;
 
@@ -207,6 +209,7 @@ export class PlayerVisual {
     let desired: ClipKey = 'idle';
     if (state === 'slash') desired = 'slash';
     else if (state === 'quake') desired = 'quake';
+    else if (state === 'bash') desired = 'bash';
     else if (state === 'move') {
       // Hysteresis avoids Idle/Walk/Run thrash when speed chatters near thresholds.
       if (this.locoGate === 'walk' && speed > maxSpeed * 0.78) this.locoGate = 'run';
@@ -219,13 +222,13 @@ export class PlayerVisual {
     if (desired !== this.current) {
       const fade = this.fadeFor(this.current, desired);
       this.crossfade(desired, fade);
-      if (desired === 'slash' || desired === 'quake') {
+      if (desired === 'slash' || desired === 'quake' || desired === 'bash') {
         this.attackSynced = null;
       }
     }
 
-    // Fit slash / quake clips into the gameplay anim window (once per attack).
-    if ((desired === 'slash' || desired === 'quake') && animDur > 1e-4) {
+    // Fit attack clips into the gameplay anim window (once per attack).
+    if ((desired === 'slash' || desired === 'quake' || desired === 'bash') && animDur > 1e-4) {
       const action = this.actions.get(desired);
       const clip = action?.getClip();
       if (action && clip && clip.duration > 1e-4) {
@@ -247,7 +250,7 @@ export class PlayerVisual {
       }
     }
 
-    // Procedural Quake stomp on the model root (extra juice on top of Jump clip).
+    // Procedural motion on the model root for Quake / Bash (extra juice on pack clips).
     if (this.model) {
       if (state === 'quake' && animDur > 1e-4) {
         const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
@@ -260,15 +263,28 @@ export class PlayerVisual {
         const squash = impact * 0.05 * (1 - settle);
         // Preserve ground snap from install — offset via root, not model base.
         this.root.position.y = -down + hop - squash;
+        this.root.position.x = 0;
+        this.root.position.z = 0;
+      } else if (state === 'bash' && animDur > 1e-4) {
+        // Short forward shove so the shield bash reads even without a leap clip.
+        const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
+        const surge = Math.sin(Math.min(1, t / 0.35) * Math.PI);
+        const settle = smooth01((t - 0.45) / 0.55);
+        const push = surge * (1 - settle * 0.65) * 0.14;
+        this.root.position.y = -surge * 0.04;
+        this.root.position.x = 0;
+        this.root.position.z = push;
       } else {
         this.root.position.y = 0;
+        this.root.position.x = 0;
+        this.root.position.z = 0;
       }
     }
   }
 
   private fadeFor(from: ClipKey | null, to: ClipKey): number {
-    const toAttack = to === 'slash' || to === 'quake';
-    const fromAttack = from === 'slash' || from === 'quake';
+    const toAttack = to === 'slash' || to === 'quake' || to === 'bash';
+    const fromAttack = from === 'slash' || from === 'quake' || from === 'bash';
     if (toAttack) return FADE.attackIn;
     if (fromAttack) return FADE.attackOut;
     return FADE.loco;

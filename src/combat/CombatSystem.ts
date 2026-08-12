@@ -12,25 +12,31 @@ export type CombatHooks = {
   onKill: () => void;
   /** Optional: subtle camera punch when Quake connects. */
   onQuakeImpact?: (hitCount: number) => void;
+  /** Optional: lighter punch when Shield Bash connects. */
+  onBashImpact?: (hitCount: number) => void;
 };
 
-/** Lightweight VFX rings / slash arcs / seals using shared geometry. */
+/** Lightweight VFX rings / slash arcs / seals / bash pulses using shared geometry. */
 class SkillFx {
   private readonly items: Array<{
     mesh: THREE.Object3D;
     age: number;
     life: number;
     grow: number;
-    kind: 'ring' | 'slash' | 'seal';
+    kind: 'ring' | 'slash' | 'seal' | 'bash';
     startScale: number;
   }> = [];
   private readonly ringGeo = new THREE.RingGeometry(0.18, 0.62, 32);
   private readonly slashGeo = new THREE.RingGeometry(0.9, 1.45, 22, 1, 0, Math.PI * 0.85);
   private readonly sealGeo = new THREE.RingGeometry(0.5, 0.78, 6);
+  private readonly bashDiscGeo = new THREE.CircleGeometry(0.55, 20);
+  private readonly bashRingGeo = new THREE.RingGeometry(0.35, 0.72, 24, 1, 0, Math.PI * 1.15);
 
   constructor(private readonly scene: THREE.Scene) {
     this.ringGeo.rotateX(-Math.PI / 2);
     this.sealGeo.rotateX(-Math.PI / 2);
+    // Bash disc stands upright in the shield plane; ring lies on the ground as a crescent.
+    this.bashRingGeo.rotateX(-Math.PI / 2);
   }
 
   spawnRing(pos: THREE.Vector3, color: number, finalRadius: number): void {
@@ -138,14 +144,95 @@ class SkillFx {
     });
   }
 
+  /** Forward shield pulse — distinct from Slash arcs and Quake rings. */
+  spawnBash(pos: THREE.Vector3, facing: THREE.Vector3, color: number): void {
+    const yaw = Math.atan2(facing.x, facing.z);
+    const fx = pos.x + facing.x * 0.95;
+    const fz = pos.z + facing.z * 0.95;
+
+    const discMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.95,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const disc = new THREE.Mesh(this.bashDiscGeo, discMat);
+    disc.position.set(fx, 1.05, fz);
+    disc.rotation.y = yaw;
+    disc.scale.setScalar(0.55);
+    disc.renderOrder = 3;
+    this.scene.add(disc);
+    this.items.push({
+      mesh: disc,
+      age: 0,
+      life: 0.28,
+      grow: 1.35,
+      kind: 'bash',
+      startScale: 0.55,
+    });
+
+    const rimMat = new THREE.MeshBasicMaterial({
+      color: 0xe8f6ff,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const rim = new THREE.Mesh(this.bashDiscGeo, rimMat);
+    rim.position.set(fx + facing.x * 0.12, 1.05, fz + facing.z * 0.12);
+    rim.rotation.y = yaw;
+    rim.scale.setScalar(0.35);
+    rim.renderOrder = 4;
+    this.scene.add(rim);
+    this.items.push({
+      mesh: rim,
+      age: 0,
+      life: 0.2,
+      grow: 1.7,
+      kind: 'bash',
+      startScale: 0.35,
+    });
+
+    const crescentMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const crescent = new THREE.Mesh(this.bashRingGeo, crescentMat);
+    crescent.position.set(fx, 0.1, fz);
+    crescent.rotation.y = yaw;
+    crescent.scale.setScalar(0.45);
+    crescent.renderOrder = 2;
+    this.scene.add(crescent);
+    this.items.push({
+      mesh: crescent,
+      age: 0,
+      life: 0.36,
+      grow: 1.55,
+      kind: 'bash',
+      startScale: 0.45,
+    });
+  }
+
   update(dt: number): void {
     for (let i = this.items.length - 1; i >= 0; i--) {
       const item = this.items[i]!;
       item.age += dt;
       const t = item.age / item.life;
-      if (item.kind === 'ring' || item.kind === 'seal') {
+      if (item.kind === 'ring' || item.kind === 'seal' || item.kind === 'bash') {
         const s = item.startScale + t * (item.grow - item.startScale);
-        item.mesh.scale.setScalar(s);
+        if (item.kind === 'bash') {
+          // Expand mostly on X/Y so the upright disc reads as a shove, not a balloon.
+          item.mesh.scale.set(s * (1 + t * 0.35), s, s * (1 + t * 0.15));
+        } else {
+          item.mesh.scale.setScalar(s);
+        }
         if (item.kind === 'seal') {
           item.mesh.rotation.y += dt * 2.8;
         }
@@ -157,7 +244,12 @@ class SkillFx {
         const mesh = obj as THREE.Mesh;
         if (mesh.material && (mesh.material as THREE.Material).opacity !== undefined) {
           // Hold opacity a beat longer so rings stay readable mid-expand.
-          const fade = item.kind === 'ring' ? Math.max(0, 1 - t * t) : Math.max(0, 1 - t);
+          const fade =
+            item.kind === 'ring'
+              ? Math.max(0, 1 - t * t)
+              : item.kind === 'bash'
+                ? Math.max(0, 1 - t * 1.15)
+                : Math.max(0, 1 - t);
           (mesh.material as THREE.MeshBasicMaterial).opacity = fade;
         }
       });
@@ -232,6 +324,55 @@ export class CombatSystem {
       if (target) {
         this.applyDamageToMob(target, skill.damage, false);
         this.pulseHitStop(0.045);
+      }
+      return true;
+    }
+
+    if (skillId === 'bash') {
+      // Soft-lock a nearby target so the shove faces something readable.
+      const focus = this.pickSlashTarget(player, mobs, skill.range + 0.35);
+      if (focus) {
+        this.tmp.set(
+          focus.position.x - player.position.x,
+          0,
+          focus.position.z - player.position.z,
+        );
+        player.faceDirection(this.tmp);
+      }
+      player.playBash();
+      this.fx.spawnBash(player.position, player.facing, skill.color);
+      this.fx.spawnSeal(player.position, 0xa8dcff);
+
+      let hits = 0;
+      for (const mob of mobs) {
+        if (!mob.alive) continue;
+        const dx = mob.position.x - player.position.x;
+        const dz = mob.position.z - player.position.z;
+        const dist = Math.hypot(dx, dz);
+        const hitRange = skill.range + mob.radius * 0.4;
+        if (dist > hitRange) continue;
+
+        // Forward cone — side/rear blobs are for Quake, not the shield shove.
+        let facing = 1;
+        if (dist > 1e-4) {
+          facing = (dx / dist) * player.facing.x + (dz / dist) * player.facing.z;
+        }
+        if (facing < 0.2) continue;
+        // Widen slightly with skill.radius so a tight pack still catches 1–2 blobs.
+        const lateral =
+          dist > 1e-4
+            ? Math.abs((-dz / dist) * player.facing.x + (dx / dist) * player.facing.z)
+            : 0;
+        if (lateral > skill.radius / Math.max(dist, 0.6)) continue;
+
+        this.applyDamageToMob(mob, skill.damage, false);
+        const push = 2.15 + (1 - Math.min(1, dist / hitRange)) * 0.55;
+        mob.applyKnockback(dx, dz, push, 0.9);
+        hits += 1;
+      }
+      if (hits > 0) {
+        this.pulseHitStop(0.05);
+        this.hooks.onBashImpact?.(hits);
       }
       return true;
     }

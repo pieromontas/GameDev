@@ -13,7 +13,7 @@ export class HUD {
   private toastTimer = 0;
   private hintAge = 0;
   private hintHidden = false;
-  private readonly prevReady: Record<SkillId, boolean> = { basic: true, slam: true };
+  private readonly prevReady: Record<SkillId, boolean> = { basic: true, slam: true, bash: true };
   private readonly loading: HTMLElement;
 
   constructor(host: HTMLElement) {
@@ -43,6 +43,7 @@ export class HUD {
         WASD — move<br/>
         LMB / 1 — Slash<br/>
         2 — Quake (AoE)<br/>
+        3 — Shield Bash (stun)<br/>
         RMB drag — rotate camera
       </div>
       <div class="toast" id="toast"></div>
@@ -60,6 +61,7 @@ export class HUD {
     this.skillEls = {
       basic: this.makeSkillSlot(skillsHost, 'basic', 'Slash', '1'),
       slam: this.makeSkillSlot(skillsHost, 'slam', 'Quake', '2'),
+      bash: this.makeSkillSlot(skillsHost, 'bash', 'Bash', '3'),
     };
   }
 
@@ -99,6 +101,7 @@ export class HUD {
 
     this.syncSkill('basic', player);
     this.syncSkill('slam', player);
+    this.syncSkill('bash', player);
 
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
