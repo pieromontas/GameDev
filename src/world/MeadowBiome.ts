@@ -12,6 +12,7 @@ import {
   hash2,
 } from '../render/stylized';
 import type { WorldPropLibrary } from './WorldPropLibrary';
+import { PROP_COLLISION_SCALE, WELL_OFFSET } from './WorldPropLibrary';
 
 export type Obstacle = { x: number; z: number; radius: number };
 
@@ -55,7 +56,7 @@ export class MeadowBiome {
   private shrineActivated = false;
   private shrinePulseT = 0;
 
-  /** Recorded so KayKit pack visuals can replace procedural meshes without touching obstacles. */
+  /** Recorded so KayKit pack visuals can replace procedural meshes; radii retuned on apply. */
   private readonly treePlacements: PropPlacement[] = [];
   private readonly rockPlacements: PropPlacement[] = [];
   private cottagePlacement: { x: number; z: number } | null = null;
@@ -2017,7 +2018,9 @@ export class MeadowBiome {
 
   /**
    * Swap the most visible procedural trees / rocks / cottage / windmill for KayKit
-   * pack instances. Obstacles, paths, shrine/chest interacts stay unchanged.
+   * pack instances. Soft-collision radii are retuned via `PROP_COLLISION_SCALE` so
+   * blockers match the larger Adventurers-relative visuals. Paths, shrine/chest
+   * interacts, and play clamp stay unchanged.
    * Safe to call once after `WorldPropLibrary.load()`; no-ops if the library is empty.
    */
   applyPropPack(library: WorldPropLibrary): boolean {
@@ -2054,17 +2057,16 @@ export class MeadowBiome {
       if (mesh) {
         this.root.add(mesh);
         placed += 1;
-        // Small well accent beside the cottage — decorative, tiny collider.
-        const well = library.createWell(
-          this.cottagePlacement.x + 2.4,
-          this.cottagePlacement.z - 1.1,
-        );
+        // Well accent beside the cottage — offset clears the scaled footprint.
+        const wellX = this.cottagePlacement.x + WELL_OFFSET.x;
+        const wellZ = this.cottagePlacement.z + WELL_OFFSET.z;
+        const well = library.createWell(wellX, wellZ);
         if (well) {
           this.root.add(well);
           this.obstacles.push({
-            x: this.cottagePlacement.x + 2.4,
-            z: this.cottagePlacement.z - 1.1,
-            radius: 0.55,
+            x: wellX,
+            z: wellZ,
+            radius: 0.55 * PROP_COLLISION_SCALE.well,
           });
           placed += 1;
         }
@@ -2079,18 +2081,47 @@ export class MeadowBiome {
       }
     }
 
+    this.retunePackObstacles();
     this.scatterPackBushes(library);
     return placed > 0;
+  }
+
+  /**
+   * Grow soft-collision radii for swapped pack props so blockers match `PROP_SCALE`.
+   * Matches placements by exact XZ (same values pushed in addTree/addRock/…).
+   */
+  private retunePackObstacles(): void {
+    const bump = (x: number, z: number, factor: number): void => {
+      for (const o of this.obstacles) {
+        if (o.x === x && o.z === z) {
+          o.radius *= factor;
+          return;
+        }
+      }
+    };
+
+    for (const p of this.treePlacements) {
+      bump(p.x, p.z, PROP_COLLISION_SCALE.tree);
+    }
+    for (const p of this.rockPlacements) {
+      bump(p.x, p.z, PROP_COLLISION_SCALE.rock);
+    }
+    if (this.cottagePlacement) {
+      bump(this.cottagePlacement.x, this.cottagePlacement.z, PROP_COLLISION_SCALE.cottage);
+    }
+    if (this.windmillPlacement) {
+      bump(this.windmillPlacement.x, this.windmillPlacement.z, PROP_COLLISION_SCALE.windmill);
+    }
   }
 
   /** Soft bush dressing near trees / meadow rim — no collision (walk-through foliage). */
   private scatterPackBushes(library: WorldPropLibrary): void {
     const spots: Array<[number, number, number]> = [];
-    // Nestle bushes beside a subset of trees.
+    // Nestle bushes beside a subset of trees (farther out — trunks are larger now).
     for (let i = 0; i < this.treePlacements.length; i += 2) {
       const t = this.treePlacements[i]!;
       const ang = hash2(t.z, t.x) * Math.PI * 2;
-      const r = 1.1 + hash2(t.x, i) * 0.7;
+      const r = 1.8 + hash2(t.x, i) * 1.0;
       spots.push([
         t.x + Math.cos(ang) * r,
         t.z + Math.sin(ang) * r,

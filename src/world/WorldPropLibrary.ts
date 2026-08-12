@@ -43,8 +43,17 @@ const FOREST_BUSHES = [
   'Bush_4_C_Color1',
 ] as const;
 
-/** Target world heights matching prior procedural silhouettes. */
-const TARGET = {
+/**
+ * Adventurers hero is normalized to ~1.95 world units (`PlayerVisual.targetHeight`).
+ * `BASE_HEIGHT` matched the old toy procedural silhouettes; at that size the knight
+ * stood nearly as tall as the cottage eaves and the well sat at waist height.
+ *
+ * Tweak `PROP_SCALE` (not the hero) to rebalance. Effective target height =
+ * `BASE_HEIGHT[k] * PROP_SCALE[k]` (plus any per-instance scale in `instantiate`).
+ *
+ * Prior procedural-matched heights — kept as the baseline for ratio tweaks.
+ */
+const BASE_HEIGHT = {
   tree: 3.55,
   rock: 0.72,
   bush: 0.85,
@@ -52,6 +61,39 @@ const TARGET = {
   windmill: 4.4,
   well: 1.35,
 } as const;
+
+/**
+ * Per-category multipliers vs `BASE_HEIGHT` so KayKit props match Adventurers scale (~1.95 hero).
+ * - cottage ~2× → peak well above head; doorway roughly character-accessible
+ * - well ~1.9× → full structure ~chest+ (rim reads torso height, not waist)
+ * - windmill ~2.4× → landmark bulk
+ * - trees ~2× → clearly taller than the knight
+ * - rocks / bushes slightly larger so they stay proportionate under bigger trees
+ */
+export const PROP_SCALE = {
+  tree: 2.0,
+  rock: 1.45,
+  bush: 1.35,
+  cottage: 2.0,
+  windmill: 2.4,
+  well: 1.9,
+} as const;
+
+/** World-space target heights after `PROP_SCALE` (fed into template `baseScale`). */
+const TARGET = {
+  tree: BASE_HEIGHT.tree * PROP_SCALE.tree,
+  rock: BASE_HEIGHT.rock * PROP_SCALE.rock,
+  bush: BASE_HEIGHT.bush * PROP_SCALE.bush,
+  cottage: BASE_HEIGHT.cottage * PROP_SCALE.cottage,
+  windmill: BASE_HEIGHT.windmill * PROP_SCALE.windmill,
+  well: BASE_HEIGHT.well * PROP_SCALE.well,
+} as const;
+
+/** Soft-collision radius multipliers — same knobs as visuals (uniform scale). */
+export const PROP_COLLISION_SCALE = PROP_SCALE;
+
+/** Well offset from cottage center so the larger cottage footprint doesn't swallow it. */
+export const WELL_OFFSET = { x: 4.0, z: -1.7 } as const;
 
 type Template = {
   root: THREE.Object3D;
@@ -182,6 +224,7 @@ export class WorldPropLibrary {
   createCottage(x: number, z: number): THREE.Group | null {
     if (!this.cottage) return null;
     // Slight yaw so the door doesn't face camera-dead-on from spawn.
+    // Extra 1.15 matches the prior procedural cottage group scale.
     return this.instantiate(this.cottage, x, z, 1.15, 0.35);
   }
 
