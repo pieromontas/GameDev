@@ -36,14 +36,24 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | --- | --- |
 | **W A S D** / arrows | Move relative to camera |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
-| **E** | Awaken east shrine (when near) |
+| **E** | Interact — awaken east shrine / open treasure chests (when near) |
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt / Stab) |
 | **2** | Skill 2 (Quake / Frost Nova / Fan of Knives) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
 | **4** | Skill 4 (Leap Strike / Meteor / Shadow Leap) — unlocks at **Level 3** |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A controls hint also lists **C / Tab — cycle Warrior → Mage → Rogue**, **E — awaken east shrine**, the west misty grove path, the **north ruins** path, and the **south river ford** path.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A controls hint also lists **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests**, the west misty grove path, the **north ruins** path, and the **south river ford** path.
+
+## Treasure chests
+
+Three one-shot **low-poly treasure chests** sit in readable spots: meadow pond edge, south river ford camp, and west misty grove. Walk up and press **E** (“Press E — Open Chest”):
+
+- **Reward** — **+18 XP**, **+3 gold coins**, and a small heal
+- **Feedback** — loot toast + floating XP; lid hinges open with a warm inner glow (closed chests show a gold lock glitter)
+- **No farming** — opened chests stay open for the session
+
+Works for Warrior, Mage, and Rogue. Chests are clear of the east shrine interactable.
 
 ## South river ford
 

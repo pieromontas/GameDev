@@ -4,6 +4,7 @@ import { InputManager } from '../input/InputManager';
 import { FollowCamera } from '../camera/FollowCamera';
 import { MeadowBiome } from '../world/MeadowBiome';
 import { ShrineObjective } from '../world/ShrineObjective';
+import { TreasureChests } from '../world/TreasureChests';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
@@ -22,6 +23,7 @@ export class Game {
   private readonly loop: GameLoop;
   private readonly meadow: MeadowBiome;
   private readonly shrine: ShrineObjective;
+  private readonly chests: TreasureChests;
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
   private readonly mobs: Enemy[];
@@ -129,6 +131,17 @@ export class Game {
       onToast: (message, duration) => this.hud.showToast(message, duration),
     });
 
+    this.chests = new TreasureChests(this.meadow, {
+      onLootBurst: (pickups) => {
+        for (const pickup of pickups) {
+          this.loot.push(pickup);
+          this.scene.add(pickup.mesh);
+        }
+      },
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+      onXpGranted: (amount, worldPos) => this.grantChestXp(amount, worldPos),
+    });
+
     this.loop = new GameLoop({
       update: (dt) => this.update(dt),
       render: () => this.render(),
@@ -155,7 +168,10 @@ export class Game {
     } else if (failed.length > 0) {
       this.hud.showToast(`${failed.join(' + ')} model failed — others still playable (C)`, 3.2);
     } else {
-      this.hud.showToast('Welcome — 3 classes · east shrine · west grove · north ruins · south ford', 2.8);
+      this.hud.showToast(
+        'Welcome — 3 classes · chests · east shrine · west grove · north ruins · south ford',
+        2.8,
+      );
     }
     this.loop.start();
   }
@@ -231,7 +247,7 @@ export class Game {
       this.updatePlayerMovement(dt);
       this.handleClassSwitch();
       this.handlePlayerSkills();
-      this.handleShrineInteract();
+      this.handleInteract();
     } else if (this.playerRespawnTimer >= 0) {
       this.playerRespawnTimer -= dt;
       if (this.playerRespawnTimer <= 0) {
@@ -285,7 +301,8 @@ export class Game {
     }
 
     this.shrine.update(dt, this.player);
-    this.hud.setShrineHud(this.shrine.getHudState(this.player));
+    this.chests.update(dt);
+    this.syncInteractHud();
 
     for (let i = this.loot.length - 1; i >= 0; i--) {
       const pickup = this.loot[i]!;
@@ -405,9 +422,25 @@ export class Game {
     }
   }
 
-  private handleShrineInteract(): void {
-    if (this.input.wasPressed('KeyE')) {
-      this.shrine.tryInteract(this.player);
+  /** E key: prefer closed chests, then the east shrine awaken. */
+  private handleInteract(): void {
+    if (!this.input.wasPressed('KeyE')) return;
+    if (this.chests.tryInteract(this.player)) return;
+    this.shrine.tryInteract(this.player);
+  }
+
+  /** Merge shrine objective HUD with chest / shrine interact prompts. */
+  private syncInteractHud(): void {
+    const shrineHud = this.shrine.getHudState(this.player);
+    const chestPrompt = this.chests.getInteractPrompt(this.player);
+    if (chestPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: chestPrompt.text,
+      });
+    } else {
+      this.hud.setShrineHud(shrineHud);
     }
   }
 
@@ -417,8 +450,27 @@ export class Game {
    */
   private grantKillXp(enemy: Enemy): void {
     const amount = enemy.kind === 'brute' ? 28 : enemy.kind === 'spitter' ? 14 : 8;
+    const result = this.applyXpGain(amount, enemy.position);
+
+    if (result.leveled) return;
+
+    // Brute kills already toasted in onKill — skip the generic XP pulse.
+    if (enemy.kind === 'brute') return;
+
+    // Occasional toast so XP still reads if floaters are missed in the scrap.
+    if (this.kills % 5 === 0) {
+      this.hud.showToast(`+${amount} XP  ·  Lv.${this.player.level}`, 0.9);
+    }
+  }
+
+  /** Chest open → XP floater + level-up feedback (loot toast already fired). */
+  private grantChestXp(amount: number, worldPos: THREE.Vector3): void {
+    this.applyXpGain(amount, worldPos);
+  }
+
+  private applyXpGain(amount: number, worldPos: THREE.Vector3): ReturnType<Player['gainXp']> {
     const result = this.player.gainXp(amount);
-    this.combat.damageNumbers.spawnXp(enemy.position, amount);
+    this.combat.damageNumbers.spawnXp(worldPos, amount);
 
     if (result.leveled) {
       const lv = this.player.level;
@@ -432,16 +484,8 @@ export class Game {
       this.hud.flashLevelUp();
       this.combat.playLevelUpFx(this.player);
       this.cameraRig.addImpactPunch(0.2);
-      return;
     }
-
-    // Brute kills already toasted in onKill — skip the generic XP pulse.
-    if (enemy.kind === 'brute') return;
-
-    // Occasional toast so XP still reads if floaters are missed in the scrap.
-    if (this.kills % 5 === 0) {
-      this.hud.showToast(`+${amount} XP  ·  Lv.${this.player.level}`, 0.9);
-    }
+    return result;
   }
 
   private handlePlayerSkills(): void {
