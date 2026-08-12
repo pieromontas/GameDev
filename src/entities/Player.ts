@@ -26,6 +26,14 @@ export class Player extends Entity {
   private animDur = 0;
   private readonly visual: PlayerVisual;
 
+  /** Smoothed visual yaw (radians). Snapping this was the main side-strafe choppiness. */
+  private yaw = Math.PI;
+  private targetYaw = Math.PI;
+  /** Turn rate while locomoting — fast enough to track WASD, soft enough to avoid rubber-band. */
+  private readonly turnSpeed = 11;
+  /** Faster catch-up when the move vector is nearly opposite the body. */
+  private readonly turnSpeedSnap = 16;
+
   constructor() {
     const group = new THREE.Group();
     group.name = 'Player';
@@ -47,6 +55,7 @@ export class Player extends Entity {
     this.visual = visual;
     this.skills = createWarriorSkills();
     this.position.set(0, 0, 6);
+    this.mesh.rotation.y = this.yaw;
     this.syncMesh();
   }
 
@@ -99,11 +108,14 @@ export class Player extends Entity {
     this.animDur = 0.55;
   }
 
+  /**
+   * Set desired facing from a movement vector. Visual yaw lerps in `updateYaw`
+   * so A/D strafes and quick redirects don't snap the skeleton.
+   */
   faceDirection(dir: THREE.Vector3): void {
     if (dir.lengthSq() < 1e-6) return;
     this.facing.copy(dir).normalize();
-    const yaw = Math.atan2(this.facing.x, this.facing.z);
-    this.mesh.rotation.y = yaw;
+    this.targetYaw = Math.atan2(this.facing.x, this.facing.z);
   }
 
   /**
@@ -124,7 +136,21 @@ export class Player extends Entity {
         this.velocity.x *= s;
         this.velocity.z *= s;
       }
-      if (!attacking) this.faceDirection(wishDir);
+      if (!attacking) {
+        // Prefer wishDir for responsive redirects; blend toward velocity when
+        // already moving sideways so feet stay aligned with travel sooner.
+        if (speed > 1.2) {
+          const vx = this.velocity.x / speed;
+          const vz = this.velocity.z / speed;
+          // Weighted blend: mostly stick, a bit of current velocity heading.
+          const bx = wishDir.x * 0.72 + vx * 0.28;
+          const bz = wishDir.z * 0.72 + vz * 0.28;
+          this.faceTmp.set(bx, 0, bz);
+          this.faceDirection(this.faceTmp);
+        } else {
+          this.faceDirection(wishDir);
+        }
+      }
     } else {
       const speed = Math.hypot(this.velocity.x, this.velocity.z);
       if (speed > 0) {
@@ -144,6 +170,8 @@ export class Player extends Entity {
     return this.velocity.lengthSq() > 1e-4;
   }
 
+  private readonly faceTmp = new THREE.Vector3();
+
   update(dt: number): void {
     this.outOfCombat += dt;
     const speed = Math.hypot(this.velocity.x, this.velocity.z);
@@ -158,6 +186,8 @@ export class Player extends Entity {
       this.anim = speed > 0.35 ? 'move' : 'idle';
     }
 
+    this.updateYaw(dt);
+
     this.visual.syncAnim(this.anim, speed, this.maxSpeed, this.animT, this.animDur);
     this.visual.update(dt);
 
@@ -167,6 +197,30 @@ export class Player extends Entity {
     if (this.alive && this.outOfCombat > 2.4 && this.hp < this.maxHp) {
       this.heal(8 * dt);
     }
+  }
+
+  /** Smoothly rotate mesh yaw toward target; freeze during Slash/Quake. */
+  private updateYaw(dt: number): void {
+    if (this.anim === 'slash' || this.anim === 'quake') {
+      this.mesh.rotation.y = this.yaw;
+      return;
+    }
+
+    let delta = this.targetYaw - this.yaw;
+    delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+    const abs = Math.abs(delta);
+    if (abs < 1e-4) {
+      this.yaw = this.targetYaw;
+      this.mesh.rotation.y = this.yaw;
+      return;
+    }
+
+    // Quicker turn on large redirects (strafe / 180°) so body catches velocity.
+    const rate = abs > 1.1 ? this.turnSpeedSnap : this.turnSpeed;
+    const step = rate * dt;
+    if (abs <= step) this.yaw = this.targetYaw;
+    else this.yaw += Math.sign(delta) * step;
+    this.mesh.rotation.y = this.yaw;
   }
 
   respawn(): void {
@@ -180,6 +234,10 @@ export class Player extends Entity {
     this.anim = 'idle';
     this.animT = 0;
     this.animDur = 0;
+    this.facing.set(0, 0, -1);
+    this.yaw = Math.PI;
+    this.targetYaw = Math.PI;
+    this.mesh.rotation.y = this.yaw;
     this.syncMesh();
   }
 }

@@ -38,6 +38,15 @@ type MatFlash = {
   emissiveIntensity: number;
 };
 
+const FADE = {
+  /** Idle ↔ Walk / Walk ↔ Run — longer softens side-strafe foot pops. */
+  loco: 0.28,
+  /** Enter Slash / Quake — keep snappy for combat timing. */
+  attackIn: 0.1,
+  /** Leave Slash / Quake back to loco. */
+  attackOut: 0.22,
+} as const;
+
 /**
  * GLTF-backed KayKit Knight visual: loads the model, maps AnimationMixer clips
  * to PlayerAnim states, and attaches under the Player entity root.
@@ -54,6 +63,11 @@ export class PlayerVisual {
   private ready = false;
   private failed = false;
   private loadPromise: Promise<boolean> | null = null;
+
+  /** Walk/run hysteresis so speed chatter doesn't restart clips every frame. */
+  private locoGate: 'walk' | 'run' = 'walk';
+  /** Set once when entering an attack so we don't re-timeScale / scrub every tick. */
+  private attackSynced: ClipKey | null = null;
 
   /** Target world height for the knight (feet→head), matching the old procedural hero. */
   private readonly targetHeight = 1.95;
@@ -153,6 +167,10 @@ export class PlayerVisual {
     this.mixer = new THREE.AnimationMixer(this.model);
     this.clips.clear();
     this.actions.clear();
+    this.current = null;
+    this.locoGate = 'walk';
+    this.attackSynced = null;
+
     for (const clip of animations) {
       this.clips.set(clip.name, clip);
     }
@@ -181,6 +199,7 @@ export class PlayerVisual {
   /**
    * Drive locomotion / skill clips from the Player anim state machine.
    * Attack durations are time-scaled to match gameplay windows.
+   * Direction changes do NOT restart walk — only clip identity changes do.
    */
   syncAnim(state: PlayerAnim, speed: number, maxSpeed: number, animT: number, animDur: number): void {
     if (!this.ready || !this.mixer) return;
@@ -188,26 +207,42 @@ export class PlayerVisual {
     let desired: ClipKey = 'idle';
     if (state === 'slash') desired = 'slash';
     else if (state === 'quake') desired = 'quake';
-    else if (state === 'move') desired = speed > maxSpeed * 0.72 ? 'run' : 'walk';
-    else desired = 'idle';
-
-    if (desired !== this.current) {
-      const fade = state === 'slash' || state === 'quake' || this.current === 'slash' || this.current === 'quake'
-        ? 0.08
-        : 0.18;
-      this.crossfade(desired, fade);
+    else if (state === 'move') {
+      // Hysteresis avoids Idle/Walk/Run thrash when speed chatters near thresholds.
+      if (this.locoGate === 'walk' && speed > maxSpeed * 0.78) this.locoGate = 'run';
+      else if (this.locoGate === 'run' && speed < maxSpeed * 0.58) this.locoGate = 'walk';
+      desired = this.locoGate;
+    } else {
+      desired = 'idle';
     }
 
-    // Fit slash / quake clips into the gameplay anim window.
+    if (desired !== this.current) {
+      const fade = this.fadeFor(this.current, desired);
+      this.crossfade(desired, fade);
+      if (desired === 'slash' || desired === 'quake') {
+        this.attackSynced = null;
+      }
+    }
+
+    // Fit slash / quake clips into the gameplay anim window (once per attack).
     if ((desired === 'slash' || desired === 'quake') && animDur > 1e-4) {
       const action = this.actions.get(desired);
       const clip = action?.getClip();
       if (action && clip && clip.duration > 1e-4) {
-        action.timeScale = clip.duration / animDur;
-        // Keep mixer time roughly aligned if we mid-joined.
-        const targetTime = (animT / animDur) * clip.duration;
-        if (Math.abs(action.time - targetTime) > 0.12) {
-          action.time = THREE.MathUtils.clamp(targetTime, 0, clip.duration);
+        if (this.attackSynced !== desired) {
+          action.timeScale = clip.duration / animDur;
+          action.time = THREE.MathUtils.clamp((animT / animDur) * clip.duration, 0, clip.duration);
+          this.attackSynced = desired;
+        }
+      }
+    } else {
+      this.attackSynced = null;
+      // Mild speed coupling so walk/run cadence matches travel without restarting.
+      if (desired === 'walk' || desired === 'run') {
+        const action = this.actions.get(desired);
+        if (action) {
+          const base = desired === 'run' ? maxSpeed * 0.9 : maxSpeed * 0.55;
+          action.timeScale = THREE.MathUtils.clamp(speed / Math.max(base, 0.01), 0.7, 1.35);
         }
       }
     }
@@ -231,21 +266,51 @@ export class PlayerVisual {
     }
   }
 
+  private fadeFor(from: ClipKey | null, to: ClipKey): number {
+    const toAttack = to === 'slash' || to === 'quake';
+    const fromAttack = from === 'slash' || from === 'quake';
+    if (toAttack) return FADE.attackIn;
+    if (fromAttack) return FADE.attackOut;
+    return FADE.loco;
+  }
+
   private crossfade(next: ClipKey, fade: number): void {
     const action = this.actions.get(next);
     if (!action) return;
 
-    if (this.current) {
-      const prev = this.actions.get(this.current);
-      prev?.fadeOut(fade);
+    const prevKey = this.current;
+    const prev = prevKey ? this.actions.get(prevKey) : undefined;
+
+    if (prev) prev.fadeOut(fade);
+
+    const nextIsLoco = next === 'idle' || next === 'walk' || next === 'run';
+    const prevIsLoco = prevKey === 'idle' || prevKey === 'walk' || prevKey === 'run';
+    // Preserve foot phase when swapping Walk ↔ Run so redirects don't restart the cycle.
+    const preservePhase =
+      !!prev &&
+      nextIsLoco &&
+      prevIsLoco &&
+      next !== 'idle' &&
+      prevKey !== 'idle' &&
+      next !== prevKey;
+
+    if (preservePhase) {
+      const prevClip = prev.getClip();
+      const nextClip = action.getClip();
+      const phase = prevClip.duration > 1e-4 ? prev.time / prevClip.duration : 0;
+      action.enabled = true;
+      action.setEffectiveWeight(1);
+      action.time = phase * nextClip.duration;
+      action.setEffectiveTimeScale(1);
+      action.play();
+      action.fadeIn(fade);
+    } else {
+      action.reset();
+      action.setEffectiveWeight(1);
+      if (nextIsLoco) action.timeScale = 1;
+      action.fadeIn(fade).play();
     }
 
-    action.reset();
-    action.setEffectiveWeight(1);
-    if (next === 'idle' || next === 'walk' || next === 'run') {
-      action.timeScale = 1;
-    }
-    action.fadeIn(fade).play();
     this.current = next;
   }
 
@@ -286,6 +351,7 @@ export class PlayerVisual {
   }
 
   update(dt: number): void {
+    // Game loop feeds fixed 1/60 dt — keep mixer on that clock (no frame-time restart).
     this.mixer?.update(dt);
   }
 }
