@@ -534,13 +534,13 @@ export class SpiritWisp extends Entity {
 export function createStarterWisps(): SpiritWisp[] {
   const spots = [
     // West misty grove — among the fog, clear of the brute / spitters
-    new THREE.Vector3(-40, 0, 8),
-    new THREE.Vector3(-46, 0, -2),
-    new THREE.Vector3(-34, 0, -4),
+    new THREE.Vector3(-52, 0, 10),
+    new THREE.Vector3(-58, 0, -3),
+    new THREE.Vector3(-44, 0, -5),
     // North ruins courtyard — near crumbled stone, clear of columns / brute
-    new THREE.Vector3(-6, 0, 40),
-    new THREE.Vector3(3, 0, 46),
-    new THREE.Vector3(-4, 0, 48),
+    new THREE.Vector3(-8, 0, 52),
+    new THREE.Vector3(4, 0, 58),
+    new THREE.Vector3(-5, 0, 60),
   ];
   return spots.map((p) => new SpiritWisp(p));
 }

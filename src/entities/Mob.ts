@@ -535,27 +535,27 @@ export function createStarterMobs(): Mob[] {
     0xffb347,
   ];
   const spots = [
-    // Main meadow
+    // Main meadow (starter pocket stays calm — only a light outer-ring spread)
     new THREE.Vector3(8, 0, -4),
     new THREE.Vector3(-7, 0, -8),
     new THREE.Vector3(12, 0, 8),
     new THREE.Vector3(-10, 0, 4),
     // Was (2, −14) — nudged east so the south path branch stays open
-    new THREE.Vector3(6, 0, -16),
-    new THREE.Vector3(-4, 0, 14),
+    new THREE.Vector3(8, 0, -20),
+    new THREE.Vector3(-5, 0, 18),
     // East shrine clearing (second playable pocket)
-    new THREE.Vector3(36, 0, 2),
-    new THREE.Vector3(44, 0, 10),
-    new THREE.Vector3(42, 0, 1),
+    new THREE.Vector3(48, 0, 4),
+    new THREE.Vector3(57, 0, 13),
+    new THREE.Vector3(55, 0, 3),
     // West misty grove clearing
-    new THREE.Vector3(-36, 0, 2),
-    new THREE.Vector3(-44, 0, -6),
+    new THREE.Vector3(-47, 0, 2),
+    new THREE.Vector3(-57, 0, -8),
     // North ruins courtyard
-    new THREE.Vector3(-2, 0, 36),
-    new THREE.Vector3(6, 0, 44),
+    new THREE.Vector3(-2, 0, 47),
+    new THREE.Vector3(8, 0, 57),
     // South river ford clearing
-    new THREE.Vector3(2, 0, -36),
-    new THREE.Vector3(-6, 0, -44),
+    new THREE.Vector3(2, 0, -47),
+    new THREE.Vector3(-8, 0, -57),
   ];
   return spots.map((p, i) => new Mob(p, colors[i % colors.length]));
 }

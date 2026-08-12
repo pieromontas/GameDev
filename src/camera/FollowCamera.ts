@@ -14,7 +14,7 @@ export class FollowCamera {
   private impactPunch = 0;
 
   constructor(aspect: number) {
-    this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 200);
+    this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 280);
     this.camera.position.set(10, 12, 10);
   }
 

@@ -608,17 +608,17 @@ export function createStarterSpitters(): Spitter[] {
     new THREE.Vector3(6, 0, 10),
     new THREE.Vector3(-12, 0, -2),
     // East shrine clearing
-    new THREE.Vector3(40, 0, 6),
-    new THREE.Vector3(38, 0, -2),
+    new THREE.Vector3(52, 0, 8),
+    new THREE.Vector3(50, 0, 0),
     // West misty grove clearing
-    new THREE.Vector3(-38, 0, 4),
-    new THREE.Vector3(-42, 0, -4),
+    new THREE.Vector3(-50, 0, 5),
+    new THREE.Vector3(-54, 0, -5),
     // North ruins courtyard
-    new THREE.Vector3(0, 0, 42),
-    new THREE.Vector3(5, 0, 37),
+    new THREE.Vector3(1, 0, 54),
+    new THREE.Vector3(7, 0, 48),
     // South river ford clearing
-    new THREE.Vector3(0, 0, -42),
-    new THREE.Vector3(-5, 0, -37),
+    new THREE.Vector3(1, 0, -54),
+    new THREE.Vector3(-7, 0, -48),
   ];
   return spots.map((p) => new Spitter(p));
 }

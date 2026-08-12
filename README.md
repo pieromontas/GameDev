@@ -44,7 +44,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **4** | Skill 4 (Leap Strike / Meteor / Shadow Leap) — unlocks at **Level 3** |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests**, the west misty grove path, the **north ruins** path, and the **south river ford** path.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests**, the west misty grove path, the **north ruins** path, and the **south river ford** path. A **north-up minimap** (top-right radar) tracks your facing arrow, the four pocket landmarks, chests, and nearby enemies.
 
 ## Treasure chests
 
@@ -118,7 +118,7 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 
 ## What’s in the slice
 
-- Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** + **north ruins** clearings
+- Living meadow: expanded play ring (~30% more reach), vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** + **north ruins** + **south river ford** clearings, plus small outer-ring standing stones / wayside cairn
 - **North ruins**: dirt path north → crumbled gate + broken columns + rubble courtyard; blobs/spitters/**Armored Brute**; play clamp extended
 - **West misty grove**: dirt path west → fallen giant tree + fairy ring + mist; blobs/spitters/**Armored Brute**; play clamp extended
 - **East shrine mini-objective**: interact (E) → defend 3 waves → temporary damage/speed blessing + loot; crystal activates with cooldown; static **Armored Brute** also patrols the clearing
@@ -130,7 +130,7 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 - Tiny loot loop: defeated blobs/spitters drop coins; **brutes drop 3**; pickups increment an inventory counter
 - **XP / leveling**: kills grant XP (blob 8 / spitter 14 / **brute 28**); HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent); **Level 3 unlocks skill 4**
 - **Dodge roll** (Shift): shared by Warrior / Mage / Rogue — short burst in move/facing direction, brief i-frames, ~1.55s cooldown + HUD pip
-- HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3/4) with locked Lv 3 state, dodge cooldown pip, loot/kill counts, shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
+- HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3/4) with locked Lv 3 state, dodge cooldown pip, loot/kill counts, **north-up minimap** (player arrow + pocket/chest markers + enemy dots), shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
 
 ## Character art (KayKit Adventurers)
 

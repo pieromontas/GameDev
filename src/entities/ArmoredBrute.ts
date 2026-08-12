@@ -599,13 +599,13 @@ export class ArmoredBrute extends Entity {
 export function createStarterBrutes(): ArmoredBrute[] {
   const spots = [
     // East shrine clearing — south-east of the crystal, clear of the tower
-    new THREE.Vector3(46, 0, 8),
+    new THREE.Vector3(58, 0, 10),
     // West misty grove — near the fallen tree approach
-    new THREE.Vector3(-41, 0, 0),
+    new THREE.Vector3(-53, 0, 0),
     // North ruins courtyard — east of the crumbled gate, clear of columns
-    new THREE.Vector3(7, 0, 42),
+    new THREE.Vector3(9, 0, 54),
     // South river ford — west of the cart remnant, clear of the water band
-    new THREE.Vector3(-7, 0, -42),
+    new THREE.Vector3(-9, 0, -54),
   ];
   return spots.map((p) => new ArmoredBrute(p));
 }

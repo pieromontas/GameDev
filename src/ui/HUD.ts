@@ -1,5 +1,32 @@
 import { Player } from '../entities/Player';
 import { CLASS_LABEL, PlayerClass, SKILL4_UNLOCK_LEVEL, SkillId } from '../combat/Skills';
+import {
+  EastShrineClearing,
+  WestMistyGrove,
+  NorthRuinsClearing,
+  SouthRiverFordClearing,
+} from '../render/stylized';
+import { CHEST_SPOTS } from '../world/TreasureChests';
+
+/** World half-extent projected onto the radar (covers clearings + a little padding). */
+const MINIMAP_EXTENT = 70;
+const MINIMAP_SIZE = 152;
+
+type MinimapLandmark = {
+  x: number;
+  z: number;
+  color: string;
+  /** Drawn radius in CSS pixels. */
+  r: number;
+};
+
+const MINIMAP_LANDMARKS: MinimapLandmark[] = [
+  { x: EastShrineClearing.x, z: EastShrineClearing.z, color: '#7b5cff', r: 4.5 },
+  { x: WestMistyGrove.x, z: WestMistyGrove.z, color: '#3ecf9a', r: 4.5 },
+  { x: NorthRuinsClearing.x, z: NorthRuinsClearing.z, color: '#c4a574', r: 4.5 },
+  { x: SouthRiverFordClearing.x, z: SouthRiverFordClearing.z, color: '#4aa8e8', r: 4.5 },
+  ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3 })),
+];
 
 export class HUD {
   private readonly root: HTMLElement;
@@ -42,6 +69,9 @@ export class HUD {
   private readonly dodgeNum: HTMLElement;
   private prevDodgeReady = true;
   private shownClass: PlayerClass | null = null;
+  /** North-up radar canvas (world +Z = up). */
+  private readonly minimapCanvas: HTMLCanvasElement;
+  private readonly minimapCtx: CanvasRenderingContext2D;
 
   constructor(host: HTMLElement) {
     this.root = host;
@@ -69,6 +99,19 @@ export class HUD {
       <div class="hud-panel hud-top-right">
         <p class="meta" id="loot-text">Loot: 0</p>
         <p class="meta" id="kills-text">Kills: 0</p>
+      </div>
+      <div class="hud-panel hud-minimap" id="minimap-panel" title="Minimap · north up">
+        <div class="minimap-head">
+          <span class="minimap-title">Map</span>
+          <span class="minimap-north">N</span>
+        </div>
+        <canvas id="minimap" width="${MINIMAP_SIZE}" height="${MINIMAP_SIZE}"></canvas>
+        <div class="minimap-legend">
+          <span><i class="lg shrine"></i>Shrine</span>
+          <span><i class="lg grove"></i>Grove</span>
+          <span><i class="lg ruins"></i>Ruins</span>
+          <span><i class="lg ford"></i>Ford</span>
+        </div>
       </div>
       <div class="hud-panel hud-bottom" id="skills"></div>
       <div class="hud-panel hud-hint" id="controls-hint">
@@ -127,6 +170,9 @@ export class HUD {
     skillsHost.appendChild(this.dodgePip);
     this.dodgeOverlay = this.dodgePip.querySelector('.cd-overlay') as HTMLElement;
     this.dodgeNum = this.dodgePip.querySelector('.cd-num') as HTMLElement;
+
+    this.minimapCanvas = this.root.querySelector('#minimap') as HTMLCanvasElement;
+    this.minimapCtx = this.minimapCanvas.getContext('2d')!;
   }
 
   setLoading(active: boolean, message = 'Loading heroes…'): void {
@@ -244,6 +290,113 @@ export class HUD {
     } else {
       this.buffChip.hidden = true;
     }
+  }
+
+  /**
+   * Compact north-up radar: world +Z = screen up, +X = screen right.
+   * North-up (not camera-relative) so shrine/grove/ruins/ford stay fixed landmarks
+   * while the player arrow rotates with facing.
+   */
+  updateMinimap(
+    player: Player,
+    enemies: ReadonlyArray<{ position: { x: number; z: number }; alive: boolean }>,
+  ): void {
+    const ctx = this.minimapCtx;
+    const size = MINIMAP_SIZE;
+    const half = size * 0.5;
+    const scale = (half - 8) / MINIMAP_EXTENT;
+
+    const toScreen = (x: number, z: number): { sx: number; sy: number } => ({
+      sx: half + x * scale,
+      sy: half - z * scale,
+    });
+
+    ctx.clearRect(0, 0, size, size);
+
+    // Meadow air wash
+    const wash = ctx.createRadialGradient(half, half, 8, half, half, half);
+    wash.addColorStop(0, '#d8f0c8');
+    wash.addColorStop(0.55, '#9ed67a');
+    wash.addColorStop(1, '#6fb35a');
+    ctx.fillStyle = wash;
+    ctx.beginPath();
+    ctx.arc(half, half, half - 1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Soft play ring
+    ctx.strokeStyle = 'rgba(255, 252, 245, 0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(half, half, 44 * scale, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Cardinal path hints (faint)
+    ctx.strokeStyle = 'rgba(140, 96, 48, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    const paths: Array<[number, number, number, number]> = [
+      [0, 0, EastShrineClearing.x, EastShrineClearing.z],
+      [0, 0, WestMistyGrove.x, WestMistyGrove.z],
+      [0, 0, NorthRuinsClearing.x, NorthRuinsClearing.z],
+      [0, 0, SouthRiverFordClearing.x, SouthRiverFordClearing.z],
+    ];
+    for (const [ax, az, bx, bz] of paths) {
+      const a = toScreen(ax, az);
+      const b = toScreen(bx, bz);
+      ctx.beginPath();
+      ctx.moveTo(a.sx, a.sy);
+      ctx.lineTo(b.sx, b.sy);
+      ctx.stroke();
+    }
+
+    // Enemy dots
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      const p = toScreen(e.position.x, e.position.z);
+      if (p.sx < 2 || p.sy < 2 || p.sx > size - 2 || p.sy > size - 2) continue;
+      ctx.fillStyle = '#d64545';
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Landmark markers
+    for (const mark of MINIMAP_LANDMARKS) {
+      const p = toScreen(mark.x, mark.z);
+      ctx.fillStyle = mark.color;
+      ctx.strokeStyle = 'rgba(31, 42, 36, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, mark.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Player facing arrow (yaw 0 = +Z / north)
+    const me = toScreen(player.position.x, player.position.z);
+    const yaw = Math.atan2(player.facing.x, player.facing.z);
+    ctx.save();
+    ctx.translate(me.sx, me.sy);
+    ctx.rotate(yaw);
+    ctx.fillStyle = '#1f2a24';
+    ctx.strokeStyle = '#fff8e8';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -7);
+    ctx.lineTo(5, 6);
+    ctx.lineTo(0, 3.5);
+    ctx.lineTo(-5, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Clip ring border
+    ctx.strokeStyle = 'rgba(47, 143, 91, 0.65)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(half, half, half - 1.5, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   /** Proximity prompt + defense objective / cooldown readouts for the east shrine. */

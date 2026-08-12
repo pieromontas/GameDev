@@ -20,24 +20,24 @@ type SignFacing = 'east' | 'west' | 'north' | 'south';
 export class MeadowBiome {
   readonly root = new THREE.Group();
   /** Larger disk so east/west/north/south clearings sit on painted ground. */
-  readonly groundSize = 110;
-  readonly playRadius = 34;
+  readonly groundSize = 145;
+  readonly playRadius = 44;
   /** Second playable pocket — ancient shrine clearing east of the main ring. */
   readonly eastClearing = EastShrineClearing;
   /** Soft corridor half-width connecting main meadow → east clearing. */
-  readonly eastCorridorHalfWidth = 5.6;
+  readonly eastCorridorHalfWidth = 6.0;
   /** Third playable pocket — misty grove clearing west of the main ring. */
   readonly westClearing = WestMistyGrove;
   /** Soft corridor half-width connecting main meadow → west grove. */
-  readonly westCorridorHalfWidth = 5.6;
+  readonly westCorridorHalfWidth = 6.0;
   /** Fourth playable pocket — crumbled ruins courtyard north of the main ring. */
   readonly northClearing = NorthRuinsClearing;
   /** Soft corridor half-width connecting main meadow → north ruins. */
-  readonly northCorridorHalfWidth = 5.6;
+  readonly northCorridorHalfWidth = 6.0;
   /** Fifth playable pocket — river ford clearing south of the main ring. */
   readonly southClearing = SouthRiverFordClearing;
   /** Soft corridor half-width connecting main meadow → south river ford. */
-  readonly southCorridorHalfWidth = 5.6;
+  readonly southCorridorHalfWidth = 6.0;
   /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
 
@@ -168,7 +168,7 @@ export class MeadowBiome {
 
     // Soft outer meadow band for depth (sits above displaced ground)
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(26, 34, 56),
+      new THREE.RingGeometry(34, 44, 56),
       createToonMaterial(Palette.grassB),
     );
     ring.rotation.x = -Math.PI / 2;
@@ -227,11 +227,11 @@ export class MeadowBiome {
   private buildEastPathRibbon(): void {
     const pathMat = createToonMaterial(Palette.path);
     const edgeMat = createToonMaterial(Palette.pathEdge);
-    const ax = 12;
-    const az = 4.2;
+    const ax = 15;
+    const az = 5.2;
     const bx = this.eastClearing.x;
     const bz = this.eastClearing.z;
-    const segments = 10;
+    const segments = 12;
     for (let i = 0; i < segments; i++) {
       const t0 = i / segments;
       const t1 = (i + 1) / segments;
@@ -275,11 +275,11 @@ export class MeadowBiome {
   private buildWestPathRibbon(): void {
     const pathMat = createToonMaterial(Palette.path);
     const edgeMat = createToonMaterial(Palette.pathEdge);
-    const ax = -12;
-    const az = 1.2;
+    const ax = -15;
+    const az = 1.4;
     const bx = this.westClearing.x;
     const bz = this.westClearing.z;
-    const segments = 10;
+    const segments = 12;
     for (let i = 0; i < segments; i++) {
       const t0 = i / segments;
       const t1 = (i + 1) / segments;
@@ -322,11 +322,11 @@ export class MeadowBiome {
   private buildNorthPathRibbon(): void {
     const pathMat = createToonMaterial(Palette.path);
     const edgeMat = createToonMaterial(Palette.pathEdge);
-    const ax = 2;
-    const az = 14;
+    const ax = 3;
+    const az = 18;
     const bx = this.northClearing.x;
     const bz = this.northClearing.z;
-    const segments = 10;
+    const segments = 12;
     for (let i = 0; i < segments; i++) {
       const t0 = i / segments;
       const t1 = (i + 1) / segments;
@@ -369,11 +369,11 @@ export class MeadowBiome {
   private buildSouthPathRibbon(): void {
     const pathMat = createToonMaterial(Palette.path);
     const edgeMat = createToonMaterial(Palette.pathEdge);
-    const ax = -2;
-    const az = -14;
+    const ax = -3;
+    const az = -18;
     const bx = this.southClearing.x;
     const bz = this.southClearing.z;
-    const segments = 10;
+    const segments = 12;
     for (let i = 0; i < segments; i++) {
       const t0 = i / segments;
       const t1 = (i + 1) / segments;
@@ -447,7 +447,7 @@ export class MeadowBiome {
         z = this.eastClearing.z + Math.sin(ang) * rad;
       } else {
         const ang = hash2(placed * 1.7, guard * 0.3) * Math.PI * 2;
-        const rad = 3 + hash2(guard * 2.1, placed * 0.9) * 28;
+        const rad = 3 + hash2(guard * 2.1, placed * 0.9) * 36;
         x = Math.cos(ang) * rad;
         z = Math.sin(ang) * rad;
         if (Math.hypot(x, z) > this.playRadius - 1) continue;
@@ -469,10 +469,10 @@ export class MeadowBiome {
   }
 
   private buildRingOfTrees(): void {
-    const count = 30;
+    const count = 34;
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
-      const radius = 29.5 + (i % 4) * 1.35;
+      const radius = 38.5 + (i % 4) * 1.35;
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
       // Gap for dirt path branches into east shrine / west grove / north ruins / south ford.
@@ -501,6 +501,11 @@ export class MeadowBiome {
       [8, -14, 1.05],
       [-18, 10, 0.92],
       [16, -12, 1.08],
+      // Outer-band fillers for the expanded meadow ring
+      [28, -14, 1.05],
+      [-30, 14, 0.98],
+      [20, 30, 1.1],
+      [-22, -28, 1.02],
     ];
     for (const [x, z, s] of treeSpots) {
       if (this.isOnEastBranchApproach(x, z)) continue;
@@ -540,6 +545,11 @@ export class MeadowBiome {
       [18, 14, 1.2],
       // Was (−17, −10) — kept south of west corridor
       [-17, -12, 1.05],
+      // Outer-band rocks in the expanded play ring
+      [32, 8, 1.05],
+      [-28, -18, 0.9],
+      [12, 34, 0.85],
+      [-14, -32, 1.0],
     ];
     for (const [x, z, s] of rockSpots) {
       if (this.isOnEastBranchApproach(x, z)) continue;
@@ -595,21 +605,87 @@ export class MeadowBiome {
     // Wooden signpost near spawn — “Prontera South” vibe without text textures
     this.addSignpost(2.8, 8.4);
     // Branch marker — points players toward the east shrine clearing
-    this.addSignpost(16.5, 6.8);
+    this.addSignpost(21, 8.2);
     // Branch marker — points players toward the west misty grove
-    this.addSignpost(-16.5, 3.2, 'west');
+    this.addSignpost(-21, 3.6, 'west');
     // Branch marker — points players toward the north ruins courtyard
-    this.addSignpost(4.2, 16.5, 'north');
+    this.addSignpost(5.2, 21, 'north');
     // Branch marker — points players toward the south river ford
-    this.addSignpost(-4.2, -16.5, 'south');
+    this.addSignpost(-5.2, -21, 'south');
     // Quiet pond off the path
     this.addPond(-11.5, -11.5);
     // Ruin pillar cluster for a read-able landmark
     this.addRuinPillar(15.5, -6.5);
     // Tiny cottage + windmill silhouette on the rim (out of play collision mostly)
-    this.addCottage(-22, 16);
+    this.addCottage(-29, 21);
     // Windmill kept north of the east path so the branch stays readable
-    this.addWindmill(24, 18);
+    this.addWindmill(31, 23);
+    // Small outer-ring landmarks so the expanded meadow doesn’t read as empty grass
+    this.addStandingStones(26, -24);
+    this.addWaysideCairn(-24, 28);
+  }
+
+  /** Pair of standing stones — tiny SE spur landmark in the expanded ring. */
+  private addStandingStones(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    const tall = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 2.4, 0.4),
+      this.cliffMat,
+    );
+    tall.position.set(-0.55, 1.2, 0.1);
+    tall.rotation.z = -0.08;
+    tall.castShadow = true;
+    tall.receiveShadow = true;
+    group.add(tall);
+    const short = new THREE.Mesh(
+      new THREE.BoxGeometry(0.45, 1.7, 0.35),
+      this.rockShadowMat,
+    );
+    short.position.set(0.7, 0.85, -0.15);
+    short.rotation.z = 0.12;
+    short.castShadow = true;
+    short.receiveShadow = true;
+    group.add(short);
+    const moss = new THREE.Mesh(
+      new THREE.SphereGeometry(0.35, 6, 5),
+      this.mossMat,
+    );
+    moss.position.set(0.05, 0.2, 0.55);
+    moss.scale.set(1.2, 0.55, 1);
+    group.add(moss);
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.15 });
+  }
+
+  /** Low stone cairn — NW path-spur cue without a fifth biome pocket. */
+  private addWaysideCairn(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.95, 1.15, 0.45, 7),
+      this.cliffMat,
+    );
+    base.position.y = 0.22;
+    base.castShadow = true;
+    base.receiveShadow = true;
+    group.add(base);
+    const mid = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55, 0.75, 0.4, 6),
+      this.rockShadowMat,
+    );
+    mid.position.y = 0.62;
+    mid.castShadow = true;
+    group.add(mid);
+    const tip = new THREE.Mesh(
+      new THREE.ConeGeometry(0.28, 0.55, 5),
+      this.mossMat,
+    );
+    tip.position.y = 1.05;
+    tip.castShadow = true;
+    group.add(tip);
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.05 });
   }
 
   /** Second playable clearing: dirt-path arrival, stone-circle shrine, rim trees. */
@@ -656,8 +732,8 @@ export class MeadowBiome {
     }
 
     // Low mossy ledge on the far rim — readable “edge of the world” cue
-    const ledgeX = cx + 9.5;
-    const ledgeZ = cz + 3.5;
+    const ledgeX = cx + (radius - 2.5);
+    const ledgeZ = cz + 4.2;
     const ledge = new THREE.Group();
     ledge.position.set(ledgeX, 0, ledgeZ);
     const top = new THREE.Mesh(
@@ -733,8 +809,8 @@ export class MeadowBiome {
     this.addMushroom(cx + 2.6, cz - 3.1, 0.7);
 
     // Low mossy ledge on the far rim
-    const ledgeX = cx - 9.5;
-    const ledgeZ = cz - 3.5;
+    const ledgeX = cx - (radius - 2.5);
+    const ledgeZ = cz - 4.2;
     const ledge = new THREE.Group();
     ledge.position.set(ledgeX, 0, ledgeZ);
     const top = new THREE.Mesh(
@@ -803,8 +879,8 @@ export class MeadowBiome {
     }
 
     // Low mossy ledge on the far (north) rim
-    const ledgeX = cx + 2.5;
-    const ledgeZ = cz + 9.5;
+    const ledgeX = cx + 3.2;
+    const ledgeZ = cz + (radius - 2.5);
     const ledge = new THREE.Group();
     ledge.position.set(ledgeX, 0, ledgeZ);
     const top = new THREE.Mesh(
@@ -874,8 +950,8 @@ export class MeadowBiome {
     }
 
     // Low mossy ledge on the far (south) rim
-    const ledgeX = cx - 2.5;
-    const ledgeZ = cz - 9.5;
+    const ledgeX = cx - 3.2;
+    const ledgeZ = cz - (radius - 2.5);
     const ledge = new THREE.Group();
     ledge.position.set(ledgeX, 0, ledgeZ);
     const top = new THREE.Mesh(
@@ -1607,17 +1683,13 @@ export class MeadowBiome {
 
   private buildEdgeLedges(): void {
     const ledges: Array<[number, number, number, number]> = [
-      // Was (20, −18) — nudged east so the south path corridor stays open
-      [24, -20, 1.2, 0.9],
-      // Was (−22, −14) — nudged west so the south path corridor stays open
-      [-26, -16, 1.4, 1],
-      // Was (18, 20) — nudged east so the north path corridor stays open
-      [22, 22, 1.1, 0.85],
-      // Was (−19, 22) — nudged west so the north path corridor stays open
-      [-24, 24, 1.3, 0.95],
-      [26, 0, 1.5, 1.1],
-      // Was (−26, 4) — nudged north so the west path corridor stays open
-      [-26, 12, 1.35, 1],
+      // Outer rim ledges — kept off corridor approaches
+      [32, -26, 1.2, 0.9],
+      [-34, -20, 1.4, 1],
+      [28, 30, 1.1, 0.85],
+      [-32, 32, 1.3, 0.95],
+      [34, 2, 1.5, 1.1],
+      [-34, 16, 1.35, 1],
     ];
     for (const [x, z, s, h] of ledges) {
       const group = new THREE.Group();
@@ -1964,74 +2036,74 @@ export class MeadowBiome {
 
   /** Corridor + path samples used to keep props from blocking the branch. */
   private isOnEastBranchApproach(x: number, z: number): boolean {
-    if (x < 8) return false;
+    if (x < 10) return false;
     // Wide cone along +X so the tree ring does not choke the east exit.
-    if (x > 18 && Math.abs(z - 5) < 9.5) return true;
+    if (x > 24 && Math.abs(z - 6.5) < 11) return true;
     if (this.distToEastCorridor(x, z) < this.eastCorridorHalfWidth + 1.6) return true;
-    return meadowPathInfluence(x, z) > 0.35 && x > 10;
+    return meadowPathInfluence(x, z) > 0.35 && x > 13;
   }
 
   /** Keep props off the west dirt branch into the misty grove. */
   private isOnWestBranchApproach(x: number, z: number): boolean {
-    if (x > -8) return false;
+    if (x > -10) return false;
     // Wide cone along −X so the tree ring does not choke the west exit.
-    if (x < -18 && Math.abs(z - -1) < 9.5) return true;
+    if (x < -24 && Math.abs(z - -2) < 11) return true;
     if (this.distToWestCorridor(x, z) < this.westCorridorHalfWidth + 1.6) return true;
-    return meadowPathInfluence(x, z) > 0.35 && x < -10;
+    return meadowPathInfluence(x, z) > 0.35 && x < -13;
   }
 
   /** Keep props off the north dirt branch into the ruins courtyard. */
   private isOnNorthBranchApproach(x: number, z: number): boolean {
-    if (z < 10) return false;
+    if (z < 12) return false;
     // Wide cone along +Z so the tree ring does not choke the north exit.
-    if (z > 18 && Math.abs(x - 2) < 9.5) return true;
+    if (z > 24 && Math.abs(x - 3) < 11) return true;
     if (this.distToNorthCorridor(x, z) < this.northCorridorHalfWidth + 1.6) return true;
-    return meadowPathInfluence(x, z) > 0.35 && z > 12;
+    return meadowPathInfluence(x, z) > 0.35 && z > 15;
   }
 
   /** Keep props off the south dirt branch into the river ford. */
   private isOnSouthBranchApproach(x: number, z: number): boolean {
-    if (z > -10) return false;
+    if (z > -12) return false;
     // Wide cone along −Z so the tree ring does not choke the south exit.
-    if (z < -18 && Math.abs(x - -2) < 9.5) return true;
+    if (z < -24 && Math.abs(x - -3) < 11) return true;
     if (this.distToSouthCorridor(x, z) < this.southCorridorHalfWidth + 1.6) return true;
-    return meadowPathInfluence(x, z) > 0.35 && z < -12;
+    return meadowPathInfluence(x, z) > 0.35 && z < -15;
   }
 
   /** Distance from point to the east corridor segment (main rim → clearing). */
   private distToEastCorridor(x: number, z: number): number {
     // Capsule from just inside the main ring toward the clearing center.
-    const ax = 22;
-    const az = 4.4;
-    const bx = this.eastClearing.x - 2.5;
+    const ax = 29;
+    const az = 5.5;
+    const bx = this.eastClearing.x - 3;
     const bz = this.eastClearing.z;
     return this.distToSegment(x, z, ax, az, bx, bz);
   }
 
   /** Distance from point to the west corridor segment (main rim → grove). */
   private distToWestCorridor(x: number, z: number): number {
-    const ax = -22;
-    const az = 0.2;
-    const bx = this.westClearing.x + 2.5;
+    const ax = -29;
+    const az = -0.5;
+    const bx = this.westClearing.x + 3;
     const bz = this.westClearing.z;
     return this.distToSegment(x, z, ax, az, bx, bz);
   }
 
   /** Distance from point to the north corridor segment (main rim → ruins). */
   private distToNorthCorridor(x: number, z: number): number {
-    const ax = 2;
-    const az = 22;
+    const ax = 3;
+    const az = 29;
     const bx = this.northClearing.x;
-    const bz = this.northClearing.z - 2.5;
+    const bz = this.northClearing.z - 3;
     return this.distToSegment(x, z, ax, az, bx, bz);
   }
 
   /** Distance from point to the south corridor segment (main rim → river ford). */
   private distToSouthCorridor(x: number, z: number): number {
-    const ax = -2;
-    const az = -22;
+    const ax = -3;
+    const az = -29;
     const bx = this.southClearing.x;
-    const bz = this.southClearing.z + 2.5;
+    const bz = this.southClearing.z + 3;
     return this.distToSegment(x, z, ax, az, bx, bz);
   }
 
@@ -2123,9 +2195,9 @@ export class MeadowBiome {
     this.considerCorridorSurface(
       x,
       z,
-      22,
-      4.4,
-      this.eastClearing.x - 2.5,
+      29,
+      5.5,
+      this.eastClearing.x - 3,
       this.eastClearing.z,
       this.eastCorridorHalfWidth,
       consider,
@@ -2135,9 +2207,9 @@ export class MeadowBiome {
     this.considerCorridorSurface(
       x,
       z,
-      -22,
-      0.2,
-      this.westClearing.x + 2.5,
+      -29,
+      -0.5,
+      this.westClearing.x + 3,
       this.westClearing.z,
       this.westCorridorHalfWidth,
       consider,
@@ -2147,10 +2219,10 @@ export class MeadowBiome {
     this.considerCorridorSurface(
       x,
       z,
-      2,
-      22,
+      3,
+      29,
       this.northClearing.x,
-      this.northClearing.z - 2.5,
+      this.northClearing.z - 3,
       this.northCorridorHalfWidth,
       consider,
     );
@@ -2159,10 +2231,10 @@ export class MeadowBiome {
     this.considerCorridorSurface(
       x,
       z,
-      -2,
-      -22,
+      -3,
+      -29,
       this.southClearing.x,
-      this.southClearing.z + 2.5,
+      this.southClearing.z + 3,
       this.southCorridorHalfWidth,
       consider,
     );
