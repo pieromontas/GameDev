@@ -95,8 +95,7 @@ export class Game {
       },
       onKill: (enemy) => {
         this.kills += 1;
-        const label = enemy.kind === 'spitter' ? 'Spitter defeated!' : 'Blob defeated!';
-        this.hud.showToast(label, 1.0);
+        this.grantKillXp(enemy);
       },
       onQuakeImpact: () => {
         this.cameraRig.addImpactPunch(0.16);
@@ -373,6 +372,36 @@ export class Game {
   private handleShrineInteract(): void {
     if (this.input.wasPressed('KeyE')) {
       this.shrine.tryInteract(this.player);
+    }
+  }
+
+  /**
+   * Kill → XP loop. Spitters pay more so clearing them feels like real progress.
+   * Floating "+XP" every kill; level-up gets a toast + FX; occasional XP toast.
+   */
+  private grantKillXp(enemy: Enemy): void {
+    const amount = enemy.kind === 'spitter' ? 14 : 8;
+    const result = this.player.gainXp(amount);
+    this.combat.damageNumbers.spawnXp(enemy.position, amount);
+
+    if (result.leveled) {
+      const lv = this.player.level;
+      const dmg = result.damageGained;
+      const hp = result.hpGained;
+      const multi = result.levelsGained > 1 ? ` ×${result.levelsGained}` : '';
+      this.hud.showToast(
+        `Level Up${multi}!  ·  Lv.${lv}  ·  +${hp} HP  ·  +${dmg} dmg`,
+        2.6,
+      );
+      this.hud.flashLevelUp();
+      this.combat.playLevelUpFx(this.player);
+      this.cameraRig.addImpactPunch(0.2);
+      return;
+    }
+
+    // Occasional toast so XP still reads if floaters are missed in the scrap.
+    if (this.kills % 5 === 0) {
+      this.hud.showToast(`+${amount} XP  ·  Lv.${this.player.level}`, 0.9);
     }
   }
 

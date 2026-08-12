@@ -6,6 +6,8 @@ export class HUD {
   private readonly brand: HTMLElement;
   private readonly hpFill: HTMLElement;
   private readonly hpText: HTMLElement;
+  private readonly xpFill: HTMLElement;
+  private readonly levelText: HTMLElement;
   private readonly lootText: HTMLElement;
   private readonly killsText: HTMLElement;
   private readonly classText: HTMLElement;
@@ -15,6 +17,7 @@ export class HUD {
   private toastTimer = 0;
   private hintAge = 0;
   private hintHidden = false;
+  private levelFlashTimer = 0;
   private readonly prevReady: Record<SkillId, boolean> = { basic: true, slam: true, bash: true };
   private readonly loading: HTMLElement;
   private readonly interactPrompt: HTMLElement;
@@ -38,6 +41,11 @@ export class HUD {
           <div class="bar-track"><div class="bar-fill" id="hp-fill"></div></div>
         </div>
         <p class="meta" id="hp-text">120 / 120</p>
+        <div class="bar-row xp-row">
+          <span class="bar-label">XP</span>
+          <div class="bar-track"><div class="bar-fill xp-fill" id="xp-fill"></div></div>
+        </div>
+        <p class="meta" id="level-text">Level 1 · XP 0/20</p>
         <p class="meta class-line" id="class-text">Class: Warrior · press <kbd>C</kbd> to switch</p>
       </div>
       <div class="hud-panel hud-top-right">
@@ -63,6 +71,8 @@ export class HUD {
     this.brand = this.root.querySelector('#brand')!;
     this.hpFill = this.root.querySelector('#hp-fill')!;
     this.hpText = this.root.querySelector('#hp-text')!;
+    this.xpFill = this.root.querySelector('#xp-fill')!;
+    this.levelText = this.root.querySelector('#level-text')!;
     this.lootText = this.root.querySelector('#loot-text')!;
     this.killsText = this.root.querySelector('#kills-text')!;
     this.classText = this.root.querySelector('#class-text')!;
@@ -139,6 +149,10 @@ export class HUD {
     this.hpFill.style.transform = `scaleX(${ratio})`;
     this.hpFill.classList.toggle('hurt', ratio < 0.35);
     this.hpText.textContent = `${Math.ceil(player.hp)} / ${player.maxHp}`;
+
+    this.xpFill.style.transform = `scaleX(${player.xpRatio})`;
+    this.levelText.textContent = `Level ${player.level} · XP ${player.xp}/${player.xpToNext}`;
+
     this.lootText.textContent = `Loot: ${lootCount}`;
     this.killsText.textContent = `Kills: ${kills}`;
 
@@ -148,7 +162,15 @@ export class HUD {
 
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
-      if (this.toastTimer <= 0) this.toast.classList.remove('show');
+      if (this.toastTimer <= 0) this.toast.classList.remove('show', 'level-up');
+    }
+
+    if (this.levelFlashTimer > 0) {
+      this.levelFlashTimer -= dt;
+      if (this.levelFlashTimer <= 0) {
+        this.levelText.classList.remove('level-flash');
+        this.xpFill.classList.remove('level-flash');
+      }
     }
 
     if (!this.hintHidden) {
@@ -227,7 +249,18 @@ export class HUD {
   showToast(message: string, duration = 1.4): void {
     this.toast.textContent = message;
     this.toast.classList.add('show');
+    this.toast.classList.toggle('level-up', /Level Up/i.test(message));
     this.toastTimer = duration;
+  }
+
+  /** Brief HUD pop when the player levels — bar + level line pulse. */
+  flashLevelUp(): void {
+    this.levelText.classList.remove('level-flash');
+    this.xpFill.classList.remove('level-flash');
+    void this.levelText.offsetWidth;
+    this.levelText.classList.add('level-flash');
+    this.xpFill.classList.add('level-flash');
+    this.levelFlashTimer = 0.85;
   }
 }
 

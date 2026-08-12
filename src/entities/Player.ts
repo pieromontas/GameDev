@@ -12,11 +12,26 @@ import { MAGE_VISUAL, PlayerVisual, WARRIOR_VISUAL } from './PlayerVisual';
 
 export type PlayerAnim = 'idle' | 'move' | 'slash' | 'quake' | 'bash';
 
+export type LevelUpResult = {
+  leveled: boolean;
+  levelsGained: number;
+  xpGained: number;
+  hpGained: number;
+  damageGained: number;
+};
+
+/** XP required to advance from `level` → level+1 (Level 1 needs 20). */
+export function xpToReachNext(level: number): number {
+  return Math.floor(20 + (Math.max(1, level) - 1) * 12);
+}
+
 /**
  * Playable hero — gameplay capsule + facing/skills on the Entity root.
  * Visuals swap between KayKit Knight (Warrior) and KayKit Mage via PlayerVisual.
  */
 export class Player extends Entity {
+  static readonly BASE_MAX_HP = 120;
+
   readonly maxSpeed = 7.8;
   readonly accel = 52;
   readonly friction = 64;
@@ -29,6 +44,12 @@ export class Player extends Entity {
   damageBuffMult = 1;
   /** Temporary shrine blessing — multiplies move speed cap. */
   moveBuffMult = 1;
+  /** Session level — persists through respawn and class swaps. */
+  level = 1;
+  /** Progress toward the next level. */
+  xp = 0;
+  /** Permanent flat damage from leveling (Warrior + Mage skills). */
+  bonusDamage = 0;
   private buffRemain = 0;
   private classId: PlayerClass = 'warrior';
 
@@ -67,7 +88,7 @@ export class Player extends Entity {
     group.add(warriorVisual.root);
     group.add(mageVisual.root);
 
-    super(group, 'player', 120, 0.5);
+    super(group, 'player', Player.BASE_MAX_HP, 0.5);
     this.warriorVisual = warriorVisual;
     this.mageVisual = mageVisual;
     this.visual = warriorVisual;
@@ -136,6 +157,61 @@ export class Player extends Entity {
 
   get shrineBuffRemain(): number {
     return this.buffRemain;
+  }
+
+  /** XP needed for the current level → next. */
+  get xpToNext(): number {
+    return xpToReachNext(this.level);
+  }
+
+  get xpRatio(): number {
+    const need = this.xpToNext;
+    return need <= 0 ? 0 : Math.min(1, this.xp / need);
+  }
+
+  /**
+   * Grant XP from a kill. May chain multiple level-ups if the award is large.
+   * Level, XP, max HP, and bonus damage persist for the session (including respawn).
+   */
+  gainXp(amount: number): LevelUpResult {
+    const xpGained = Math.max(0, Math.round(amount));
+    if (xpGained <= 0) {
+      return { leveled: false, levelsGained: 0, xpGained: 0, hpGained: 0, damageGained: 0 };
+    }
+
+    this.xp += xpGained;
+    let levelsGained = 0;
+    let hpGained = 0;
+    let damageGained = 0;
+
+    // Soft cap so a huge burst can't softlock the HUD with endless toasts.
+    while (this.xp >= this.xpToNext && levelsGained < 8) {
+      this.xp -= this.xpToNext;
+      const bump = this.applyLevelUp();
+      levelsGained += 1;
+      hpGained += bump.hp;
+      damageGained += bump.damage;
+    }
+
+    return {
+      leveled: levelsGained > 0,
+      levelsGained,
+      xpGained,
+      hpGained,
+      damageGained,
+    };
+  }
+
+  /** Permanent +max HP and +damage; heals the HP bump so the level-up feels good. */
+  private applyLevelUp(): { hp: number; damage: number } {
+    this.level += 1;
+    const hp = 12;
+    // Alternate +1 / +2 so every other level is a bit punchier vs spitters.
+    const damage = this.level % 2 === 0 ? 2 : 1;
+    this.maxHp += hp;
+    this.hp = Math.min(this.maxHp, this.hp + hp);
+    this.bonusDamage += damage;
+    return { hp, damage };
   }
 
   /**
