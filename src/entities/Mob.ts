@@ -1,12 +1,37 @@
 import * as THREE from 'three';
 import { Entity } from './Entity';
 import { dist2, randomPointInRing } from '../utils/math';
+import { Palette, createToonMaterial } from '../render/stylized';
 
 export type MobAIState = 'idle' | 'chase' | 'attack' | 'leash' | 'dead';
 
-const sharedBodyGeo = new THREE.SphereGeometry(0.55, 12, 10);
-const sharedEyeGeo = new THREE.SphereGeometry(0.1, 6, 6);
-const sharedSpotGeo = new THREE.SphereGeometry(0.12, 6, 6);
+const sharedBodyGeo = new THREE.SphereGeometry(0.58, 14, 12);
+const sharedBellyGeo = new THREE.SphereGeometry(0.38, 10, 8);
+const sharedEyeWhiteGeo = new THREE.SphereGeometry(0.13, 8, 8);
+const sharedPupilGeo = new THREE.SphereGeometry(0.07, 6, 6);
+const sharedCheekGeo = new THREE.SphereGeometry(0.1, 6, 6);
+const sharedSpotGeo = new THREE.SphereGeometry(0.11, 6, 6);
+const sharedEarGeo = new THREE.SphereGeometry(0.16, 8, 8);
+
+const sharedEyeWhiteMat = createToonMaterial(0xffffff);
+const sharedPupilMat = createToonMaterial(0x1a1a22);
+const sharedCheekMat = createToonMaterial(Palette.blobCheek, {
+  emissive: Palette.blobCheek,
+  emissiveIntensity: 0.15,
+});
+const sharedBellyMat = createToonMaterial(Palette.blobBelly);
+const sharedEarMatCache = new Map<number, THREE.MeshToonMaterial>();
+
+function earMatFor(color: number): THREE.MeshToonMaterial {
+  let mat = sharedEarMatCache.get(color);
+  if (!mat) {
+    // Slightly darker ears for silhouette without a second palette entry per mob.
+    mat = createToonMaterial(color);
+    mat.color.offsetHSL(0, 0, -0.12);
+    sharedEarMatCache.set(color, mat);
+  }
+  return mat;
+}
 
 export class Mob extends Entity {
   readonly moveSpeed = 3.45;
@@ -22,7 +47,7 @@ export class Mob extends Entity {
   attackTimer = 0;
   private respawnTimer = 0;
   readonly home: THREE.Vector3;
-  private readonly bodyMat: THREE.MeshLambertMaterial;
+  private readonly bodyMat: THREE.MeshToonMaterial;
   private readonly baseColor: number;
   private wobble = Math.random() * Math.PI * 2;
   private readonly velocity = new THREE.Vector3();
@@ -30,24 +55,48 @@ export class Mob extends Entity {
 
   constructor(spawn: THREE.Vector3, color = 0xff7eb6) {
     const group = new THREE.Group();
-    const bodyMat = new THREE.MeshLambertMaterial({ color });
+    const bodyMat = createToonMaterial(color);
     const body = new THREE.Mesh(sharedBodyGeo, bodyMat);
-    body.position.y = 0.55;
+    body.position.y = 0.58;
     body.castShadow = true;
     group.add(body);
 
-    const eyeMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-    const left = new THREE.Mesh(sharedEyeGeo, eyeMat);
-    left.position.set(-0.18, 0.7, 0.42);
-    const right = new THREE.Mesh(sharedEyeGeo, eyeMat);
-    right.position.set(0.18, 0.7, 0.42);
-    group.add(left, right);
+    // Pale belly — volume + cute read against saturated shell
+    const belly = new THREE.Mesh(sharedBellyGeo, sharedBellyMat);
+    belly.position.set(0, 0.42, 0.28);
+    belly.scale.set(1.05, 0.85, 0.7);
+    group.add(belly);
 
-    const spot = new THREE.Mesh(
-      sharedSpotGeo,
-      new THREE.MeshLambertMaterial({ color: 0xffffff }),
-    );
-    spot.position.set(0.25, 0.45, 0.35);
+    // Soft ears / nubs for a clearer silhouette from the follow cam
+    const earMat = earMatFor(color);
+    const leftEar = new THREE.Mesh(sharedEarGeo, earMat);
+    leftEar.position.set(-0.32, 1.05, 0.05);
+    leftEar.scale.set(0.7, 1.1, 0.7);
+    const rightEar = new THREE.Mesh(sharedEarGeo, earMat);
+    rightEar.position.set(0.32, 1.05, 0.05);
+    rightEar.scale.set(0.7, 1.1, 0.7);
+    group.add(leftEar, rightEar);
+
+    const leftWhite = new THREE.Mesh(sharedEyeWhiteGeo, sharedEyeWhiteMat);
+    leftWhite.position.set(-0.18, 0.72, 0.46);
+    const rightWhite = new THREE.Mesh(sharedEyeWhiteGeo, sharedEyeWhiteMat);
+    rightWhite.position.set(0.18, 0.72, 0.46);
+    group.add(leftWhite, rightWhite);
+
+    const leftPupil = new THREE.Mesh(sharedPupilGeo, sharedPupilMat);
+    leftPupil.position.set(-0.18, 0.72, 0.56);
+    const rightPupil = new THREE.Mesh(sharedPupilGeo, sharedPupilMat);
+    rightPupil.position.set(0.18, 0.72, 0.56);
+    group.add(leftPupil, rightPupil);
+
+    const leftCheek = new THREE.Mesh(sharedCheekGeo, sharedCheekMat);
+    leftCheek.position.set(-0.38, 0.52, 0.38);
+    const rightCheek = new THREE.Mesh(sharedCheekGeo, sharedCheekMat);
+    rightCheek.position.set(0.38, 0.52, 0.38);
+    group.add(leftCheek, rightCheek);
+
+    const spot = new THREE.Mesh(sharedSpotGeo, sharedBellyMat);
+    spot.position.set(0.28, 0.55, 0.42);
     group.add(spot);
 
     super(group, 'enemy', 40, 0.55, spawn);
@@ -161,7 +210,8 @@ export class Mob extends Entity {
 }
 
 export function createStarterMobs(): Mob[] {
-  const colors = [0xff7eb6, 0x7ec8ff, 0xffc857, 0xb8f2e6, 0xff9f68];
+  // Punchier saturation so blobs pop against toon meadow greens
+  const colors = [0xff5fa8, 0x5eb8ff, 0xffc23a, 0x6ef0d2, 0xff8a4c, 0xc58cff];
   const spots = [
     new THREE.Vector3(8, 0, -4),
     new THREE.Vector3(-7, 0, -8),

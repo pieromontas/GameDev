@@ -9,6 +9,7 @@ import { LootPickup } from '../entities/Loot';
 import { CombatSystem } from '../combat/CombatSystem';
 import { HUD } from '../ui/HUD';
 import { HealthBars } from '../ui/HealthBars';
+import { Palette, createSkyDome } from '../render/stylized';
 
 export class Game {
   private readonly scene = new THREE.Scene();
@@ -23,6 +24,7 @@ export class Game {
   private readonly combat: CombatSystem;
   private readonly hud: HUD;
   private readonly healthBars: HealthBars;
+  private readonly sun: THREE.DirectionalLight;
 
   private readonly moveDir = new THREE.Vector3();
   private readonly forward = new THREE.Vector3();
@@ -43,13 +45,17 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight, false);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.BasicShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.12;
 
-    this.scene.background = new THREE.Color(0x9fd8ff);
-    this.scene.fog = new THREE.Fog(0xbfe8ff, 40, 90);
+    // Fallback clear color under the sky dome; fog tints distance into meadow air.
+    this.scene.background = new THREE.Color(Palette.skyHorizon);
+    this.scene.fog = new THREE.Fog(Palette.fog, 32, 78);
+    this.scene.add(createSkyDome(110));
 
-    this.addLights();
+    this.sun = this.addLights();
 
     this.meadow = new MeadowBiome();
     this.scene.add(this.meadow.root);
@@ -103,25 +109,35 @@ export class Game {
     this.renderer.dispose();
   }
 
-  private addLights(): void {
-    const hemi = new THREE.HemisphereLight(0xfff2d6, 0x6fbf5a, 1.1);
+  private addLights(): THREE.DirectionalLight {
+    const hemi = new THREE.HemisphereLight(Palette.hemiSky, Palette.hemiGround, 0.95);
     this.scene.add(hemi);
 
-    const sun = new THREE.DirectionalLight(0xfff4dc, 1.35);
-    sun.position.set(18, 28, 10);
+    const sun = new THREE.DirectionalLight(Palette.sun, 1.55);
+    sun.position.set(22, 34, 14);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.bias = -0.0008;
+    sun.shadow.normalBias = 0.04;
     sun.shadow.camera.near = 2;
-    sun.shadow.camera.far = 70;
-    sun.shadow.camera.left = -30;
-    sun.shadow.camera.right = 30;
-    sun.shadow.camera.top = 30;
-    sun.shadow.camera.bottom = -30;
+    sun.shadow.camera.far = 72;
+    sun.shadow.camera.left = -28;
+    sun.shadow.camera.right = 28;
+    sun.shadow.camera.top = 28;
+    sun.shadow.camera.bottom = -28;
+    sun.shadow.camera.updateProjectionMatrix();
     this.scene.add(sun);
+    this.scene.add(sun.target);
 
-    const fill = new THREE.DirectionalLight(0xa0d4ff, 0.35);
-    fill.position.set(-12, 10, -8);
+    const fill = new THREE.DirectionalLight(Palette.fill, 0.42);
+    fill.position.set(-14, 12, -10);
     this.scene.add(fill);
+
+    // Tiny warm bounce so shaded sides stay colorful (not gray).
+    const bounce = new THREE.AmbientLight(0xfff6e8, 0.18);
+    this.scene.add(bounce);
+
+    return sun;
   }
 
   private update(dt: number): void {
@@ -190,6 +206,13 @@ export class Game {
     this.player.update(dt);
     this.combat.update(dt);
     this.cameraRig.update(this.player.position, dt);
+    // Keep the sun shadow frustum centered on the player (cheap soft shadows).
+    this.sun.target.position.copy(this.player.position);
+    this.sun.position.set(
+      this.player.position.x + 22,
+      34,
+      this.player.position.z + 14,
+    );
     this.healthBars.update(this.cameraRig.camera);
     this.hud.update(this.player, this.lootCount, this.kills, dt);
     this.input.endFrame();
