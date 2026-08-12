@@ -60,7 +60,7 @@ export class HUD {
           <div class="bar-track"><div class="bar-fill xp-fill" id="xp-fill"></div></div>
         </div>
         <p class="meta" id="level-text">Level 1 · XP 0/20</p>
-        <p class="meta class-line" id="class-text">Class: Warrior · press <kbd>C</kbd> to switch</p>
+        <p class="meta class-line" id="class-text">Class: Warrior · <kbd>C</kbd>/<kbd>Tab</kbd> cycle</p>
       </div>
       <div class="hud-panel hud-top-right">
         <p class="meta" id="loot-text">Loot: 0</p>
@@ -73,7 +73,7 @@ export class HUD {
         LMB / 1 — skill 1<br/>
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
-        <kbd>C</kbd> — switch Warrior / Mage<br/>
+        <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
         <kbd>E</kbd> — awaken east shrine<br/>
         Follow the dirt path west to the misty grove<br/>
         RMB drag — rotate camera
@@ -146,7 +146,7 @@ export class HUD {
     this.shownClass = cls;
     const label = CLASS_LABEL[cls];
     this.brand.textContent = `SpiritVale Slice · ${label}`;
-    this.classText.innerHTML = `Class: ${label} · press <kbd>C</kbd> to switch`;
+    this.classText.innerHTML = `Class: ${label} · <kbd>C</kbd>/<kbd>Tab</kbd> cycle`;
     this.root.dataset.class = cls;
 
     for (const id of Object.keys(this.skillEls) as SkillId[]) {
@@ -336,5 +336,9 @@ function shortSkillName(name: string): string {
   if (name === 'Arcane Ward') return 'Ward';
   if (name === 'Leap Strike') return 'Leap';
   if (name === 'Meteor') return 'Meteor';
+  if (name === 'Fan of Knives') return 'Fan';
+  if (name === 'Smoke Bomb') return 'Smoke';
+  if (name === 'Shadow Leap') return 'Shadow';
+  if (name === 'Stab') return 'Stab';
   return name;
 }

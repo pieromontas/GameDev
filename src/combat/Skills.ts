@@ -1,6 +1,9 @@
 export type SkillId = 'basic' | 'slam' | 'bash' | 'burst';
 
-export type PlayerClass = 'warrior' | 'mage';
+export type PlayerClass = 'warrior' | 'mage' | 'rogue';
+
+/** Cycle order for C / Tab — Warrior → Mage → Rogue → Warrior… */
+export const CLASS_CYCLE: readonly PlayerClass[] = ['warrior', 'mage', 'rogue'];
 
 /** Slot-4 skills unlock at this session level (existing XP curve). */
 export const SKILL4_UNLOCK_LEVEL = 3;
@@ -112,9 +115,57 @@ export const MAGE_SKILLS: Record<SkillId, SkillDef> = {
   },
 };
 
+/** Rogue kit — stab, fan of knives AoE, smoke dodge i-frames, shadow leap gap-closer. */
+export const ROGUE_SKILLS: Record<SkillId, SkillDef> = {
+  basic: {
+    id: 'basic',
+    name: 'Stab',
+    keyHint: 'LMB / 1',
+    // Slightly snappier than Slash; a touch less punch so Fan/Leap carry the kit.
+    cooldown: 0.36,
+    damage: 14,
+    range: 2.35,
+    radius: 0,
+    color: 0x9dffc8,
+  },
+  slam: {
+    id: 'slam',
+    name: 'Fan of Knives',
+    keyHint: '2',
+    cooldown: 3.4,
+    damage: 18,
+    range: 0.5,
+    radius: 3.7,
+    color: 0x5ad4a8,
+  },
+  bash: {
+    id: 'bash',
+    name: 'Smoke Bomb',
+    keyHint: '3',
+    // Escape tool — no damage; brief i-frames (dodge window).
+    cooldown: 3.8,
+    damage: 0,
+    range: 0,
+    radius: 1.8,
+    color: 0x6a7a88,
+  },
+  burst: {
+    id: 'burst',
+    name: 'Shadow Leap',
+    keyHint: '4',
+    // Rogue gap-closer — similar travel to Leap Strike; teal landing bloom.
+    cooldown: 5.4,
+    damage: 24,
+    range: 5.4,
+    radius: 2.2,
+    color: 0x3ecf9a,
+  },
+};
+
 export const CLASS_LABEL: Record<PlayerClass, string> = {
   warrior: 'Warrior',
   mage: 'Mage',
+  rogue: 'Rogue',
 };
 
 export function createWarriorSkills(): Record<SkillId, SkillState> {
@@ -135,8 +186,25 @@ export function createMageSkills(): Record<SkillId, SkillState> {
   };
 }
 
+export function createRogueSkills(): Record<SkillId, SkillState> {
+  return {
+    basic: { def: ROGUE_SKILLS.basic, cooldownRemaining: 0 },
+    slam: { def: ROGUE_SKILLS.slam, cooldownRemaining: 0 },
+    bash: { def: ROGUE_SKILLS.bash, cooldownRemaining: 0 },
+    burst: { def: ROGUE_SKILLS.burst, cooldownRemaining: 0 },
+  };
+}
+
 export function createSkillsForClass(cls: PlayerClass): Record<SkillId, SkillState> {
-  return cls === 'mage' ? createMageSkills() : createWarriorSkills();
+  if (cls === 'mage') return createMageSkills();
+  if (cls === 'rogue') return createRogueSkills();
+  return createWarriorSkills();
+}
+
+export function nextClassInCycle(current: PlayerClass): PlayerClass {
+  const idx = CLASS_CYCLE.indexOf(current);
+  const from = idx >= 0 ? idx : 0;
+  return CLASS_CYCLE[(from + 1) % CLASS_CYCLE.length]!;
 }
 
 export function isSkillUnlocked(id: SkillId, level: number): boolean {

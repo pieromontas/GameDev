@@ -62,7 +62,18 @@ class SkillFx {
     age: number;
     life: number;
     grow: number;
-    kind: 'ring' | 'slash' | 'seal' | 'bash' | 'bolt' | 'ward' | 'telegraph' | 'meteor' | 'leap';
+    kind:
+      | 'ring'
+      | 'slash'
+      | 'seal'
+      | 'bash'
+      | 'bolt'
+      | 'ward'
+      | 'smoke'
+      | 'telegraph'
+      | 'meteor'
+      | 'leap'
+      | 'knife';
     startScale: number;
     vel?: THREE.Vector3;
   }> = [];
@@ -75,6 +86,8 @@ class SkillFx {
   private readonly wardGeo = new THREE.SphereGeometry(0.95, 18, 14);
   private readonly meteorGeo = new THREE.SphereGeometry(0.32, 12, 10);
   private readonly leapStreakGeo = new THREE.SphereGeometry(0.12, 8, 6);
+  private readonly knifeGeo = new THREE.ConeGeometry(0.08, 0.42, 5);
+  private readonly smokeGeo = new THREE.SphereGeometry(1.05, 16, 12);
 
   constructor(private readonly scene: THREE.Scene) {
     this.ringGeo.rotateX(-Math.PI / 2);
@@ -242,6 +255,72 @@ class SkillFx {
       startScale: 0.55,
     });
     this.spawnSeal(pos, 0xd8c4ff);
+  }
+
+  /** Smoke Bomb cloud — murky dodge bubble (distinct from Arcane Ward). */
+  spawnSmoke(pos: THREE.Vector3, color: number): void {
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.62,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(this.smokeGeo, mat);
+    mesh.position.set(pos.x, 1.0, pos.z);
+    mesh.scale.setScalar(0.45);
+    mesh.renderOrder = 3;
+    this.scene.add(mesh);
+    this.items.push({
+      mesh,
+      age: 0,
+      life: 0.7,
+      grow: 1.55,
+      kind: 'smoke',
+      startScale: 0.45,
+    });
+
+    // Soft ground haze ring so the dodge window is readable.
+    this.spawnRing(pos, 0x9aa0a8, 1.8);
+    this.spawnSeal(pos, 0x8aa0a8);
+  }
+
+  /** Fan of Knives — radial knife streaks + teal bloom. */
+  spawnFanOfKnives(pos: THREE.Vector3, color: number, radius: number): void {
+    this.spawnRing(pos, color, radius);
+    this.spawnSeal(pos, 0xb8ffe0);
+    const blades = 6;
+    for (let i = 0; i < blades; i++) {
+      const ang = (i / blades) * Math.PI * 2;
+      const dirX = Math.sin(ang);
+      const dirZ = Math.cos(ang);
+      const mat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      const mesh = new THREE.Mesh(this.knifeGeo, mat);
+      mesh.position.set(pos.x + dirX * 0.45, 1.15, pos.z + dirZ * 0.45);
+      mesh.rotation.x = Math.PI / 2;
+      mesh.rotation.z = -ang;
+      mesh.scale.set(1, 1.2, 1);
+      mesh.renderOrder = 4;
+      this.scene.add(mesh);
+      const life = 0.28;
+      const speed = radius / life;
+      this.items.push({
+        mesh,
+        age: 0,
+        life,
+        grow: 0,
+        kind: 'knife',
+        startScale: 1,
+        vel: new THREE.Vector3(dirX * speed, 0, dirZ * speed),
+      });
+    }
   }
 
   /** Amber leap trail streak along the gap-closer path. */
@@ -486,7 +565,13 @@ class SkillFx {
       const item = this.items[i]!;
       item.age += dt;
       const t = item.age / item.life;
-      if ((item.kind === 'bolt' || item.kind === 'leap' || item.kind === 'meteor') && item.vel) {
+      if (
+        (item.kind === 'bolt' ||
+          item.kind === 'leap' ||
+          item.kind === 'meteor' ||
+          item.kind === 'knife') &&
+        item.vel
+      ) {
         item.mesh.position.x += item.vel.x * dt;
         item.mesh.position.y += (item.vel.y ?? 0) * dt;
         item.mesh.position.z += item.vel.z * dt;
@@ -494,6 +579,9 @@ class SkillFx {
           item.mesh.scale.set(0.7 + t * 0.2, 0.7 + t * 0.2, 1.4 + t * 0.6);
         } else if (item.kind === 'meteor') {
           item.mesh.scale.setScalar(1.1 + t * 0.55);
+        } else if (item.kind === 'knife') {
+          item.mesh.scale.set(1, 1.2 + t * 0.3, 1);
+          item.mesh.rotation.y += dt * 14;
         } else {
           item.mesh.scale.setScalar(0.8 + t * 0.4);
         }
@@ -502,6 +590,7 @@ class SkillFx {
         item.kind === 'seal' ||
         item.kind === 'bash' ||
         item.kind === 'ward' ||
+        item.kind === 'smoke' ||
         item.kind === 'leap' ||
         item.kind === 'telegraph'
       ) {
@@ -518,7 +607,7 @@ class SkillFx {
         if (item.kind === 'seal') {
           item.mesh.rotation.y += dt * 2.8;
         }
-        if (item.kind === 'ward') {
+        if (item.kind === 'ward' || item.kind === 'smoke') {
           item.mesh.rotation.y += dt * 1.8;
         }
       } else {
@@ -531,9 +620,15 @@ class SkillFx {
           // Hold opacity a beat longer so rings stay readable mid-expand.
           let fade: number;
           if (item.kind === 'ring') fade = Math.max(0, 1 - t * t);
-          else if (item.kind === 'bash' || item.kind === 'bolt' || item.kind === 'leap') {
+          else if (
+            item.kind === 'bash' ||
+            item.kind === 'bolt' ||
+            item.kind === 'leap' ||
+            item.kind === 'knife'
+          ) {
             fade = Math.max(0, 1 - t * 1.15);
           } else if (item.kind === 'ward') fade = Math.max(0, 0.55 * (1 - t * t));
+          else if (item.kind === 'smoke') fade = Math.max(0, 0.62 * (1 - t * t));
           else if (item.kind === 'telegraph') {
             // Stay readable for the full delay; flicker slightly near impact.
             fade = t > 0.75 ? 0.55 + Math.sin(item.age * 22) * 0.35 : 0.85;
@@ -601,7 +696,7 @@ export class CombatSystem {
     return rawDt * 0.1;
   }
 
-  /** Golden burst around the hero — readable level-up beat for Warrior and Mage. */
+  /** Golden burst around the hero — readable level-up beat for all classes. */
   playLevelUpFx(player: Player): void {
     this.fx.spawnRing(player.position, 0xffe08a, 3.1);
     this.fx.spawnRing(player.position, 0x7dff9a, 1.85);
@@ -626,7 +721,23 @@ export class CombatSystem {
     if (player.playerClass === 'mage') {
       return this.tryMageSkill(player, skillId, mobs);
     }
+    if (player.playerClass === 'rogue') {
+      return this.tryRogueSkill(player, skillId, mobs);
+    }
     return this.tryWarriorSkill(player, skillId, mobs);
+  }
+
+  /**
+   * Drop in-flight gap-closers for this player (class swap mid-leap).
+   * Delayed meteors keep resolving — they don't own player movement.
+   */
+  cancelPlayerLeaps(player: Player): void {
+    for (let i = this.pending.length - 1; i >= 0; i--) {
+      const cast = this.pending[i]!;
+      if (cast.kind === 'leap' && cast.player === player) {
+        this.pending.splice(i, 1);
+      }
+    }
   }
 
   private tryWarriorSkill(player: Player, skillId: SkillId, mobs: Enemy[]): boolean {
@@ -790,7 +901,65 @@ export class CombatSystem {
     return true;
   }
 
-  /** Warrior Leap Strike — gap-closer toward aim/facing, AoE damage on landing. */
+  /** Rogue kit — Stab / Fan of Knives / Smoke Bomb / Shadow Leap. */
+  private tryRogueSkill(player: Player, skillId: SkillId, mobs: Enemy[]): boolean {
+    const skill = player.skills[skillId].def;
+
+    if (skillId === 'basic') {
+      // Stab — snappy melee poke with soft-lock.
+      const target = this.pickSlashTarget(player, mobs, skill.range);
+      if (target) {
+        this.tmp.set(
+          target.position.x - player.position.x,
+          0,
+          target.position.z - player.position.z,
+        );
+        player.faceDirection(this.tmp);
+      }
+      player.playSlash();
+      this.fx.spawnSlash(player.position, player.facing, skill.color);
+      this.fx.spawnSeal(player.position, 0xb8ffe0);
+      if (target) {
+        this.applyDamageToMob(target, skill.damage, false);
+        this.pulseHitStop(0.04);
+      }
+      return true;
+    }
+
+    if (skillId === 'bash') {
+      // Smoke Bomb — dodge window: i-frames, no damage (escape, not Ward heal).
+      player.playBash();
+      this.fx.spawnSmoke(player.position, skill.color);
+      player.invuln = Math.max(player.invuln, 1.15);
+      return true;
+    }
+
+    if (skillId === 'burst') {
+      // Shadow Leap — same travel pipeline as Leap Strike; teal landing.
+      return this.castLeapStrike(player, skill, mobs);
+    }
+
+    // Fan of Knives — radial AoE around the rogue.
+    player.playQuake();
+    this.fx.spawnFanOfKnives(player.position, skill.color, skill.radius);
+    let hits = 0;
+    for (const mob of mobs) {
+      if (!mob.alive) continue;
+      const reach = skill.radius + mob.radius * 0.35;
+      const d2 = dist2(player.position.x, player.position.z, mob.position.x, mob.position.z);
+      if (d2 <= reach * reach) {
+        this.applyDamageToMob(mob, skill.damage, true);
+        hits += 1;
+      }
+    }
+    if (hits > 0) {
+      this.pulseHitStop(0.05);
+      this.hooks.onQuakeImpact?.(hits);
+    }
+    return true;
+  }
+
+  /** Warrior Leap Strike / Rogue Shadow Leap — gap-closer + landing AoE. */
   private castLeapStrike(
     player: Player,
     skill: { damage: number; range: number; radius: number; color: number },

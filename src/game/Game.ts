@@ -134,21 +134,24 @@ export class Game {
   }
 
   /**
-   * Load KayKit Warrior + Mage GLTFs, then start the sim.
-   * On failure: logs clearly and still starts (soft shadow only / other class).
+   * Load KayKit Warrior + Mage + Rogue GLTFs, then start the sim.
+   * On failure: logs clearly and still starts (soft shadow only / other classes).
    */
   async start(): Promise<void> {
-    this.hud.setLoading(true, 'Loading Warrior & Mage…');
+    this.hud.setLoading(true, 'Loading Warrior, Mage & Rogue…');
     const result = await this.player.loadVisuals();
     this.hud.setLoading(false);
-    if (!result.warrior && !result.mage) {
+    const failed = [
+      !result.warrior ? 'Warrior' : null,
+      !result.mage ? 'Mage' : null,
+      !result.rogue ? 'Rogue' : null,
+    ].filter(Boolean) as string[];
+    if (failed.length === 3) {
       this.hud.showToast('Hero models failed to load — check console', 3.5);
-    } else if (!result.warrior) {
-      this.hud.showToast('Warrior model failed — Mage still available (press C)', 3.2);
-    } else if (!result.mage) {
-      this.hud.showToast('Mage model failed — Warrior still playable', 3.2);
+    } else if (failed.length > 0) {
+      this.hud.showToast(`${failed.join(' + ')} model failed — others still playable (C)`, 3.2);
     } else {
-      this.hud.showToast('Welcome — east shrine · west misty grove · C to switch', 2.8);
+      this.hud.showToast('Welcome — 3 classes · C/Tab to switch · east shrine · west grove', 2.8);
     }
     this.loop.start();
   }
@@ -366,19 +369,25 @@ export class Game {
   private handleClassSwitch(): void {
     if (this.input.wasPressed('KeyC') || this.input.wasPressed('Tab')) {
       // Tab is a common class-swap habit — prevent browser focus stealing.
-      // (keydown default isn't cancelable here; Tab still works via wasPressed.)
+      // Cancel in-flight leaps first so a mid-leap swap never softlocks movement.
+      this.combat.cancelPlayerLeaps(this.player);
       const next = this.player.toggleClass();
-      const label = next === 'mage' ? 'Mage' : 'Warrior';
       const unlocked = !this.player.isSkillLocked('burst');
-      const kit =
-        next === 'mage'
-          ? unlocked
-            ? 'Bolt / Nova / Ward / Meteor'
-            : 'Bolt / Nova / Ward · Meteor at Lv 3'
-          : unlocked
-            ? 'Slash / Quake / Bash / Leap Strike'
-            : 'Slash / Quake / Bash · Leap at Lv 3';
-      this.hud.showToast(`${label} ready — ${kit}`, 1.8);
+      let kit: string;
+      if (next === 'mage') {
+        kit = unlocked
+          ? 'Bolt / Nova / Ward / Meteor'
+          : 'Bolt / Nova / Ward · Meteor at Lv 3';
+      } else if (next === 'rogue') {
+        kit = unlocked
+          ? 'Stab / Fan / Smoke / Shadow Leap'
+          : 'Stab / Fan / Smoke · Shadow at Lv 3';
+      } else {
+        kit = unlocked
+          ? 'Slash / Quake / Bash / Leap Strike'
+          : 'Slash / Quake / Bash · Leap at Lv 3';
+      }
+      this.hud.showToast(`${this.player.classLabel} ready — ${kit}`, 1.8);
     }
   }
 

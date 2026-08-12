@@ -22,7 +22,7 @@ export type VisualConfig = {
   hideProps: ReadonlySet<string>;
   clips: ClipMap;
   /** Procedural juice flavor during attack poses. */
-  attackMotion: 'warrior' | 'mage';
+  attackMotion: 'warrior' | 'mage' | 'rogue';
 };
 
 export const WARRIOR_VISUAL: VisualConfig = {
@@ -69,6 +69,27 @@ export const MAGE_VISUAL: VisualConfig = {
     burst: 'Spellcasting',
   },
   attackMotion: 'mage',
+};
+
+export const ROGUE_VISUAL: VisualConfig = {
+  classId: 'rogue',
+  label: 'rogue',
+  modelUrl: '/models/kaykit-rogue/Rogue.glb',
+  modelName: 'KayKitRogue',
+  showProps: new Set(['Knife', 'Knife_Offhand', 'Rogue_Cape']),
+  hideProps: new Set(['1H_Crossbow', '2H_Crossbow', 'Throwable']),
+  clips: {
+    idle: 'Idle',
+    walk: 'Walking_A',
+    run: 'Running_A',
+    slash: '1H_Melee_Attack_Stab',
+    // Spin reads as a knife fan / whirl around the rogue.
+    quake: '2H_Melee_Attack_Spin',
+    bash: 'Dodge_Forward',
+    // Same long jump clip as Leap Strike — Shadow Leap reuses the travel feel.
+    burst: 'Jump_Full_Long',
+  },
+  attackMotion: 'rogue',
 };
 
 type ClipKey = keyof ClipMap;
@@ -307,6 +328,8 @@ export class PlayerVisual {
     if (this.model) {
       if (this.config.attackMotion === 'mage') {
         this.applyMageMotion(state, animT, animDur);
+      } else if (this.config.attackMotion === 'rogue') {
+        this.applyRogueMotion(state, animT, animDur);
       } else {
         this.applyWarriorMotion(state, animT, animDur);
       }
@@ -376,6 +399,48 @@ export class PlayerVisual {
     }
   }
 
+  private applyRogueMotion(state: PlayerAnim, animT: number, animDur: number): void {
+    if (state === 'burst' && animDur > 1e-4) {
+      // Compact shadow arc — lower than Warrior Leap so it reads stealthier.
+      const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
+      const launch = smooth01(t / 0.18);
+      const hang = Math.sin(Math.min(1, (t - 0.1) / 0.55) * Math.PI);
+      const land = easeOut((t - 0.6) / 0.4);
+      const hop = launch * hang * (1 - land * 0.85) * 0.34;
+      const squash = land * 0.07 * (1 - smooth01((t - 0.85) / 0.15));
+      this.root.position.y = hop - squash;
+      this.root.position.x = 0;
+      this.root.position.z = 0;
+    } else if (state === 'bash' && animDur > 1e-4) {
+      // Dodge lunge — short forward dip, then settle (Smoke Bomb i-frames).
+      const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
+      const surge = Math.sin(Math.min(1, t / 0.4) * Math.PI);
+      const settle = smooth01((t - 0.4) / 0.6);
+      this.root.position.y = -surge * 0.06 * (1 - settle);
+      this.root.position.x = 0;
+      this.root.position.z = surge * (1 - settle) * 0.22;
+    } else if (state === 'quake' && animDur > 1e-4) {
+      // Fan spin — slight lift + yaw wobble on the root for readability.
+      const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
+      const lift = Math.sin(Math.min(1, t / 0.5) * Math.PI) * 0.1;
+      const settle = smooth01((t - 0.55) / 0.45);
+      this.root.position.y = lift * (1 - settle);
+      this.root.position.x = Math.sin(t * Math.PI * 2) * 0.04 * (1 - settle);
+      this.root.position.z = 0;
+    } else if (state === 'slash' && animDur > 1e-4) {
+      const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
+      const poke = Math.sin(Math.min(1, t / 0.35) * Math.PI);
+      const settle = smooth01((t - 0.4) / 0.6);
+      this.root.position.y = 0;
+      this.root.position.x = 0;
+      this.root.position.z = poke * (1 - settle) * 0.12;
+    } else {
+      this.root.position.y = 0;
+      this.root.position.x = 0;
+      this.root.position.z = 0;
+    }
+  }
+
   private fadeFor(from: ClipKey | null, to: ClipKey): number {
     const toAttack = to === 'slash' || to === 'quake' || to === 'bash' || to === 'burst';
     const fromAttack = from === 'slash' || from === 'quake' || from === 'bash' || from === 'burst';
@@ -438,7 +503,12 @@ export class PlayerVisual {
 
     if (invuln > 0) {
       const blink = Math.sin(invuln * 28) > 0;
-      const wardTint = this.config.classId === 'mage' ? 0xc8b0ff : 0xffe8b0;
+      const wardTint =
+        this.config.classId === 'mage'
+          ? 0xc8b0ff
+          : this.config.classId === 'rogue'
+            ? 0xa8ffd8
+            : 0xffe8b0;
       for (const entry of this.flashMats) {
         if (blink) {
           entry.mat.color.copy(entry.color).lerp(new THREE.Color(0xffffff), 0.45);
