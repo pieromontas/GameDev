@@ -67,7 +67,8 @@ export class HUD {
     el.innerHTML = `
       <span class="key">${key}</span>
       <span class="name">${name}</span>
-      <div class="cd-overlay"><span class="cd-num">0</span></div>
+      <div class="cd-overlay"></div>
+      <span class="cd-num"></span>
     `;
     host.appendChild(el);
     return { root: el, overlay: el.querySelector('.cd-overlay') as HTMLElement };
@@ -102,12 +103,15 @@ export class HUD {
     const state = player.skills[id];
     const el = this.skillEls[id];
     const cd = state.cooldownRemaining;
-    const num = el.overlay.querySelector('.cd-num') as HTMLElement | null;
+    const num = el.root.querySelector('.cd-num') as HTMLElement | null;
     const ready = cd <= 0;
     if (ready) {
       el.root.classList.add('ready');
       el.overlay.style.transform = 'translateY(100%)';
-      if (num) num.textContent = '';
+      if (num) {
+        num.textContent = '';
+        num.classList.remove('show');
+      }
       if (!this.prevReady[id]) {
         el.root.classList.remove('pop');
         // restart CSS animation
@@ -118,7 +122,10 @@ export class HUD {
       el.root.classList.remove('ready');
       const pct = cd / state.def.cooldown;
       el.overlay.style.transform = `translateY(${(1 - pct) * 100}%)`;
-      if (num) num.textContent = cd.toFixed(1);
+      if (num) {
+        num.textContent = cd.toFixed(1);
+        num.classList.add('show');
+      }
     }
     this.prevReady[id] = ready;
   }

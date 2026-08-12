@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { dist2 } from '../utils/math';
 import { Palette, createToonMaterial } from '../render/stylized';
 
-const coinGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.1, 12);
+const coinGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.12, 14);
 const coinMat = createToonMaterial(Palette.lootGold, {
   emissive: Palette.lootGold,
-  emissiveIntensity: 0.45,
+  emissiveIntensity: 0.55,
 });
 
 export class LootPickup {
