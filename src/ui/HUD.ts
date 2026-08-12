@@ -1,20 +1,23 @@
 import { Player } from '../entities/Player';
-import { SkillId } from '../combat/Skills';
+import { CLASS_LABEL, PlayerClass, SkillId } from '../combat/Skills';
 
 export class HUD {
   private readonly root: HTMLElement;
+  private readonly brand: HTMLElement;
   private readonly hpFill: HTMLElement;
   private readonly hpText: HTMLElement;
   private readonly lootText: HTMLElement;
   private readonly killsText: HTMLElement;
+  private readonly classText: HTMLElement;
   private readonly toast: HTMLElement;
   private readonly hint: HTMLElement;
-  private readonly skillEls: Record<SkillId, { root: HTMLElement; overlay: HTMLElement }>;
+  private readonly skillEls: Record<SkillId, { root: HTMLElement; overlay: HTMLElement; name: HTMLElement }>;
   private toastTimer = 0;
   private hintAge = 0;
   private hintHidden = false;
   private readonly prevReady: Record<SkillId, boolean> = { basic: true, slam: true, bash: true };
   private readonly loading: HTMLElement;
+  private shownClass: PlayerClass | null = null;
 
   constructor(host: HTMLElement) {
     this.root = host;
@@ -22,16 +25,17 @@ export class HUD {
       <div class="loading-overlay" id="loading-overlay" hidden>
         <div class="loading-card">
           <p class="loading-title">SpiritVale Slice</p>
-          <p class="loading-msg" id="loading-msg">Loading warrior…</p>
+          <p class="loading-msg" id="loading-msg">Loading heroes…</p>
         </div>
       </div>
       <div class="hud-panel hud-top-left">
-        <p class="brand">SpiritVale Slice · Warrior</p>
+        <p class="brand" id="brand">SpiritVale Slice · Warrior</p>
         <div class="bar-row">
           <span class="bar-label">HP</span>
           <div class="bar-track"><div class="bar-fill" id="hp-fill"></div></div>
         </div>
         <p class="meta" id="hp-text">120 / 120</p>
+        <p class="meta class-line" id="class-text">Class: Warrior · press <kbd>C</kbd> to switch</p>
       </div>
       <div class="hud-panel hud-top-right">
         <p class="meta" id="loot-text">Loot: 0</p>
@@ -41,18 +45,20 @@ export class HUD {
       <div class="hud-panel hud-hint" id="controls-hint">
         <strong>Controls</strong><br/>
         WASD — move<br/>
-        LMB / 1 — Slash<br/>
-        2 — Quake (AoE)<br/>
-        3 — Shield Bash (stun)<br/>
+        LMB / 1 — skill 1<br/>
+        2 / 3 — skills 2 &amp; 3<br/>
+        <kbd>C</kbd> — switch Warrior / Mage<br/>
         RMB drag — rotate camera
       </div>
       <div class="toast" id="toast"></div>
     `;
 
+    this.brand = this.root.querySelector('#brand')!;
     this.hpFill = this.root.querySelector('#hp-fill')!;
     this.hpText = this.root.querySelector('#hp-text')!;
     this.lootText = this.root.querySelector('#loot-text')!;
     this.killsText = this.root.querySelector('#kills-text')!;
+    this.classText = this.root.querySelector('#class-text')!;
     this.toast = this.root.querySelector('#toast')!;
     this.hint = this.root.querySelector('#controls-hint')!;
     this.loading = this.root.querySelector('#loading-overlay')!;
@@ -65,7 +71,7 @@ export class HUD {
     };
   }
 
-  setLoading(active: boolean, message = 'Loading warrior…'): void {
+  setLoading(active: boolean, message = 'Loading heroes…'): void {
     const msg = this.loading.querySelector('#loading-msg');
     if (msg) msg.textContent = message;
     if (active) this.loading.removeAttribute('hidden');
@@ -77,7 +83,7 @@ export class HUD {
     id: SkillId,
     name: string,
     key: string,
-  ): { root: HTMLElement; overlay: HTMLElement } {
+  ): { root: HTMLElement; overlay: HTMLElement; name: HTMLElement } {
     const el = document.createElement('div');
     el.className = 'skill-slot ready';
     el.dataset.skill = id;
@@ -88,10 +94,37 @@ export class HUD {
       <span class="cd-num"></span>
     `;
     host.appendChild(el);
-    return { root: el, overlay: el.querySelector('.cd-overlay') as HTMLElement };
+    return {
+      root: el,
+      overlay: el.querySelector('.cd-overlay') as HTMLElement,
+      name: el.querySelector('.name') as HTMLElement,
+    };
+  }
+
+  /** Refresh skill labels / brand when the active class changes. */
+  syncClass(player: Player): void {
+    const cls = player.playerClass;
+    if (this.shownClass === cls) return;
+    this.shownClass = cls;
+    const label = CLASS_LABEL[cls];
+    this.brand.textContent = `SpiritVale Slice · ${label}`;
+    this.classText.innerHTML = `Class: ${label} · press <kbd>C</kbd> to switch`;
+    this.root.dataset.class = cls;
+
+    for (const id of Object.keys(this.skillEls) as SkillId[]) {
+      const def = player.skills[id].def;
+      const el = this.skillEls[id];
+      el.name.textContent = shortSkillName(def.name);
+      el.root.title = `${def.name} (${def.keyHint})`;
+      el.root.dataset.class = cls;
+      // Force ready-pop refresh after rename.
+      this.prevReady[id] = player.skills[id].cooldownRemaining <= 0;
+    }
   }
 
   update(player: Player, lootCount: number, kills: number, dt: number): void {
+    this.syncClass(player);
+
     const ratio = player.hpRatio;
     this.hpFill.style.transform = `scaleX(${ratio})`;
     this.hpFill.classList.toggle('hurt', ratio < 0.35);
@@ -110,7 +143,7 @@ export class HUD {
 
     if (!this.hintHidden) {
       this.hintAge += dt;
-      if (this.hintAge > 10) {
+      if (this.hintAge > 12) {
         this.hint.classList.add('fade');
         this.hintHidden = true;
       }
@@ -132,7 +165,6 @@ export class HUD {
       }
       if (!this.prevReady[id]) {
         el.root.classList.remove('pop');
-        // restart CSS animation
         void el.root.offsetWidth;
         el.root.classList.add('pop');
       }
@@ -153,4 +185,13 @@ export class HUD {
     this.toast.classList.add('show');
     this.toastTimer = duration;
   }
+}
+
+function shortSkillName(name: string): string {
+  // Fit HUD slots: "Shield Bash" → "Bash", "Arcane Bolt" → "Bolt", etc.
+  if (name === 'Shield Bash') return 'Bash';
+  if (name === 'Arcane Bolt') return 'Bolt';
+  if (name === 'Frost Nova') return 'Nova';
+  if (name === 'Arcane Ward') return 'Ward';
+  return name;
 }

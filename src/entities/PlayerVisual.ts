@@ -1,37 +1,72 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { PlayerAnim } from './Player';
+import type { PlayerClass } from '../combat/Skills';
 
-const MODEL_URL = '/models/kaykit-knight/Knight.glb';
+export type ClipMap = {
+  idle: string;
+  walk: string;
+  run: string;
+  slash: string;
+  quake: string;
+  bash: string;
+};
 
-/** Equipment pieces to keep visible on the warrior. */
-const SHOW_PROPS = new Set([
-  '1H_Sword',
-  'Round_Shield',
-  'Knight_Helmet',
-  'Knight_Cape',
-]);
+export type VisualConfig = {
+  classId: PlayerClass;
+  label: string;
+  modelUrl: string;
+  modelName: string;
+  showProps: ReadonlySet<string>;
+  hideProps: ReadonlySet<string>;
+  clips: ClipMap;
+  /** Procedural juice flavor during attack poses. */
+  attackMotion: 'warrior' | 'mage';
+};
 
-/** Extra weapons/shields bundled in the GLB that we hide for a clean silhouette. */
-const HIDE_PROPS = new Set([
-  '1H_Sword_Offhand',
-  '2H_Sword',
-  'Badge_Shield',
-  'Rectangle_Shield',
-  'Spike_Shield',
-]);
+export const WARRIOR_VISUAL: VisualConfig = {
+  classId: 'warrior',
+  label: 'warrior',
+  modelUrl: '/models/kaykit-knight/Knight.glb',
+  modelName: 'KayKitKnight',
+  showProps: new Set(['1H_Sword', 'Round_Shield', 'Knight_Helmet', 'Knight_Cape']),
+  hideProps: new Set([
+    '1H_Sword_Offhand',
+    '2H_Sword',
+    'Badge_Shield',
+    'Rectangle_Shield',
+    'Spike_Shield',
+  ]),
+  clips: {
+    idle: 'Idle',
+    walk: 'Walking_A',
+    run: 'Running_A',
+    slash: '1H_Melee_Attack_Slice_Horizontal',
+    quake: 'Jump_Full_Short',
+    bash: 'Block_Attack',
+  },
+  attackMotion: 'warrior',
+};
 
-const CLIP = {
-  idle: 'Idle',
-  walk: 'Walking_A',
-  run: 'Running_A',
-  slash: '1H_Melee_Attack_Slice_Horizontal',
-  quake: 'Jump_Full_Short',
-  /** Shield Bash — KayKit Block_Attack sells the Round_Shield shove. */
-  bash: 'Block_Attack',
-} as const;
+export const MAGE_VISUAL: VisualConfig = {
+  classId: 'mage',
+  label: 'mage',
+  modelUrl: '/models/kaykit-mage/Mage.glb',
+  modelName: 'KayKitMage',
+  showProps: new Set(['1H_Wand', 'Spellbook', 'Mage_Hat', 'Mage_Cape']),
+  hideProps: new Set(['2H_Staff', 'Spellbook_open']),
+  clips: {
+    idle: 'Idle',
+    walk: 'Walking_A',
+    run: 'Running_A',
+    slash: 'Spellcast_Shoot',
+    quake: 'Spellcast_Long',
+    bash: 'Spellcast_Raise',
+  },
+  attackMotion: 'mage',
+};
 
-type ClipKey = keyof typeof CLIP;
+type ClipKey = keyof ClipMap;
 
 type MatFlash = {
   mat: THREE.MeshStandardMaterial;
@@ -50,8 +85,8 @@ const FADE = {
 } as const;
 
 /**
- * GLTF-backed KayKit Knight visual: loads the model, maps AnimationMixer clips
- * to PlayerAnim states, and attaches under the Player entity root.
+ * GLTF-backed KayKit character visual: loads a class model, maps AnimationMixer
+ * clips to PlayerAnim states, and attaches under the Player entity root.
  */
 export class PlayerVisual {
   readonly root = new THREE.Group();
@@ -71,13 +106,14 @@ export class PlayerVisual {
   /** Set once when entering an attack so we don't re-timeScale / scrub every tick. */
   private attackSynced: ClipKey | null = null;
 
-  /** Target world height for the knight (feet→head), matching the old procedural hero. */
+  /** Target world height for the hero (feet→head), matching the old procedural hero. */
   private readonly targetHeight = 1.95;
   /** KayKit / glTF forward is +Z; gameplay facing uses yaw on the entity root. */
   private readonly modelYawOffset = 0;
 
-  constructor() {
-    this.root.name = 'PlayerVisual';
+  constructor(readonly config: VisualConfig) {
+    this.root.name = `PlayerVisual_${config.label}`;
+    this.root.visible = false;
   }
 
   get isReady(): boolean {
@@ -86,6 +122,22 @@ export class PlayerVisual {
 
   get hasFailed(): boolean {
     return this.failed;
+  }
+
+  setActive(active: boolean): void {
+    this.root.visible = active;
+    if (!active) {
+      // Stop mixer weight so hidden class doesn't keep evaluating.
+      for (const action of this.actions.values()) {
+        action.stop();
+        action.setEffectiveWeight(0);
+      }
+      this.current = null;
+      this.attackSynced = null;
+      this.root.position.set(0, 0, 0);
+    } else if (this.ready) {
+      this.crossfade('idle', 0);
+    }
   }
 
   /** Load once; resolves true on success, false on failure (never throws). */
@@ -97,7 +149,7 @@ export class PlayerVisual {
 
   private async loadInternal(): Promise<boolean> {
     try {
-      const gltf = await this.loader.loadAsync(MODEL_URL);
+      const gltf = await this.loader.loadAsync(this.config.modelUrl);
       this.install(gltf.scene, gltf.animations);
       this.ready = true;
       this.failed = false;
@@ -106,8 +158,8 @@ export class PlayerVisual {
       this.failed = true;
       this.ready = false;
       console.error(
-        '[PlayerVisual] Failed to load warrior GLTF — gameplay continues without the hero mesh.',
-        MODEL_URL,
+        `[PlayerVisual] Failed to load ${this.config.label} GLTF — gameplay continues without that mesh.`,
+        this.config.modelUrl,
         err,
       );
       return false;
@@ -115,14 +167,12 @@ export class PlayerVisual {
   }
 
   private install(scene: THREE.Object3D, animations: THREE.AnimationClip[]): void {
-    // Clear any prior model
     while (this.root.children.length) this.root.remove(this.root.children[0]!);
 
     this.model = scene;
-    this.model.name = 'KayKitKnight';
+    this.model.name = this.config.modelName;
     this.model.rotation.y = this.modelYawOffset;
 
-    // Scale to a consistent hero height for the isometric camera.
     const box = new THREE.Box3().setFromObject(this.model);
     const size = new THREE.Vector3();
     box.getSize(size);
@@ -130,17 +180,16 @@ export class PlayerVisual {
     const scale = this.targetHeight / height;
     this.model.scale.setScalar(scale);
 
-    // Feet on the ground (entity root is at ground level).
     box.setFromObject(this.model);
     this.model.position.y -= box.min.y;
 
     this.model.traverse((obj) => {
       const name = obj.name;
-      if (HIDE_PROPS.has(name)) {
+      if (this.config.hideProps.has(name)) {
         obj.visible = false;
         return;
       }
-      if (SHOW_PROPS.has(name)) obj.visible = true;
+      if (this.config.showProps.has(name)) obj.visible = true;
 
       const mesh = obj as THREE.Mesh;
       if (mesh.isMesh) {
@@ -149,7 +198,6 @@ export class PlayerVisual {
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const m of mats) {
           if (!m) continue;
-          // Keep pack textures; slight roughness nudge reads better under meadow lighting.
           if (m instanceof THREE.MeshStandardMaterial) {
             m.roughness = Math.min(1, Math.max(0.55, m.roughness ?? 0.7));
             m.envMapIntensity = 0.35;
@@ -177,10 +225,11 @@ export class PlayerVisual {
       this.clips.set(clip.name, clip);
     }
 
-    for (const key of Object.keys(CLIP) as ClipKey[]) {
-      const clip = this.clips.get(CLIP[key]);
+    const clipMap = this.config.clips;
+    for (const key of Object.keys(clipMap) as ClipKey[]) {
+      const clip = this.clips.get(clipMap[key]);
       if (!clip) {
-        console.warn(`[PlayerVisual] Missing clip "${CLIP[key]}" for ${key}`);
+        console.warn(`[PlayerVisual] Missing clip "${clipMap[key]}" for ${key} (${this.config.label})`);
         continue;
       }
       const action = this.mixer.clipAction(clip);
@@ -194,7 +243,6 @@ export class PlayerVisual {
       this.actions.set(key, action);
     }
 
-    // Start in idle if available.
     this.crossfade('idle', 0);
   }
 
@@ -204,14 +252,13 @@ export class PlayerVisual {
    * Direction changes do NOT restart walk — only clip identity changes do.
    */
   syncAnim(state: PlayerAnim, speed: number, maxSpeed: number, animT: number, animDur: number): void {
-    if (!this.ready || !this.mixer) return;
+    if (!this.ready || !this.mixer || !this.root.visible) return;
 
     let desired: ClipKey = 'idle';
     if (state === 'slash') desired = 'slash';
     else if (state === 'quake') desired = 'quake';
     else if (state === 'bash') desired = 'bash';
     else if (state === 'move') {
-      // Hysteresis avoids Idle/Walk/Run thrash when speed chatters near thresholds.
       if (this.locoGate === 'walk' && speed > maxSpeed * 0.78) this.locoGate = 'run';
       else if (this.locoGate === 'run' && speed < maxSpeed * 0.58) this.locoGate = 'walk';
       desired = this.locoGate;
@@ -227,7 +274,6 @@ export class PlayerVisual {
       }
     }
 
-    // Fit attack clips into the gameplay anim window (once per attack).
     if ((desired === 'slash' || desired === 'quake' || desired === 'bash') && animDur > 1e-4) {
       const action = this.actions.get(desired);
       const clip = action?.getClip();
@@ -240,7 +286,6 @@ export class PlayerVisual {
       }
     } else {
       this.attackSynced = null;
-      // Mild speed coupling so walk/run cadence matches travel without restarting.
       if (desired === 'walk' || desired === 'run') {
         const action = this.actions.get(desired);
         if (action) {
@@ -250,35 +295,55 @@ export class PlayerVisual {
       }
     }
 
-    // Procedural motion on the model root for Quake / Bash (extra juice on pack clips).
     if (this.model) {
-      if (state === 'quake' && animDur > 1e-4) {
-        const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
-        const crouch = smooth01(t / 0.22);
-        const launch = smooth01((t - 0.18) / 0.18);
-        const impact = easeOut((t - 0.32) / 0.25);
-        const settle = smooth01((t - 0.55) / 0.45);
-        const down = crouch * (1 - launch) * 0.12;
-        const hop = launch * (1 - impact) * 0.16;
-        const squash = impact * 0.05 * (1 - settle);
-        // Preserve ground snap from install — offset via root, not model base.
-        this.root.position.y = -down + hop - squash;
-        this.root.position.x = 0;
-        this.root.position.z = 0;
-      } else if (state === 'bash' && animDur > 1e-4) {
-        // Short forward shove so the shield bash reads even without a leap clip.
-        const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
-        const surge = Math.sin(Math.min(1, t / 0.35) * Math.PI);
-        const settle = smooth01((t - 0.45) / 0.55);
-        const push = surge * (1 - settle * 0.65) * 0.14;
-        this.root.position.y = -surge * 0.04;
-        this.root.position.x = 0;
-        this.root.position.z = push;
+      if (this.config.attackMotion === 'mage') {
+        this.applyMageMotion(state, animT, animDur);
       } else {
-        this.root.position.y = 0;
-        this.root.position.x = 0;
-        this.root.position.z = 0;
+        this.applyWarriorMotion(state, animT, animDur);
       }
+    }
+  }
+
+  private applyWarriorMotion(state: PlayerAnim, animT: number, animDur: number): void {
+    if (state === 'quake' && animDur > 1e-4) {
+      const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
+      const crouch = smooth01(t / 0.22);
+      const launch = smooth01((t - 0.18) / 0.18);
+      const impact = easeOut((t - 0.32) / 0.25);
+      const settle = smooth01((t - 0.55) / 0.45);
+      const down = crouch * (1 - launch) * 0.12;
+      const hop = launch * (1 - impact) * 0.16;
+      const squash = impact * 0.05 * (1 - settle);
+      this.root.position.y = -down + hop - squash;
+      this.root.position.x = 0;
+      this.root.position.z = 0;
+    } else if (state === 'bash' && animDur > 1e-4) {
+      const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
+      const surge = Math.sin(Math.min(1, t / 0.35) * Math.PI);
+      const settle = smooth01((t - 0.45) / 0.55);
+      const push = surge * (1 - settle * 0.65) * 0.14;
+      this.root.position.y = -surge * 0.04;
+      this.root.position.x = 0;
+      this.root.position.z = push;
+    } else {
+      this.root.position.y = 0;
+      this.root.position.x = 0;
+      this.root.position.z = 0;
+    }
+  }
+
+  private applyMageMotion(state: PlayerAnim, animT: number, animDur: number): void {
+    if ((state === 'slash' || state === 'quake' || state === 'bash') && animDur > 1e-4) {
+      const t = THREE.MathUtils.clamp(animT / animDur, 0, 1);
+      const lift = Math.sin(Math.min(1, t / 0.45) * Math.PI) * (state === 'quake' ? 0.12 : 0.07);
+      const settle = smooth01((t - 0.55) / 0.45);
+      this.root.position.y = lift * (1 - settle * 0.85);
+      this.root.position.x = 0;
+      this.root.position.z = state === 'slash' ? -0.04 * (1 - settle) : 0;
+    } else {
+      this.root.position.y = 0;
+      this.root.position.x = 0;
+      this.root.position.z = 0;
     }
   }
 
@@ -301,7 +366,6 @@ export class PlayerVisual {
 
     const nextIsLoco = next === 'idle' || next === 'walk' || next === 'run';
     const prevIsLoco = prevKey === 'idle' || prevKey === 'walk' || prevKey === 'run';
-    // Preserve foot phase when swapping Walk ↔ Run so redirects don't restart the cycle.
     const preservePhase =
       !!prev &&
       nextIsLoco &&
@@ -332,7 +396,7 @@ export class PlayerVisual {
 
   /** Hit / i-frame material flash using the pack’s standard materials. */
   applyFlash(hitFlash: number, invuln: number): void {
-    if (this.flashMats.length === 0) return;
+    if (this.flashMats.length === 0 || !this.root.visible) return;
 
     if (hitFlash > 0) {
       for (const entry of this.flashMats) {
@@ -345,10 +409,11 @@ export class PlayerVisual {
 
     if (invuln > 0) {
       const blink = Math.sin(invuln * 28) > 0;
+      const wardTint = this.config.classId === 'mage' ? 0xc8b0ff : 0xffe8b0;
       for (const entry of this.flashMats) {
         if (blink) {
           entry.mat.color.copy(entry.color).lerp(new THREE.Color(0xffffff), 0.45);
-          entry.mat.emissive.setHex(0xffe8b0);
+          entry.mat.emissive.setHex(wardTint);
           entry.mat.emissiveIntensity = 0.25;
         } else {
           entry.mat.color.copy(entry.color);
@@ -367,7 +432,7 @@ export class PlayerVisual {
   }
 
   update(dt: number): void {
-    // Game loop feeds fixed 1/60 dt — keep mixer on that clock (no frame-time restart).
+    if (!this.root.visible) return;
     this.mixer?.update(dt);
   }
 }
