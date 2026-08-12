@@ -10,9 +10,9 @@ export const Palette = {
   hemiGround: 0x6dbf55,
   sun: 0xfff1c8,
   fill: 0xa8d4ff,
-  grassA: 0x6fcf5c,
-  grassB: 0x57b84a,
-  grassC: 0x8ada6e,
+  grassA: 0x68c954,
+  grassB: 0x3f9e3a,
+  grassC: 0x9ae06a,
   path: 0xd4b878,
   pathEdge: 0xc4a868,
   leafA: 0x2f9e45,
@@ -45,9 +45,10 @@ let sharedGradientMap: THREE.DataTexture | null = null;
 export function getToonGradientMap(): THREE.DataTexture {
   if (sharedGradientMap) return sharedGradientMap;
   // Soft / mid / lit bands — nearest filtering keeps the cel edges crisp.
+  // Wider step gaps so MeshToon reads as cel, not smooth Lambert.
   const data = new Uint8Array([
-    90, 90, 90, 255,
-    170, 170, 170, 255,
+    70, 70, 70, 255,
+    155, 155, 155, 255,
     255, 255, 255, 255,
   ]);
   const tex = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
@@ -86,7 +87,9 @@ export function createSkyDome(radius = 120): THREE.Mesh {
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
+    depthTest: false,
     fog: false,
+    toneMapped: false,
     uniforms: {
       topColor: { value: new THREE.Color(Palette.skyZenith) },
       midColor: { value: new THREE.Color(Palette.skyHorizon) },
@@ -98,6 +101,8 @@ export function createSkyDome(radius = 120): THREE.Mesh {
         vec4 world = modelMatrix * vec4(position, 1.0);
         vWorldPos = world.xyz;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        // Keep sky behind everything in depth
+        gl_Position.z = gl_Position.w;
       }
     `,
     fragmentShader: /* glsl */ `
@@ -106,10 +111,9 @@ export function createSkyDome(radius = 120): THREE.Mesh {
       uniform vec3 bottomColor;
       varying vec3 vWorldPos;
       void main() {
-        // Remap Y from roughly [-1,1] on the unit sphere direction
         float h = normalize(vWorldPos).y;
-        vec3 col = mix(bottomColor, midColor, smoothstep(-0.25, 0.12, h));
-        col = mix(col, topColor, smoothstep(0.12, 0.85, h));
+        vec3 col = mix(bottomColor, midColor, smoothstep(-0.15, 0.18, h));
+        col = mix(col, topColor, smoothstep(0.18, 0.9, h));
         gl_FragColor = vec4(col, 1.0);
       }
     `,
@@ -117,6 +121,7 @@ export function createSkyDome(radius = 120): THREE.Mesh {
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = 'SkyDome';
   mesh.frustumCulled = false;
+  mesh.renderOrder = -10;
   return mesh;
 }
 
@@ -136,14 +141,15 @@ export function paintGroundVertexColors(
     const x = pos.getX(i);
     const y = pos.getY(i);
     // CircleGeometry lies in XY before we rotate it onto XZ.
-    const n1 = hash2(x * 0.35, y * 0.35);
-    const n2 = hash2(x * 0.11 + 17.1, y * 0.11 - 9.3);
-    tmp.copy(ca).lerp(cb, n1);
-    tmp.lerp(cc, n2 * 0.45);
-    // Slight radial darkening toward the rim for horizon read
+    const n1 = hash2(x * 0.55, y * 0.55);
+    const n2 = hash2(x * 0.18 + 17.1, y * 0.18 - 9.3);
+    const n3 = hash2(x * 1.4, y * 1.4);
+    tmp.copy(ca).lerp(cb, n1 * 0.85);
+    tmp.lerp(cc, n2 * 0.55 + n3 * 0.15);
+    // Radial darkening toward the rim for horizon read
     const r = Math.hypot(x, y);
-    const rim = THREE.MathUtils.smoothstep(r, 28, 40);
-    tmp.multiplyScalar(1 - rim * 0.18);
+    const rim = THREE.MathUtils.smoothstep(r, 24, 39);
+    tmp.multiplyScalar(1 - rim * 0.28);
     arr[i * 3] = tmp.r;
     arr[i * 3 + 1] = tmp.g;
     arr[i * 3 + 2] = tmp.b;

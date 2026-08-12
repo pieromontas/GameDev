@@ -48,11 +48,11 @@ export class Game {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.12;
+    this.renderer.toneMappingExposure = 1.05;
 
     // Fallback clear color under the sky dome; fog tints distance into meadow air.
     this.scene.background = new THREE.Color(Palette.skyHorizon);
-    this.scene.fog = new THREE.Fog(Palette.fog, 32, 78);
+    this.scene.fog = new THREE.Fog(Palette.fog, 26, 68);
     this.scene.add(createSkyDome(110));
 
     this.sun = this.addLights();
@@ -110,10 +110,11 @@ export class Game {
   }
 
   private addLights(): THREE.DirectionalLight {
-    const hemi = new THREE.HemisphereLight(Palette.hemiSky, Palette.hemiGround, 0.95);
+    // Keep hemi modest so the key sun can carve MeshToon cel bands.
+    const hemi = new THREE.HemisphereLight(Palette.hemiSky, Palette.hemiGround, 0.55);
     this.scene.add(hemi);
 
-    const sun = new THREE.DirectionalLight(Palette.sun, 1.55);
+    const sun = new THREE.DirectionalLight(Palette.sun, 2.15);
     sun.position.set(22, 34, 14);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -129,12 +130,12 @@ export class Game {
     this.scene.add(sun);
     this.scene.add(sun.target);
 
-    const fill = new THREE.DirectionalLight(Palette.fill, 0.42);
+    const fill = new THREE.DirectionalLight(Palette.fill, 0.28);
     fill.position.set(-14, 12, -10);
     this.scene.add(fill);
 
     // Tiny warm bounce so shaded sides stay colorful (not gray).
-    const bounce = new THREE.AmbientLight(0xfff6e8, 0.18);
+    const bounce = new THREE.AmbientLight(0xfff6e8, 0.1);
     this.scene.add(bounce);
 
     return sun;
