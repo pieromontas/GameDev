@@ -164,7 +164,7 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / chests / spring / cottage merchant<br/>
+        <kbd>E</kbd> — shrine / chests / spring / market sign / cottage merchant<br/>
         Follow the dirt path west to the misty grove<br/>
         Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>
