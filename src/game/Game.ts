@@ -8,7 +8,7 @@ import { ShrineObjective } from '../world/ShrineObjective';
 import { TreasureChests } from '../world/TreasureChests';
 import { HealingSprings } from '../world/HealingSprings';
 import { CottageMerchant } from '../world/CottageMerchant';
-import { MarketDistrictSign } from '../world/MarketDistrict';
+import { MarketBlacksmith, MarketDistrictSign } from '../world/MarketDistrict';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
@@ -32,6 +32,7 @@ export class Game {
   private readonly springs: HealingSprings;
   private readonly merchant: CottageMerchant;
   private readonly marketSign: MarketDistrictSign;
+  private readonly marketBlacksmith: MarketBlacksmith;
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
   private readonly mobs: Enemy[];
@@ -176,6 +177,9 @@ export class Game {
       onShopChanged: (open) => this.hud.setShopOpen(open, this.lootCount),
     });
     this.marketSign = new MarketDistrictSign({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+    });
+    this.marketBlacksmith = new MarketBlacksmith({
       onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.hud.bindShopHandlers({
@@ -358,6 +362,7 @@ export class Game {
     this.shrine.update(dt, this.player);
     this.chests.update(dt);
     this.springs.update(dt);
+    this.meadow.updateMarketAmbience(dt);
     this.merchant.update(this.player);
     if (this.input.wasPressed('Escape') && this.merchant.isOpen) {
       this.merchant.close();
@@ -511,7 +516,7 @@ export class Game {
   }
 
   /**
-   * E key: closed chests → healing spring → east shrine → market sign → cottage merchant.
+   * E key: closed chests → healing spring → east shrine → market sign → blacksmith → cottage merchant.
    * Open shop always closes on E first so it never blocks other interactables.
    */
   private handleInteract(): void {
@@ -524,15 +529,17 @@ export class Game {
     if (this.springs.tryInteract(this.player)) return;
     if (this.shrine.tryInteract(this.player)) return;
     if (this.marketSign.tryInteract(this.player)) return;
+    if (this.marketBlacksmith.tryInteract(this.player)) return;
     this.merchant.tryInteract(this.player);
   }
 
-  /** Merge shrine objective HUD with chest / spring / shrine / market / merchant prompts. */
+  /** Merge shrine objective HUD with chest / spring / shrine / market / blacksmith / merchant prompts. */
   private syncInteractHud(): void {
     const shrineHud = this.shrine.getHudState(this.player);
     const chestPrompt = this.chests.getInteractPrompt(this.player);
     const springPrompt = this.springs.getInteractPrompt(this.player);
     const marketPrompt = this.marketSign.getInteractPrompt(this.player);
+    const smithPrompt = this.marketBlacksmith.getInteractPrompt(this.player);
     const merchantPrompt = this.merchant.getInteractPrompt(this.player);
     if (chestPrompt.visible) {
       this.hud.setShrineHud({
@@ -553,6 +560,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: marketPrompt.text,
+      });
+    } else if (smithPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: smithPrompt.text,
       });
     } else if (merchantPrompt.visible) {
       this.hud.setShrineHud({
