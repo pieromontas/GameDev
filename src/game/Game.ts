@@ -90,6 +90,9 @@ export class Game {
         this.kills += 1;
         this.hud.showToast('Blob defeated!', 1.0);
       },
+      onQuakeImpact: () => {
+        this.cameraRig.addImpactPunch(0.16);
+      },
     });
 
     this.loop = new GameLoop({
@@ -156,7 +159,9 @@ export class Game {
     return sun;
   }
 
-  private update(dt: number): void {
+  private update(rawDt: number): void {
+    // Hit-stop uses real time; simulation briefly slows on successful hits.
+    const dt = this.combat.scaleDt(rawDt);
     this.cameraRig.addYaw(this.input.consumeYawDelta());
 
     this.player.tickSkills(dt);

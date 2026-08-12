@@ -41,7 +41,8 @@ export abstract class Entity {
     if (!this.alive) return 0;
     const dealt = Math.min(this.hp, Math.max(0, Math.round(amount)));
     this.hp -= dealt;
-    this.hitFlash = 0.15;
+    // Slightly longer white-flash window so successful hits read clearly.
+    this.hitFlash = 0.22;
     if (this.hp <= 0) {
       this.hp = 0;
       this.alive = false;

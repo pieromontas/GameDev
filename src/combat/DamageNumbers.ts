@@ -5,6 +5,8 @@ type Floater = {
   age: number;
   life: number;
   velocity: THREE.Vector3;
+  baseX: number;
+  baseY: number;
 };
 
 function makeDamageTexture(text: string, color: string): THREE.CanvasTexture {
@@ -48,13 +50,18 @@ export class DamageNumbers {
     sprite.position.copy(position);
     sprite.position.y += 1.55;
     sprite.position.x += (Math.random() - 0.5) * 0.35;
-    sprite.scale.set(critical ? 1.75 : 1.35, critical ? 0.9 : 0.68, 1);
+    const baseX = critical ? 1.85 : 1.42;
+    const baseY = critical ? 0.95 : 0.72;
+    // Start slightly undersized so the pop reads as a snap.
+    sprite.scale.set(baseX * 0.55, baseY * 0.55, 1);
     this.root.add(sprite);
     this.active.push({
       sprite,
       age: 0,
-      life: critical ? 0.95 : 0.8,
-      velocity: new THREE.Vector3((Math.random() - 0.5) * 0.55, 2.2, (Math.random() - 0.5) * 0.55),
+      life: critical ? 0.82 : 0.68,
+      velocity: new THREE.Vector3((Math.random() - 0.5) * 0.45, 3.1, (Math.random() - 0.5) * 0.45),
+      baseX,
+      baseY,
     });
   }
 
@@ -63,14 +70,15 @@ export class DamageNumbers {
       const f = this.active[i]!;
       f.age += dt;
       f.sprite.position.addScaledVector(f.velocity, dt);
-      f.velocity.y -= 3.2 * dt;
+      f.velocity.y -= 4.4 * dt;
       const t = f.age / f.life;
       const mat = f.sprite.material as THREE.SpriteMaterial;
       mat.opacity = Math.max(0, 1 - t * t);
-      const pop = 1 + Math.sin(Math.min(1, t * 6) * Math.PI) * 0.12;
-      const baseX = f.life > 0.9 ? 1.75 : 1.35;
-      const baseY = f.life > 0.9 ? 0.9 : 0.68;
-      f.sprite.scale.set(baseX * pop * (1 - t * 0.15), baseY * pop * (1 - t * 0.15), 1);
+      // Fast overshoot pop in the first ~120ms, then settle.
+      const popT = Math.min(1, f.age / 0.12);
+      const pop = 0.55 + popT * 0.55 + Math.sin(popT * Math.PI) * 0.22;
+      const settle = 1 - t * 0.18;
+      f.sprite.scale.set(f.baseX * pop * settle, f.baseY * pop * settle, 1);
       if (f.age >= f.life) {
         this.root.remove(f.sprite);
         mat.map?.dispose();
