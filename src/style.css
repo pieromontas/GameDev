@@ -267,7 +267,42 @@ kbd {
   box-shadow: 0 0 0 2px rgba(80, 160, 220, 0.18);
 }
 
-/* Mage kit — purple bolt / cyan nova / violet ward */
+.skill-slot[data-skill='burst'].ready {
+  border-color: rgba(230, 150, 40, 0.65);
+  box-shadow: 0 0 0 2px rgba(230, 150, 40, 0.2);
+}
+
+.skill-slot.locked {
+  border-color: rgba(31, 42, 36, 0.22);
+  background: rgba(180, 185, 178, 0.55);
+  box-shadow: none;
+  filter: grayscale(0.85) brightness(0.92);
+}
+
+.skill-slot.locked .name {
+  opacity: 0.45;
+}
+
+.skill-slot .lock-hint {
+  display: none;
+  position: absolute;
+  bottom: 5px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: rgba(40, 48, 42, 0.78);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.skill-slot .lock-hint.show {
+  display: block;
+}
+
+/* Mage kit — purple bolt / cyan nova / violet ward / ember meteor */
 #hud[data-class='mage'] .skill-slot.ready {
   border-color: rgba(156, 110, 230, 0.6);
   box-shadow: 0 0 0 2px rgba(156, 110, 230, 0.18);
@@ -281,6 +316,11 @@ kbd {
 #hud[data-class='mage'] .skill-slot[data-skill='bash'].ready {
   border-color: rgba(130, 100, 220, 0.65);
   box-shadow: 0 0 0 2px rgba(130, 100, 220, 0.2);
+}
+
+#hud[data-class='mage'] .skill-slot[data-skill='burst'].ready {
+  border-color: rgba(230, 90, 50, 0.7);
+  box-shadow: 0 0 0 2px rgba(230, 90, 50, 0.22);
 }
 
 .skill-slot.pop {

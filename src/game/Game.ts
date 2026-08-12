@@ -104,6 +104,13 @@ export class Game {
       onBashImpact: () => {
         this.cameraRig.addImpactPunch(0.1);
       },
+      onBurstImpact: () => {
+        this.cameraRig.addImpactPunch(0.18);
+      },
+      onPlayerDisplace: (player) => {
+        this.constrainEntity(player.position, player.radius);
+        player.syncMesh();
+      },
     });
 
     this.shrine = new ShrineObjective(this.meadow, {
@@ -282,7 +289,7 @@ export class Game {
     }
 
     this.player.update(dt);
-    this.combat.update(dt, this.player);
+    this.combat.update(dt, this.player, this.mobs);
     this.cameraRig.update(this.player.position, dt);
     // Keep the sun shadow frustum centered on the player (cheap soft shadows).
     this.sun.target.position.copy(this.player.position);
@@ -362,10 +369,15 @@ export class Game {
       // (keydown default isn't cancelable here; Tab still works via wasPressed.)
       const next = this.player.toggleClass();
       const label = next === 'mage' ? 'Mage' : 'Warrior';
+      const unlocked = !this.player.isSkillLocked('burst');
       const kit =
         next === 'mage'
-          ? 'Bolt / Frost Nova / Arcane Ward'
-          : 'Slash / Quake / Shield Bash';
+          ? unlocked
+            ? 'Bolt / Nova / Ward / Meteor'
+            : 'Bolt / Nova / Ward · Meteor at Lv 3'
+          : unlocked
+            ? 'Slash / Quake / Bash / Leap Strike'
+            : 'Slash / Quake / Bash · Leap at Lv 3';
       this.hud.showToast(`${label} ready — ${kit}`, 1.8);
     }
   }
@@ -397,6 +409,13 @@ export class Game {
       this.hud.flashLevelUp();
       this.combat.playLevelUpFx(this.player);
       this.cameraRig.addImpactPunch(0.2);
+
+      // Announce slot-4 unlock on the level that opens it (Warrior Leap / Mage Meteor).
+      const unlock = this.player.consumeSkill4UnlockToast();
+      if (unlock) {
+        // Slightly longer so it isn't buried under the Level Up toast.
+        window.setTimeout(() => this.hud.showToast(unlock, 2.4), 900);
+      }
       return;
     }
 
@@ -422,6 +441,9 @@ export class Game {
           mob.syncMesh();
         }
       }
+    }
+    if (this.input.wasPressed('Digit4') || this.input.wasPressed('Numpad4')) {
+      this.combat.tryPlayerSkill(this.player, 'burst', this.mobs);
     }
   }
 

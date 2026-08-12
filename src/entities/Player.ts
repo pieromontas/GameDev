@@ -3,14 +3,16 @@ import { Entity } from './Entity';
 import {
   CLASS_LABEL,
   PlayerClass,
+  SKILL4_UNLOCK_LEVEL,
   SkillId,
   SkillState,
   createSkillsForClass,
+  isSkillUnlocked,
 } from '../combat/Skills';
 import { createToonMaterial } from '../render/stylized';
 import { MAGE_VISUAL, PlayerVisual, WARRIOR_VISUAL } from './PlayerVisual';
 
-export type PlayerAnim = 'idle' | 'move' | 'slash' | 'quake' | 'bash';
+export type PlayerAnim = 'idle' | 'move' | 'slash' | 'quake' | 'bash' | 'burst';
 
 export type LevelUpResult = {
   leveled: boolean;
@@ -50,8 +52,12 @@ export class Player extends Entity {
   xp = 0;
   /** Permanent flat damage from leveling (Warrior + Mage skills). */
   bonusDamage = 0;
+  /** True after the Level-3 skill-unlock toast has fired once this session. */
+  private skill4UnlockAnnounced = false;
   private buffRemain = 0;
   private classId: PlayerClass = 'warrior';
+  /** While > 0, Leap Strike owns horizontal position (blocks WASD drift). */
+  private leapLockRemain = 0;
 
   private readonly velocity = new THREE.Vector3();
   private anim: PlayerAnim = 'idle';
@@ -251,12 +257,38 @@ export class Player extends Entity {
   }
 
   canUse(id: SkillId): boolean {
-    return this.alive && this.skills[id].cooldownRemaining <= 0;
+    if (!this.alive || this.skills[id].cooldownRemaining > 0) return false;
+    return isSkillUnlocked(id, this.level);
+  }
+
+  /** Whether the HUD should show the slot as locked (gray + Lv hint). */
+  isSkillLocked(id: SkillId): boolean {
+    return !isSkillUnlocked(id, this.level);
   }
 
   startCooldown(id: SkillId): void {
     const skill = this.skills[id];
     skill.cooldownRemaining = skill.def.cooldown;
+  }
+
+  /**
+   * If Level 3 was just reached and the slot-4 toast hasn't fired, return a
+   * class-specific unlock message and mark it announced.
+   */
+  consumeSkill4UnlockToast(): string | null {
+    if (this.skill4UnlockAnnounced || this.level < SKILL4_UNLOCK_LEVEL) return null;
+    this.skill4UnlockAnnounced = true;
+    const name = this.skills.burst.def.name;
+    return `Unlocked: ${name} (4)!`;
+  }
+
+  /** Brief locomotion lock while Leap Strike travels. */
+  beginLeapLock(seconds: number): void {
+    this.leapLockRemain = Math.max(this.leapLockRemain, seconds);
+  }
+
+  get isLeapLocked(): boolean {
+    return this.leapLockRemain > 0;
   }
 
   markCombat(): void {
@@ -284,6 +316,13 @@ export class Player extends Entity {
     this.animDur = this.classId === 'mage' ? 0.5 : 0.42;
   }
 
+  /** Trigger slot-4 pose (Leap Strike / Meteor). */
+  playBurst(): void {
+    this.anim = 'burst';
+    this.animT = 0;
+    this.animDur = this.classId === 'mage' ? 0.72 : 0.58;
+  }
+
   /**
    * Set desired facing from a movement vector. Visual yaw lerps in `updateYaw`
    * so A/D strafes and quick redirects don't snap the skeleton.
@@ -299,8 +338,18 @@ export class Player extends Entity {
    * Returns true if the player has meaningful horizontal velocity.
    */
   applyMovement(wishDir: THREE.Vector3, dt: number): boolean {
+    if (this.leapLockRemain > 0) {
+      // Leap Strike owns translation this frame — don't fight the arc with WASD.
+      this.velocity.set(0, 0, 0);
+      return false;
+    }
+
     // Lock locomotion facing during attack poses, but still allow small drift.
-    const attacking = this.anim === 'slash' || this.anim === 'quake' || this.anim === 'bash';
+    const attacking =
+      this.anim === 'slash' ||
+      this.anim === 'quake' ||
+      this.anim === 'bash' ||
+      this.anim === 'burst';
     if (wishDir.lengthSq() > 1e-6) {
       const accelScale = attacking ? 0.35 : 1;
       this.velocity.x += wishDir.x * this.accel * accelScale * dt;
@@ -347,9 +396,17 @@ export class Player extends Entity {
 
   update(dt: number): void {
     this.outOfCombat += dt;
+    if (this.leapLockRemain > 0) {
+      this.leapLockRemain = Math.max(0, this.leapLockRemain - dt);
+    }
     const speed = Math.hypot(this.velocity.x, this.velocity.z);
 
-    if (this.anim === 'slash' || this.anim === 'quake' || this.anim === 'bash') {
+    if (
+      this.anim === 'slash' ||
+      this.anim === 'quake' ||
+      this.anim === 'bash' ||
+      this.anim === 'burst'
+    ) {
       this.animT += dt;
       if (this.animT >= this.animDur) {
         this.anim = speed > 0.4 ? 'move' : 'idle';
@@ -374,7 +431,12 @@ export class Player extends Entity {
 
   /** Smoothly rotate mesh yaw toward target; freeze during attack poses. */
   private updateYaw(dt: number): void {
-    if (this.anim === 'slash' || this.anim === 'quake' || this.anim === 'bash') {
+    if (
+      this.anim === 'slash' ||
+      this.anim === 'quake' ||
+      this.anim === 'bash' ||
+      this.anim === 'burst'
+    ) {
       this.mesh.rotation.y = this.yaw;
       return;
     }
