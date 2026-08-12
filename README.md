@@ -35,6 +35,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | Input | Action |
 | --- | --- |
 | **W A S D** / arrows | Move relative to camera |
+| **Shift** | Dodge roll — short burst + brief i-frames (~1.55s cooldown) |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
 | **E** | Interact — awaken east shrine / open treasure chests (when near) |
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt / Stab) |
@@ -43,7 +44,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **4** | Skill 4 (Leap Strike / Meteor / Shadow Leap) — unlocks at **Level 3** |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A controls hint also lists **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests**, the west misty grove path, the **north ruins** path, and the **south river ford** path.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests**, the west misty grove path, the **north ruins** path, and the **south river ford** path.
 
 ## Treasure chests
 
@@ -128,7 +129,8 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 - Combat feedback: slash arcs, bolts, ground seals, Quake/Nova/Fan rings, Shield Bash pulse, Arcane Ward / Smoke Bomb bubbles, Leap / Shadow Leap trail/landing, Meteor telegraph + sky drop, Brute slam shockwaves, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs/spitters drop coins; **brutes drop 3**; pickups increment an inventory counter
 - **XP / leveling**: kills grant XP (blob 8 / spitter 14 / **brute 28**); HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent); **Level 3 unlocks skill 4**
-- HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3/4) with locked Lv 3 state, loot/kill counts, shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
+- **Dodge roll** (Shift): shared by Warrior / Mage / Rogue — short burst in move/facing direction, brief i-frames, ~1.55s cooldown + HUD pip
+- HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3/4) with locked Lv 3 state, dodge cooldown pip, loot/kill counts, shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
 
 ## Character art (KayKit Adventurers)
 
@@ -150,6 +152,7 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 | Skill 2 | `Jump_Full_Short` + stomp juice | `Spellcast_Long` + cast lift | `2H_Melee_Attack_Spin` + knife fan |
 | Skill 3 | `Block_Attack` + shield shove | `Spellcast_Raise` + ward bubble | `Dodge_Forward` + smoke cloud |
 | Skill 4 | `Jump_Full_Long` + leap arc | `Spellcasting` + Meteor telegraph | `Jump_Full_Long` + shadow leap |
+| Dodge (Shift) | `Dodge_Forward` + lean | `Dodge_Forward` + lean | `Dodge_Forward` + lean |
 
 Warrior props: `1H_Sword`, `Round_Shield`, `Knight_Helmet`, `Knight_Cape`.  
 Mage props: `1H_Wand`, `Spellbook`, `Mage_Hat`, `Mage_Cape` (staff / open book hidden).  
@@ -160,7 +163,7 @@ Rogue props: `Knife`, `Knife_Offhand`, `Rogue_Cape` (crossbows / throwable hidde
 1. Drop a new GLB under `public/models/<pack>/`.
 2. Add a `VisualConfig` in `src/entities/PlayerVisual.ts` and wire it in `Player`.
 3. Add skill defs in `src/combat/Skills.ts` and combat branches in `CombatSystem`.
-4. Keep `Player` gameplay APIs (`applyMovement`, `playSlash` / `playQuake` / `playBash` / `playBurst`, skills, radius) stable so HUD/combat stay intact.
+4. Keep `Player` gameplay APIs (`applyMovement`, `tryDodge`, `playSlash` / `playQuake` / `playBash` / `playBurst`, skills, radius) stable so HUD/combat stay intact.
 5. Document the pack + license next to the files (mirror the Knight/Mage/Rogue folders).
 
 If a GLB fails to load, the game still boots (contact shadow / other classes) and logs a clear console error — no softlock. Class swap mid-leap cancels the in-flight gap-closer so WASD never softlocks.
