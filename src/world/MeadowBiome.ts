@@ -132,9 +132,10 @@ export class MeadowBiome {
     ring.receiveShadow = true;
     this.root.add(ring);
 
-    // Soft grass pad under the east shrine clearing
+    // Soft grass RING under the east clearing — leave the center open so the
+    // dirt path arrival pad (vertex colors on the ground) stays visible.
     const clearingPad = new THREE.Mesh(
-      new THREE.CircleGeometry(this.eastClearing.radius + 1.5, 40),
+      new THREE.RingGeometry(5.2, this.eastClearing.radius + 1.8, 40),
       createToonMaterial(Palette.grassB),
     );
     clearingPad.rotation.x = -Math.PI / 2;
@@ -291,6 +292,8 @@ export class MeadowBiome {
   private buildLandmarks(): void {
     // Wooden signpost near spawn — “Prontera South” vibe without text textures
     this.addSignpost(2.8, 8.4);
+    // Branch marker — points players toward the east shrine clearing
+    this.addSignpost(16.5, 6.8);
     // Quiet pond off the path
     this.addPond(-11.5, -11.5);
     // Ruin pillar cluster for a read-able landmark
@@ -368,61 +371,91 @@ export class MeadowBiome {
     this.obstacles.push({ x: ledgeX, z: ledgeZ, radius: 1.45 });
   }
 
-  /** Standing stone circle + altar — distinct landmark for the new clearing. */
+  /**
+   * Ruined shrine tower + standing stone circle — tall enough to read at iso
+   * distance as the east clearing’s landmark (not just another rock pile).
+   */
   private addAncientShrine(x: number, z: number): void {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
     group.name = 'AncientShrine';
 
     const dais = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.55, 1.75, 0.28, 10),
+      new THREE.CylinderGeometry(1.9, 2.15, 0.35, 10),
       this.rockMat,
     );
-    dais.position.y = 0.14;
+    dais.position.y = 0.18;
     dais.castShadow = true;
     dais.receiveShadow = true;
     group.add(dais);
 
     const daisTop = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.25, 1.35, 0.16, 10),
+      new THREE.CylinderGeometry(1.45, 1.6, 0.18, 10),
       this.rockLightMat,
     );
-    daisTop.position.y = 0.34;
+    daisTop.position.y = 0.42;
     daisTop.castShadow = true;
     group.add(daisTop);
 
-    const altar = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.55, 0.85), this.rockShadowMat);
-    altar.position.y = 0.72;
-    altar.castShadow = true;
-    group.add(altar);
+    // Broken tower stump — primary silhouette from the follow camera
+    const tower = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.85, 1.15, 3.4, 8),
+      this.rockLightMat,
+    );
+    tower.position.y = 2.1;
+    tower.castShadow = true;
+    group.add(tower);
+
+    const towerBand = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.95, 0.95, 0.28, 8),
+      this.rockMat,
+    );
+    towerBand.position.y = 2.9;
+    towerBand.castShadow = true;
+    group.add(towerBand);
+
+    // Jagged broken crown
+    const crown = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.35, 0.9, 0.85, 6),
+      this.rockShadowMat,
+    );
+    crown.position.set(0.1, 4.05, -0.05);
+    crown.rotation.z = 0.18;
+    crown.castShadow = true;
+    group.add(crown);
+
+    const mossPatch = new THREE.Mesh(this.rockSmallGeo, this.mossMat);
+    mossPatch.position.set(0.55, 3.3, 0.35);
+    mossPatch.scale.set(0.7, 0.35, 0.55);
+    group.add(mossPatch);
 
     const crystalMat = createToonMaterial(Palette.flowerCyan, {
       emissive: Palette.flowerCyan,
-      emissiveIntensity: 0.35,
+      emissiveIntensity: 0.55,
     });
-    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.38, 0), crystalMat);
-    crystal.position.y = 1.35;
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 0), crystalMat);
+    crystal.position.set(0, 4.85, 0);
     crystal.rotation.y = Math.PI * 0.2;
     crystal.castShadow = true;
     group.add(crystal);
 
-    const crystalTip = new THREE.Mesh(new THREE.OctahedronGeometry(0.18, 0), crystalMat);
-    crystalTip.position.y = 1.75;
-    crystalTip.scale.set(0.7, 1.1, 0.7);
+    const crystalTip = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), crystalMat);
+    crystalTip.position.set(0, 5.45, 0);
+    crystalTip.scale.set(0.7, 1.15, 0.7);
     group.add(crystalTip);
 
-    // Standing stones in a circle
+    // Standing stones in a circle around the ruined tower
     const stones = 7;
     for (let i = 0; i < stones; i++) {
       const a = (i / stones) * Math.PI * 2 + 0.2;
-      const r = 3.35 + hash2(i, x) * 0.35;
+      const r = 4.1 + hash2(i, x) * 0.4;
       const stone = new THREE.Group();
       stone.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
       stone.rotation.y = a + Math.PI * 0.5;
 
-      const h = 1.35 + hash2(z, i) * 0.7;
+      const h = 1.7 + hash2(z, i) * 0.9;
       const pillar = new THREE.Mesh(
-        new THREE.BoxGeometry(0.45, h, 0.28),
+        new THREE.BoxGeometry(0.55, h, 0.32),
         i % 2 === 0 ? this.rockLightMat : this.rockMat,
       );
       pillar.position.y = h * 0.5;
@@ -432,34 +465,41 @@ export class MeadowBiome {
       stone.add(pillar);
 
       const cap = new THREE.Mesh(this.rockSmallGeo, this.mossMat);
-      cap.position.set(0.05, h + 0.08, 0);
-      cap.scale.set(0.55, 0.28, 0.4);
+      cap.position.set(0.05, h + 0.1, 0);
+      cap.scale.set(0.65, 0.32, 0.45);
       stone.add(cap);
 
       group.add(stone);
       this.obstacles.push({
         x: x + Math.cos(a) * r,
         z: z + Math.sin(a) * r,
-        radius: 0.4,
+        radius: 0.45,
       });
     }
 
-    // One fallen lintel for ruin read
-    const fallen = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.32, 0.38), this.rockShadowMat);
-    fallen.position.set(2.1, 0.22, -2.4);
+    // Fallen lintel + rubble for ruin read
+    const fallen = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.38, 0.42), this.rockShadowMat);
+    fallen.position.set(2.4, 0.26, -2.8);
     fallen.rotation.y = 0.7;
     fallen.rotation.z = 0.15;
     fallen.castShadow = true;
     group.add(fallen);
 
     const rubble = new THREE.Mesh(this.rockChunkGeo, this.rockMat);
-    rubble.position.set(-2.4, 0.2, 1.8);
-    rubble.scale.set(0.7, 0.45, 0.6);
+    rubble.position.set(-2.6, 0.25, 2.0);
+    rubble.scale.set(0.85, 0.55, 0.7);
     rubble.castShadow = true;
     group.add(rubble);
 
+    // Arch fragment leaning on the tower base
+    const arch = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.8, 0.35), this.rockMat);
+    arch.position.set(-1.3, 1.1, 0.9);
+    arch.rotation.z = 0.45;
+    arch.castShadow = true;
+    group.add(arch);
+
     this.root.add(group);
-    this.obstacles.push({ x, z, radius: 1.35 });
+    this.obstacles.push({ x, z, radius: 1.55 });
   }
 
   private buildEdgeLedges(): void {

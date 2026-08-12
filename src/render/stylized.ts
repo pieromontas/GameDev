@@ -267,7 +267,8 @@ function eastBranchPathInfluence(x: number, z: number): number {
   const px = ax + abx * t;
   const pz = az + abz * t;
   const dist = Math.hypot(x - px, z - pz);
-  const halfW = 2.05 + Math.sin(t * Math.PI) * 0.25;
+  // Slightly wider than the main path so the branch reads at iso distance.
+  const halfW = 2.45 + Math.sin(t * Math.PI) * 0.35;
   let branch = 0;
   const d = dist / halfW;
   if (d < 1.35) {
@@ -279,8 +280,8 @@ function eastBranchPathInfluence(x: number, z: number): number {
   const cdz = z - EastShrineClearing.z;
   const cr = Math.hypot(cdx, cdz);
   let pad = 0;
-  if (cr < 4.2) {
-    pad = cr < 2.2 ? 0.85 : 0.85 * (1 - (cr - 2.2) / 2);
+  if (cr < 5.0) {
+    pad = cr < 2.6 ? 0.95 : 0.95 * (1 - (cr - 2.6) / 2.4);
   }
 
   return Math.max(branch, pad);
