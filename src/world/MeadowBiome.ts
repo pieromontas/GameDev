@@ -19,6 +19,7 @@ import {
   MARKET_BLACKSMITH_SPOT,
   MARKET_FORGE_SPOT,
   MARKET_FOUNTAIN_SPOT,
+  MARKET_INN_SPOT,
   MARKET_SIGN_SPOT,
 } from './MarketDistrict';
 
@@ -92,6 +93,8 @@ export class MeadowBiome {
   private readonly shopPlacements: ShopPlacement[] = [];
   /** Market blacksmith KayKit cottage (pack-swapped; forge props stay procedural). */
   private blacksmithPlacement: ShopPlacement | null = null;
+  /** Market inn / tavern KayKit cottage (pack-swapped; porch props stay procedural). */
+  private innPlacement: ShopPlacement | null = null;
   private marketWellPlacement: { x: number; z: number } | null = null;
   private packApplied = false;
 
@@ -1265,6 +1268,19 @@ export class MeadowBiome {
     );
     this.addMarketForgeYard(MARKET_FORGE_SPOT.x, MARKET_FORGE_SPOT.z);
 
+    // Inn / tavern on the south rim (KayKit cottage) — opposite the blacksmith.
+    // Clear of shop B pack radius (~4.4), the gate→market diagonal, and fountain lanes.
+    this.addMarketInn(
+      MARKET_INN_SPOT.x,
+      MARKET_INN_SPOT.z,
+      1.1,
+      Math.atan2(
+        MARKET_FOUNTAIN_SPOT.x - MARKET_INN_SPOT.x,
+        MARKET_FOUNTAIN_SPOT.z - MARKET_INN_SPOT.z,
+      ),
+    );
+    this.addMarketInnYard(MARKET_INN_SPOT.x, MARKET_INN_SPOT.z);
+
     // Stylized stall awnings + crates (dense but not a capital).
     // Crates sit off the fountain footprint so the plaza center stays readable.
     this.addMarketStall(48.0, 54.0, Math.PI * 0.7, Palette.roofTile);
@@ -1281,7 +1297,7 @@ export class MeadowBiome {
     this.addMarketWellStandIn(this.marketWellPlacement.x, this.marketWellPlacement.z);
 
     // Sparse rim trees — leave SW open toward the gate, far NE for future districts.
-    // Skip the blacksmith pad so foliage doesn't swallow the workshop silhouette.
+    // Skip blacksmith + inn pads so foliage doesn't swallow the landmark silhouettes.
     const rimTrees = 6;
     for (let i = 0; i < rimTrees; i++) {
       const a = (i / rimTrees) * Math.PI * 2 + 0.55;
@@ -1294,6 +1310,9 @@ export class MeadowBiome {
       if (
         Math.hypot(tx - MARKET_BLACKSMITH_SPOT.x, tz - MARKET_BLACKSMITH_SPOT.z) < 5.5
       ) {
+        continue;
+      }
+      if (Math.hypot(tx - MARKET_INN_SPOT.x, tz - MARKET_INN_SPOT.z) < 5.5) {
         continue;
       }
       this.addTree(tx, tz, 0.86 + (i % 3) * 0.06);
@@ -2084,6 +2103,171 @@ export class MeadowBiome {
     // Soft blockers — hearth / anvil only; walk ring around the yard stays open
     this.obstacles.push({ x: x - 0.35, z: z - 0.15, radius: 0.7 });
     this.obstacles.push({ x: x + 0.75, z: z + 0.2, radius: 0.45 });
+  }
+
+  /** Procedural KayKit-cottage stand-in for the market inn / tavern (pack-swapped). */
+  private addMarketInn(x: number, z: number, scale: number, yaw: number): void {
+    this.innPlacement = { x, z, scale, yaw };
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.scale.setScalar(scale);
+    group.userData.proceduralProp = true;
+    group.name = 'MarketInnStandIn';
+
+    const walls = new THREE.Mesh(new THREE.BoxGeometry(2.7, 1.85, 2.35), this.rockLightMat);
+    walls.position.y = 0.92;
+    walls.castShadow = true;
+    walls.receiveShadow = true;
+    group.add(walls);
+
+    // Warm timber band — reads as tavern vs soot-dark blacksmith
+    const timber = new THREE.Mesh(
+      new THREE.BoxGeometry(2.75, 0.22, 2.4),
+      this.woodMat,
+    );
+    timber.position.y = 1.55;
+    timber.castShadow = true;
+    group.add(timber);
+
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(2.2, 1.4, 4), this.roofMat);
+    roof.position.y = 2.45;
+    roof.rotation.y = Math.PI / 4;
+    roof.castShadow = true;
+    group.add(roof);
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.95, 0.1), this.woodDarkMat);
+    door.position.set(0, 0.5, 1.2);
+    group.add(door);
+
+    // Warm lit windows (inn silhouette vs blacksmith ember bay)
+    const warmGlass = createToonMaterial(Palette.flowerYellow, {
+      emissive: 0xffaa44,
+      emissiveIntensity: 0.75,
+    });
+    for (const px of [-0.75, 0.75]) {
+      const window = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.38, 0.08), warmGlass);
+      window.position.set(px, 1.1, 1.18);
+      group.add(window);
+    }
+
+    // Hanging inn sign board
+    const signArm = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.08, 0.7),
+      this.woodDarkMat,
+    );
+    signArm.position.set(1.15, 1.7, 0.9);
+    group.add(signArm);
+    const signBoard = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 0.45, 0.06),
+      this.signBoardMat,
+    );
+    signBoard.position.set(1.15, 1.45, 1.2);
+    signBoard.castShadow = true;
+    group.add(signBoard);
+    const signTrim = new THREE.Mesh(
+      new THREE.BoxGeometry(0.48, 0.08, 0.07),
+      this.bannerTrimMat,
+    );
+    signTrim.position.set(1.15, 1.6, 1.22);
+    group.add(signTrim);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.6 });
+  }
+
+  /**
+   * Outdoor tables / barrels / lanterns in front of the inn — porch toward the plaza.
+   * Soft collisions leave the door lane open; E interact uses MARKET_INN_DOOR.
+   */
+  private addMarketInnYard(innX: number, innZ: number): void {
+    // Yard sits toward the fountain / door pad (north-northeast of the cottage).
+    const x = innX + 1.0;
+    const z = innZ + 3.6;
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'MarketInnYard';
+
+    const porch = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.7, 1.8, 0.1, 10),
+      this.woodMat,
+    );
+    porch.position.y = 0.05;
+    porch.receiveShadow = true;
+    group.add(porch);
+
+    // Round table + stools
+    const table = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55, 0.58, 0.12, 8),
+      this.woodDarkMat,
+    );
+    table.position.set(-0.55, 0.55, 0.15);
+    table.castShadow = true;
+    group.add(table);
+    const tableLeg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.1, 0.5, 6),
+      this.woodMat,
+    );
+    tableLeg.position.set(-0.55, 0.28, 0.15);
+    tableLeg.castShadow = true;
+    group.add(tableLeg);
+    for (const [sx, sz] of [
+      [-0.95, 0.55],
+      [-0.15, 0.55],
+      [-0.55, -0.35],
+    ] as const) {
+      const stool = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.18, 0.2, 0.35, 6),
+        this.woodMat,
+      );
+      stool.position.set(sx, 0.22, sz);
+      stool.castShadow = true;
+      group.add(stool);
+    }
+
+    // Barrel stack — tavern dressing
+    for (const [bx, by, bz, s] of [
+      [0.75, 0.28, 0.55, 1],
+      [1.15, 0.22, 0.25, 0.85],
+      [0.95, 0.7, 0.4, 0.75],
+    ] as const) {
+      const barrel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.26 * s, 0.28 * s, 0.52 * s, 8),
+        this.woodMat,
+      );
+      barrel.position.set(bx, by, bz);
+      barrel.castShadow = true;
+      group.add(barrel);
+    }
+
+    // Evening lantern posts (warm point lights)
+    const lanternMat = createToonMaterial(Palette.flowerYellow, {
+      emissive: 0xffaa44,
+      emissiveIntensity: 0.95,
+    });
+    for (const [lx, lz] of [
+      [-1.25, -0.85],
+      [1.35, -0.55],
+    ] as const) {
+      const post = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.07, 1.35, 5),
+        this.woodDarkMat,
+      );
+      post.position.set(lx, 0.7, lz);
+      post.castShadow = true;
+      group.add(post);
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), lanternMat);
+      lamp.position.set(lx, 1.45, lz);
+      group.add(lamp);
+      const light = new THREE.PointLight(0xffb060, 0.55, 5.5, 2);
+      light.position.set(lx, 1.5, lz);
+      group.add(light);
+    }
+
+    this.root.add(group);
+    // Soft blockers — table / barrels only; door approach stays walkable
+    this.obstacles.push({ x: x - 0.55, z: z + 0.15, radius: 0.55 });
+    this.obstacles.push({ x: x + 0.95, z: z + 0.4, radius: 0.55 });
   }
 
   /** Idle fountain sparkles + forge smoke / ember flicker for the market landmarks. */
@@ -3270,6 +3454,19 @@ export class MeadowBiome {
       }
     }
 
+    // Market inn / tavern — KayKit cottage facing the plaza (porch props stay procedural).
+    if (this.innPlacement) {
+      const inn = library.createCottage(this.innPlacement.x, this.innPlacement.z, {
+        scale: this.innPlacement.scale,
+        yaw: this.innPlacement.yaw,
+      });
+      if (inn) {
+        inn.name = 'MarketInn';
+        this.root.add(inn);
+        placed += 1;
+      }
+    }
+
     if (this.marketWellPlacement) {
       const well = library.createWell(
         this.marketWellPlacement.x,
@@ -3321,6 +3518,9 @@ export class MeadowBiome {
         this.blacksmithPlacement.z,
         PROP_COLLISION_SCALE.cottage,
       );
+    }
+    if (this.innPlacement) {
+      bump(this.innPlacement.x, this.innPlacement.z, PROP_COLLISION_SCALE.cottage);
     }
     if (this.marketWellPlacement) {
       bump(
