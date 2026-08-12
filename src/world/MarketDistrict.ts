@@ -34,6 +34,20 @@ export const MARKET_BLACKSMITH_SPOT = { x: 55.2, z: 60.8 } as const;
 /** Anvil / open forge pad in front of the blacksmith (E interact). */
 export const MARKET_FORGE_SPOT = { x: 52.5, z: 55.5 } as const;
 
+/**
+ * KayKit cottage inn / tavern on the south market rim (opposite the blacksmith).
+ * Outdoor tables + door pad sit toward the plaza (see MeadowBiome).
+ */
+export const MARKET_INN_SPOT = { x: 48.5, z: 40.8 } as const;
+
+/** Door / porch stand point in front of the inn (E interact) — outside cottage footprint. */
+export const MARKET_INN_DOOR = { x: 49.6, z: 45.3 } as const;
+
+/** Cheap short rest — reachable after one chest. */
+export const INN_REST_COST = 3;
+export const INN_REST_HEAL = 40;
+export const INN_REST_COOLDOWN = 45;
+
 const SIGN_INTERACT_RADIUS = 3.4;
 const SIGN_INTERACT_RADIUS_SQ = SIGN_INTERACT_RADIUS * SIGN_INTERACT_RADIUS;
 const SIGN_PROMPT = 'Press E — Market District';
@@ -106,5 +120,94 @@ export class MarketBlacksmith {
     if (!player.alive || !this.isNear(player.position)) return false;
     this.onToast(SMITH_TOAST, 2.1);
     return true;
+  }
+}
+
+const INN_INTERACT_RADIUS = 3.6;
+const INN_INTERACT_RADIUS_SQ = INN_INTERACT_RADIUS * INN_INTERACT_RADIUS;
+const INN_PROMPT = 'Press E — Rest at Inn';
+const INN_TOAST_FLAVOR = 'Market Inn  ·  warm hearth · beds upstairs';
+
+export type MarketInnHooks = {
+  onToast: (message: string, duration?: number) => void;
+  getGold: () => number;
+  trySpend: (amount: number) => boolean;
+};
+
+/**
+ * Paid short rest at the market inn door — small heal for a few gold + cooldown.
+ * Keep E-priority after blacksmith so the forge yard still wins on plaza-edge overlap.
+ */
+export class MarketInn {
+  private readonly door = new THREE.Vector3(MARKET_INN_DOOR.x, 0, MARKET_INN_DOOR.z);
+  private cooldownRemain = 0;
+
+  constructor(private readonly hooks: MarketInnHooks) {}
+
+  get ready(): boolean {
+    return this.cooldownRemain <= 0;
+  }
+
+  get cooldownRemaining(): number {
+    return Math.max(0, this.cooldownRemain);
+  }
+
+  isNear(pos: THREE.Vector3): boolean {
+    const dx = pos.x - this.door.x;
+    const dz = pos.z - this.door.z;
+    return dx * dx + dz * dz <= INN_INTERACT_RADIUS_SQ;
+  }
+
+  getInteractPrompt(player: Player): MarketHudPrompt {
+    if (!player.alive || !this.isNear(player.position)) {
+      return { visible: false, text: '' };
+    }
+    if (!this.ready) {
+      const secs = Math.ceil(this.cooldownRemaining);
+      return { visible: true, text: `Inn resting… ${secs}s` };
+    }
+    return { visible: true, text: `${INN_PROMPT} (${INN_REST_COST}g)` };
+  }
+
+  tryInteract(player: Player): boolean {
+    if (!player.alive || !this.isNear(player.position)) return false;
+
+    if (!this.ready) {
+      const secs = Math.ceil(this.cooldownRemaining);
+      this.hooks.onToast(`Inn beds airing… ${secs}s`, 1.4);
+      return true;
+    }
+
+    if (player.hp >= player.maxHp) {
+      this.hooks.onToast(`${INN_TOAST_FLAVOR}  ·  already rested`, 2.0);
+      return true;
+    }
+
+    if (this.hooks.getGold() < INN_REST_COST) {
+      this.hooks.onToast(`Need ${INN_REST_COST} gold for a short rest`, 1.5);
+      return true;
+    }
+
+    if (!this.hooks.trySpend(INN_REST_COST)) {
+      this.hooks.onToast(`Need ${INN_REST_COST} gold for a short rest`, 1.5);
+      return true;
+    }
+
+    const before = player.hp;
+    player.heal(INN_REST_HEAL);
+    const gained = Math.max(0, Math.round(player.hp - before));
+    this.cooldownRemain = INN_REST_COOLDOWN;
+    this.hooks.onToast(
+      `Inn rest  ·  −${INN_REST_COST}g  ·  +${gained} HP`,
+      2.1,
+    );
+    return true;
+  }
+
+  /** Tick rest cooldown — call once per frame from the game loop. */
+  update(dt: number): void {
+    if (this.cooldownRemain > 0) {
+      this.cooldownRemain = Math.max(0, this.cooldownRemain - dt);
+    }
   }
 }
