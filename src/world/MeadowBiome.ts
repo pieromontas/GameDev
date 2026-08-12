@@ -11,8 +11,11 @@ import {
   SouthRiverFordClearing,
   hash2,
 } from '../render/stylized';
+import type { WorldPropLibrary } from './WorldPropLibrary';
 
 export type Obstacle = { x: number; z: number; radius: number };
+
+type PropPlacement = { x: number; z: number; scale: number };
 
 type SignFacing = 'east' | 'west' | 'north' | 'south';
 
@@ -51,6 +54,13 @@ export class MeadowBiome {
   private shrineCrystalMat: THREE.MeshToonMaterial | null = null;
   private shrineActivated = false;
   private shrinePulseT = 0;
+
+  /** Recorded so KayKit pack visuals can replace procedural meshes without touching obstacles. */
+  private readonly treePlacements: PropPlacement[] = [];
+  private readonly rockPlacements: PropPlacement[] = [];
+  private cottagePlacement: { x: number; z: number } | null = null;
+  private windmillPlacement: { x: number; z: number } | null = null;
+  private packApplied = false;
 
   private readonly canopyLowGeo = new THREE.ConeGeometry(1.15, 1.55, 7);
   private readonly canopyMidGeo = new THREE.ConeGeometry(0.88, 1.35, 7);
@@ -1731,10 +1741,12 @@ export class MeadowBiome {
   }
 
   private addTree(x: number, z: number, scale: number): void {
+    this.treePlacements.push({ x, z, scale });
     const group = new THREE.Group();
     group.position.set(x, 0, z);
     group.scale.setScalar(scale);
     group.rotation.y = hash2(x, z) * Math.PI * 2;
+    group.userData.proceduralProp = true;
 
     const fat = hash2(z, x) > 0.55;
     const trunk = new THREE.Mesh(fat ? this.trunkFatGeo : this.trunkGeo, this.trunkMat);
@@ -1771,8 +1783,10 @@ export class MeadowBiome {
   }
 
   private addRock(x: number, z: number, scale: number): void {
+    this.rockPlacements.push({ x, z, scale });
     const group = new THREE.Group();
     group.position.set(x, 0, z);
+    group.userData.proceduralProp = true;
 
     const rock = new THREE.Mesh(this.rockGeo, this.rockMat);
     rock.position.y = 0.3 * scale;
@@ -1939,9 +1953,11 @@ export class MeadowBiome {
   }
 
   private addCottage(x: number, z: number): void {
+    this.cottagePlacement = { x, z };
     const group = new THREE.Group();
     group.position.set(x, 0, z);
     group.scale.setScalar(1.15);
+    group.userData.proceduralProp = true;
 
     const walls = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.5, 2.0), this.rockLightMat);
     walls.position.y = 0.75;
@@ -1967,8 +1983,10 @@ export class MeadowBiome {
   }
 
   private addWindmill(x: number, z: number): void {
+    this.windmillPlacement = { x, z };
     const group = new THREE.Group();
     group.position.set(x, 0, z);
+    group.userData.proceduralProp = true;
 
     const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.75, 3.2, 8), this.woodMat);
     tower.position.y = 1.6;
@@ -1995,6 +2013,113 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 1.1 });
+  }
+
+  /**
+   * Swap the most visible procedural trees / rocks / cottage / windmill for KayKit
+   * pack instances. Obstacles, paths, shrine/chest interacts stay unchanged.
+   * Safe to call once after `WorldPropLibrary.load()`; no-ops if the library is empty.
+   */
+  applyPropPack(library: WorldPropLibrary): boolean {
+    if (this.packApplied || !library.isReady) return false;
+    this.packApplied = true;
+
+    // Drop only the marked procedural stand-ins (trees / rocks / cottage / windmill).
+    const remove: THREE.Object3D[] = [];
+    for (const child of this.root.children) {
+      if (child.userData.proceduralProp) remove.push(child);
+    }
+    for (const obj of remove) this.root.remove(obj);
+
+    let placed = 0;
+    for (let i = 0; i < this.treePlacements.length; i++) {
+      const p = this.treePlacements[i]!;
+      const mesh = library.createTree(p.x, p.z, p.scale, hash2(p.x, p.z) * 1000 + i);
+      if (mesh) {
+        this.root.add(mesh);
+        placed += 1;
+      }
+    }
+    for (let i = 0; i < this.rockPlacements.length; i++) {
+      const p = this.rockPlacements[i]!;
+      const mesh = library.createRock(p.x, p.z, p.scale, hash2(p.z, p.x) * 1000 + i);
+      if (mesh) {
+        this.root.add(mesh);
+        placed += 1;
+      }
+    }
+
+    if (this.cottagePlacement) {
+      const mesh = library.createCottage(this.cottagePlacement.x, this.cottagePlacement.z);
+      if (mesh) {
+        this.root.add(mesh);
+        placed += 1;
+        // Small well accent beside the cottage — decorative, tiny collider.
+        const well = library.createWell(
+          this.cottagePlacement.x + 2.4,
+          this.cottagePlacement.z - 1.1,
+        );
+        if (well) {
+          this.root.add(well);
+          this.obstacles.push({
+            x: this.cottagePlacement.x + 2.4,
+            z: this.cottagePlacement.z - 1.1,
+            radius: 0.55,
+          });
+          placed += 1;
+        }
+      }
+    }
+
+    if (this.windmillPlacement) {
+      const mesh = library.createWindmill(this.windmillPlacement.x, this.windmillPlacement.z);
+      if (mesh) {
+        this.root.add(mesh);
+        placed += 1;
+      }
+    }
+
+    this.scatterPackBushes(library);
+    return placed > 0;
+  }
+
+  /** Soft bush dressing near trees / meadow rim — no collision (walk-through foliage). */
+  private scatterPackBushes(library: WorldPropLibrary): void {
+    const spots: Array<[number, number, number]> = [];
+    // Nestle bushes beside a subset of trees.
+    for (let i = 0; i < this.treePlacements.length; i += 2) {
+      const t = this.treePlacements[i]!;
+      const ang = hash2(t.z, t.x) * Math.PI * 2;
+      const r = 1.1 + hash2(t.x, i) * 0.7;
+      spots.push([
+        t.x + Math.cos(ang) * r,
+        t.z + Math.sin(ang) * r,
+        0.75 + hash2(i, t.z) * 0.45,
+      ]);
+    }
+    // A few pocket-rim accents (clear of shrine / ford walkways).
+    spots.push(
+      [24, -18, 0.9],
+      [-26, 16, 0.85],
+      [18, 28, 0.95],
+      [-18, -26, 0.8],
+      [8, 36, 0.88],
+      [-34, -6, 0.92],
+    );
+
+    for (let i = 0; i < spots.length; i++) {
+      const [x, z, s] = spots[i]!;
+      if (meadowPathInfluence(x, z) > 0.55) continue;
+      if (this.isOnEastBranchApproach(x, z)) continue;
+      if (this.isOnWestBranchApproach(x, z)) continue;
+      if (this.isOnNorthBranchApproach(x, z)) continue;
+      if (this.isOnSouthBranchApproach(x, z)) continue;
+      // Keep shrine / ford centers open.
+      if (Math.hypot(x - EastShrineClearing.x, z - EastShrineClearing.z) < 8) continue;
+      if (Math.hypot(x - SouthRiverFordClearing.x, z - SouthRiverFordClearing.z) < 8) continue;
+      const bush = library.createBush(x, z, s, hash2(x, z) * 500 + i);
+      if (bush) this.root.add(bush);
+    }
   }
 
   /** True if inside main meadow, east/west/north/south corridors, or any clearing. */
