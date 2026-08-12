@@ -20,7 +20,7 @@ export class MeadowBiome {
   /** Second playable pocket — ancient shrine clearing east of the main ring. */
   readonly eastClearing = EastShrineClearing;
   /** Soft corridor half-width connecting main meadow → east clearing. */
-  readonly eastCorridorHalfWidth = 3.9;
+  readonly eastCorridorHalfWidth = 5.6;
   /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
 
@@ -142,6 +142,56 @@ export class MeadowBiome {
     clearingPad.position.set(this.eastClearing.x, 0.025, this.eastClearing.z);
     clearingPad.receiveShadow = true;
     this.root.add(clearingPad);
+
+    this.buildEastPathRibbon();
+  }
+
+  /** Explicit dirt ribbon so the east branch reads clearly at iso distance. */
+  private buildEastPathRibbon(): void {
+    const pathMat = createToonMaterial(Palette.path);
+    const edgeMat = createToonMaterial(Palette.pathEdge);
+    const ax = 12;
+    const az = 4.2;
+    const bx = this.eastClearing.x;
+    const bz = this.eastClearing.z;
+    const segments = 10;
+    for (let i = 0; i < segments; i++) {
+      const t0 = i / segments;
+      const t1 = (i + 1) / segments;
+      const x0 = ax + (bx - ax) * t0;
+      const z0 = az + (bz - az) * t0;
+      const x1 = ax + (bx - ax) * t1;
+      const z1 = az + (bz - az) * t1;
+      const mx = (x0 + x1) * 0.5;
+      const mz = (z0 + z1) * 0.5;
+      const dx = x1 - x0;
+      const dz = z1 - z0;
+      const len = Math.hypot(dx, dz);
+      const ang = Math.atan2(dx, dz);
+      const width = 3.6 + Math.sin(t0 * Math.PI) * 0.5;
+
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(width, 0.04, len + 0.15), pathMat);
+      plank.position.set(mx, 0.045, mz);
+      plank.rotation.y = ang;
+      plank.receiveShadow = true;
+      this.root.add(plank);
+
+      const edge = new THREE.Mesh(
+        new THREE.BoxGeometry(width + 0.55, 0.02, len + 0.2),
+        edgeMat,
+      );
+      edge.position.set(mx, 0.03, mz);
+      edge.rotation.y = ang;
+      edge.receiveShadow = true;
+      this.root.add(edge);
+    }
+
+    // Arrival dirt disk under the shrine (sits above ground, below dais)
+    const pad = new THREE.Mesh(new THREE.CircleGeometry(4.6, 28), pathMat);
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set(this.eastClearing.x, 0.04, this.eastClearing.z);
+    pad.receiveShadow = true;
+    this.root.add(pad);
   }
 
   private buildGrassInstances(): void {
@@ -835,8 +885,10 @@ export class MeadowBiome {
   /** Corridor + path samples used to keep props from blocking the branch. */
   private isOnEastBranchApproach(x: number, z: number): boolean {
     if (x < 8) return false;
-    if (this.distToEastCorridor(x, z) < this.eastCorridorHalfWidth + 1.1) return true;
-    return meadowPathInfluence(x, z) > 0.4 && x > 12;
+    // Wide cone along +X so the tree ring does not choke the east exit.
+    if (x > 18 && Math.abs(z - 5) < 9.5) return true;
+    if (this.distToEastCorridor(x, z) < this.eastCorridorHalfWidth + 1.6) return true;
+    return meadowPathInfluence(x, z) > 0.35 && x > 10;
   }
 
   /** Distance from point to the east corridor segment (main rim → clearing). */
