@@ -726,8 +726,8 @@ export class MeadowBiome {
     this.addRuinPillar(15.5, -6.5);
     // Tiny cottage + windmill silhouette on the rim (out of play collision mostly)
     this.addCottage(-29, 21);
-    // Windmill kept north of the east path so the branch stays readable
-    this.addWindmill(31, 23);
+    // Windmill kept north of the east path and south of the NE city-gate road
+    this.addWindmill(34, 16);
     // Small outer-ring landmarks so the expanded meadow doesn’t read as empty grass
     this.addStandingStones(26, -24);
     this.addWaysideCairn(-24, 28);
