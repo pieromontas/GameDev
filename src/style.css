@@ -98,6 +98,10 @@ body,
   color: #6b4db8;
 }
 
+#hud[data-class='rogue'] .brand {
+  color: #2a8f6a;
+}
+
 .class-line {
   margin-top: 8px;
   font-size: 12px;
@@ -321,6 +325,27 @@ kbd {
 #hud[data-class='mage'] .skill-slot[data-skill='burst'].ready {
   border-color: rgba(230, 90, 50, 0.7);
   box-shadow: 0 0 0 2px rgba(230, 90, 50, 0.22);
+}
+
+/* Rogue kit — teal stab / mint fan / slate smoke / emerald shadow leap */
+#hud[data-class='rogue'] .skill-slot.ready {
+  border-color: rgba(60, 180, 130, 0.6);
+  box-shadow: 0 0 0 2px rgba(60, 180, 130, 0.18);
+}
+
+#hud[data-class='rogue'] .skill-slot[data-skill='slam'].ready {
+  border-color: rgba(90, 210, 160, 0.65);
+  box-shadow: 0 0 0 2px rgba(90, 210, 160, 0.2);
+}
+
+#hud[data-class='rogue'] .skill-slot[data-skill='bash'].ready {
+  border-color: rgba(120, 140, 150, 0.65);
+  box-shadow: 0 0 0 2px rgba(120, 140, 150, 0.2);
+}
+
+#hud[data-class='rogue'] .skill-slot[data-skill='burst'].ready {
+  border-color: rgba(40, 190, 140, 0.7);
+  box-shadow: 0 0 0 2px rgba(40, 190, 140, 0.22);
 }
 
 .skill-slot.pop {

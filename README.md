@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** Warrior + Mage starter classes (switchable), one meadow biome with **east shrine** and **west misty grove** clearings, blob + **Spitter** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine** and **west misty grove** clearings, blob + **Spitter** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -27,15 +27,15 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | Input | Action |
 | --- | --- |
 | **W A S D** / arrows | Move relative to camera |
-| **C** or **Tab** | Switch class (Warrior ↔ Mage) |
+| **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
 | **E** | Awaken east shrine (when near) |
-| **LMB** or **1** | Skill 1 (Slash / Arcane Bolt) |
-| **2** | Skill 2 (Quake / Frost Nova) |
-| **3** | Skill 3 (Shield Bash / Arcane Ward) |
-| **4** | Skill 4 (Leap Strike / Meteor) — unlocks at **Level 3** |
+| **LMB** or **1** | Skill 1 (Slash / Arcane Bolt / Stab) |
+| **2** | Skill 2 (Quake / Frost Nova / Fan of Knives) |
+| **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
+| **4** | Skill 4 (Leap Strike / Meteor / Shadow Leap) — unlocks at **Level 3** |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A controls hint also lists **C — switch Warrior / Mage**, **E — awaken east shrine**, and the west misty grove path.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A controls hint also lists **C / Tab — cycle Warrior → Mage → Rogue**, **E — awaken east shrine**, and the west misty grove path.
 
 ## West misty grove
 
@@ -50,13 +50,13 @@ Follow the dirt path east to the ancient shrine clearing. Walk up to the crystal
 3. **Reward** — crystal brightens; **+40% damage** and **+22% move speed** for **45s**, plus a burst of loot coins
 4. **Cooldown** — shrine rests **60s** after success (**18s** if you die mid-ritual) so it can’t be farmed infinitely
 
-Ignoring the shrine leaves meadow combat fully playable. Works for Warrior and Mage.
+Ignoring the shrine leaves meadow combat fully playable. Works for Warrior, Mage, and Rogue.
 
 ## XP & leveling
 
 Defeat blobs (**+8 XP**) and spitters (**+14 XP**) to level up. The HUD shows **Level** and an XP bar (e.g. `Level 1 · XP 0/20`). Floating **+XP** appears on kills; every few kills also flashes a toast.
 
-On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** and **+1–2 damage** (alternating). Reaching **Level 3** unlocks skill 4 for both kits (toast announces Leap Strike / Meteor). Level, XP, and bonuses persist through respawn and class swaps for the session. Works for Warrior and Mage — higher levels feel a bit stronger against spitters without a full rebalance.
+On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** and **+1–2 damage** (alternating). Reaching **Level 3** unlocks skill 4 for all kits (toast announces Leap Strike / Meteor / Shadow Leap). Level, XP, and bonuses persist through respawn and class swaps for the session. Works for Warrior, Mage, and Rogue — higher levels feel a bit stronger against spitters without a full rebalance.
 
 ## Classes
 
@@ -72,42 +72,49 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 - **Arcane Ward** — personal bubble (brief i-frames + small heal)
 - **Meteor** *(Lv 3)* — delayed sky-drop AoE in front of you (telegraph circle)
 
+### Rogue
+- **Stab** — snappy short-range poke
+- **Fan of Knives** — radial AoE knife burst
+- **Smoke Bomb** — brief dodge i-frames (escape window)
+- **Shadow Leap** *(Lv 3)* — gap-closer leap + teal landing AoE
+
 ## What’s in the slice
 
 - Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** clearings
 - **West misty grove**: dirt path west → fallen giant tree + fairy ring + mist; blobs/spitters; play clamp extended
 - **East shrine mini-objective**: interact (E) → defend 3 waves → temporary damage/speed blessing + loot; crystal activates with cooldown
-- KayKit Knight warrior + KayKit Mage (GLTF) with Idle / Walk / Run + skill clips via three.js `AnimationMixer`
+- KayKit Knight / Mage / **Rogue** (GLTF) with Idle / Walk / Run + skill clips via three.js `AnimationMixer`
 - Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, frost slow, death squash
 - **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine + west grove
-- Combat feedback: slash arcs, bolts, ground seals, Quake/Nova rings, Shield Bash pulse, Arcane Ward bubble, Leap Strike trail/landing, Meteor telegraph + sky drop, floating damage numbers, world HP bars
+- Combat feedback: slash arcs, bolts, ground seals, Quake/Nova/Fan rings, Shield Bash pulse, Arcane Ward / Smoke Bomb bubbles, Leap / Shadow Leap trail/landing, Meteor telegraph + sky drop, floating damage numbers, world HP bars
 - Tiny loot loop: defeated blobs/spitters drop coins; pickups increment an inventory counter
 - **XP / leveling**: kills grant XP; HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent); **Level 3 unlocks skill 4**
 - HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3/4) with locked Lv 3 state, loot/kill counts, shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
 
 ## Character art (KayKit Adventurers)
 
-| | Warrior | Mage |
-| --- | --- | --- |
-| **Pack** | [KayKit – Character Pack: Adventurers](https://kaylousberg.itch.io/kaykit-adventurers) | same |
-| **Author** | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)) | same |
-| **License** | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | same |
-| **Files** | `public/models/kaykit-knight/Knight.glb` (+ `LICENSE.txt`, `ATTRIBUTION.md`) | `public/models/kaykit-mage/Mage.glb` (+ `LICENSE.txt`, `ATTRIBUTION.md`) |
-| **Integration** | `src/entities/PlayerVisual.ts` (`WARRIOR_VISUAL`) | `src/entities/PlayerVisual.ts` (`MAGE_VISUAL`) |
+| | Warrior | Mage | Rogue |
+| --- | --- | --- | --- |
+| **Pack** | [KayKit – Character Pack: Adventurers](https://kaylousberg.itch.io/kaykit-adventurers) | same | same |
+| **Author** | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)) | same | same |
+| **License** | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | same | same |
+| **Files** | `public/models/kaykit-knight/Knight.glb` (+ `LICENSE.txt`, `ATTRIBUTION.md`) | `public/models/kaykit-mage/Mage.glb` (+ license/attribution) | `public/models/kaykit-rogue/Rogue.glb` (+ license/attribution) |
+| **Integration** | `PlayerVisual.ts` (`WARRIOR_VISUAL`) | `MAGE_VISUAL` | `ROGUE_VISUAL` |
 
 **Clip mapping**
 
-| Gameplay | Warrior (KayKit) | Mage (KayKit) |
-| --- | --- | --- |
-| Idle | `Idle` | `Idle` |
-| Walk / Run | `Walking_A` / `Running_A` | `Walking_A` / `Running_A` |
-| Skill 1 | `1H_Melee_Attack_Slice_Horizontal` | `Spellcast_Shoot` |
-| Skill 2 | `Jump_Full_Short` + stomp juice | `Spellcast_Long` + cast lift |
-| Skill 3 | `Block_Attack` + shield shove | `Spellcast_Raise` + ward bubble |
-| Skill 4 | `Jump_Full_Long` + leap arc | `Spellcasting` + Meteor telegraph |
+| Gameplay | Warrior (KayKit) | Mage (KayKit) | Rogue (KayKit) |
+| --- | --- | --- | --- |
+| Idle | `Idle` | `Idle` | `Idle` |
+| Walk / Run | `Walking_A` / `Running_A` | `Walking_A` / `Running_A` | `Walking_A` / `Running_A` |
+| Skill 1 | `1H_Melee_Attack_Slice_Horizontal` | `Spellcast_Shoot` | `1H_Melee_Attack_Stab` |
+| Skill 2 | `Jump_Full_Short` + stomp juice | `Spellcast_Long` + cast lift | `2H_Melee_Attack_Spin` + knife fan |
+| Skill 3 | `Block_Attack` + shield shove | `Spellcast_Raise` + ward bubble | `Dodge_Forward` + smoke cloud |
+| Skill 4 | `Jump_Full_Long` + leap arc | `Spellcasting` + Meteor telegraph | `Jump_Full_Long` + shadow leap |
 
 Warrior props: `1H_Sword`, `Round_Shield`, `Knight_Helmet`, `Knight_Cape`.  
-Mage props: `1H_Wand`, `Spellbook`, `Mage_Hat`, `Mage_Cape` (staff / open book hidden).
+Mage props: `1H_Wand`, `Spellbook`, `Mage_Hat`, `Mage_Cape` (staff / open book hidden).  
+Rogue props: `Knife`, `Knife_Offhand`, `Rogue_Cape` (crossbows / throwable hidden).
 
 ### Swapping / adding classes later
 
@@ -115,15 +122,16 @@ Mage props: `1H_Wand`, `Spellbook`, `Mage_Hat`, `Mage_Cape` (staff / open book h
 2. Add a `VisualConfig` in `src/entities/PlayerVisual.ts` and wire it in `Player`.
 3. Add skill defs in `src/combat/Skills.ts` and combat branches in `CombatSystem`.
 4. Keep `Player` gameplay APIs (`applyMovement`, `playSlash` / `playQuake` / `playBash` / `playBurst`, skills, radius) stable so HUD/combat stay intact.
-5. Document the pack + license next to the files (mirror the Knight/Mage folders).
+5. Document the pack + license next to the files (mirror the Knight/Mage/Rogue folders).
 
-If a GLB fails to load, the game still boots (contact shadow / other class) and logs a clear console error — no softlock.
+If a GLB fails to load, the game still boots (contact shadow / other classes) and logs a clear console error — no softlock. Class swap mid-leap cancels the in-flight gap-closer so WASD never softlocks.
 
 ## Project structure
 
 ```
 public/models/kaykit-knight/  KayKit Knight.glb + license/attribution
 public/models/kaykit-mage/    KayKit Mage.glb + license/attribution
+public/models/kaykit-rogue/   KayKit Rogue.glb + license/attribution
 src/
   main.ts                 Entry — boots Game (awaits hero loads)
   style.css               HUD + loading overlay styles
@@ -155,4 +163,4 @@ Stack: **Vite + TypeScript + three r170+**, ESM, modest draw-call reuse (shared 
 
 Prototype / learning project. SpiritVale is a trademark of its respective owners; this is an independent fan-inspired tech demo, not affiliated with the original game.
 
-Third-party character art: KayKit Adventurers Knight + Mage by Kay Lousberg, CC0 — see `public/models/kaykit-knight/` and `public/models/kaykit-mage/`.
+Third-party character art: KayKit Adventurers Knight + Mage + Rogue by Kay Lousberg, CC0 — see `public/models/kaykit-knight/`, `public/models/kaykit-mage/`, and `public/models/kaykit-rogue/`.

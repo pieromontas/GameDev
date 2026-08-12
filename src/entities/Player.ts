@@ -8,9 +8,10 @@ import {
   SkillState,
   createSkillsForClass,
   isSkillUnlocked,
+  nextClassInCycle,
 } from '../combat/Skills';
 import { createToonMaterial } from '../render/stylized';
-import { MAGE_VISUAL, PlayerVisual, WARRIOR_VISUAL } from './PlayerVisual';
+import { MAGE_VISUAL, PlayerVisual, ROGUE_VISUAL, WARRIOR_VISUAL } from './PlayerVisual';
 
 export type PlayerAnim = 'idle' | 'move' | 'slash' | 'quake' | 'bash' | 'burst';
 
@@ -29,7 +30,7 @@ export function xpToReachNext(level: number): number {
 
 /**
  * Playable hero — gameplay capsule + facing/skills on the Entity root.
- * Visuals swap between KayKit Knight (Warrior) and KayKit Mage via PlayerVisual.
+ * Visuals swap between KayKit Knight / Mage / Rogue via PlayerVisual.
  */
 export class Player extends Entity {
   static readonly BASE_MAX_HP = 120;
@@ -50,13 +51,13 @@ export class Player extends Entity {
   level = 1;
   /** Progress toward the next level. */
   xp = 0;
-  /** Permanent flat damage from leveling (Warrior + Mage skills). */
+  /** Permanent flat damage from leveling (all class kits). */
   bonusDamage = 0;
   /** True after the Level-3 skill-unlock toast has fired once this session. */
   private skill4UnlockAnnounced = false;
   private buffRemain = 0;
   private classId: PlayerClass = 'warrior';
-  /** While > 0, Leap Strike owns horizontal position (blocks WASD drift). */
+  /** While > 0, Leap / Shadow Leap owns horizontal position (blocks WASD drift). */
   private leapLockRemain = 0;
 
   private readonly velocity = new THREE.Vector3();
@@ -65,6 +66,7 @@ export class Player extends Entity {
   private animDur = 0;
   private readonly warriorVisual: PlayerVisual;
   private readonly mageVisual: PlayerVisual;
+  private readonly rogueVisual: PlayerVisual;
   private visual: PlayerVisual;
 
   /** Smoothed visual yaw (radians). Snapping this was the main side-strafe choppiness. */
@@ -91,15 +93,19 @@ export class Player extends Entity {
 
     const warriorVisual = new PlayerVisual(WARRIOR_VISUAL);
     const mageVisual = new PlayerVisual(MAGE_VISUAL);
+    const rogueVisual = new PlayerVisual(ROGUE_VISUAL);
     group.add(warriorVisual.root);
     group.add(mageVisual.root);
+    group.add(rogueVisual.root);
 
     super(group, 'player', Player.BASE_MAX_HP, 0.5);
     this.warriorVisual = warriorVisual;
     this.mageVisual = mageVisual;
+    this.rogueVisual = rogueVisual;
     this.visual = warriorVisual;
     this.warriorVisual.setActive(true);
     this.mageVisual.setActive(false);
+    this.rogueVisual.setActive(false);
     this.skills = createSkillsForClass('warrior');
     this.position.set(0, 0, 6);
     this.mesh.rotation.y = this.yaw;
@@ -114,13 +120,14 @@ export class Player extends Entity {
     return CLASS_LABEL[this.classId];
   }
 
-  /** Begin GLTF loads for both kits; safe to call once from Game boot. */
-  async loadVisuals(): Promise<{ warrior: boolean; mage: boolean }> {
-    const [warrior, mage] = await Promise.all([
+  /** Begin GLTF loads for all kits; safe to call once from Game boot. */
+  async loadVisuals(): Promise<{ warrior: boolean; mage: boolean; rogue: boolean }> {
+    const [warrior, mage, rogue] = await Promise.all([
       this.warriorVisual.load(),
       this.mageVisual.load(),
+      this.rogueVisual.load(),
     ]);
-    return { warrior, mage };
+    return { warrior, mage, rogue };
   }
 
   /** @deprecated Prefer loadVisuals — kept for call-site clarity during migration. */
@@ -128,9 +135,16 @@ export class Player extends Entity {
     return this.loadVisuals().then((r) => r.warrior);
   }
 
+  private visualForClass(cls: PlayerClass): PlayerVisual {
+    if (cls === 'mage') return this.mageVisual;
+    if (cls === 'rogue') return this.rogueVisual;
+    return this.warriorVisual;
+  }
+
   /**
    * Swap active class kit (model + skills). Returns false if already that class.
    * Cooldowns reset so HUD labels match a fresh kit.
+   * Clears brief leap lock so a mid-leap swap never softlocks WASD.
    */
   switchClass(next: PlayerClass): boolean {
     if (next === this.classId) return false;
@@ -138,18 +152,20 @@ export class Player extends Entity {
     this.classId = next;
     this.skills = createSkillsForClass(next);
     this.visual.setActive(false);
-    this.visual = next === 'mage' ? this.mageVisual : this.warriorVisual;
+    this.visual = this.visualForClass(next);
     this.visual.setActive(true);
 
+    // Drop any leftover gap-closer ownership from the previous kit.
+    this.leapLockRemain = 0;
     this.anim = 'idle';
     this.animT = 0;
     this.animDur = 0;
     return true;
   }
 
-  /** Toggle Warrior ↔ Mage. */
+  /** Cycle Warrior → Mage → Rogue → Warrior… */
   toggleClass(): PlayerClass {
-    this.switchClass(this.classId === 'warrior' ? 'mage' : 'warrior');
+    this.switchClass(nextClassInCycle(this.classId));
     return this.classId;
   }
 
@@ -222,7 +238,7 @@ export class Player extends Entity {
 
   /**
    * Apply (or refresh) a shrine blessing — damage + move speed for a short window.
-   * Works for Warrior and Mage; stacks by refresh, not multiply-on-multiply.
+   * Works for all classes; stacks by refresh, not multiply-on-multiply.
    */
   applyShrineBuff(duration: number, damageMult = 1.4, moveMult = 1.22): void {
     this.buffRemain = Math.max(this.buffRemain, duration);
@@ -295,32 +311,36 @@ export class Player extends Entity {
     this.outOfCombat = 0;
   }
 
-  /** Trigger basic skill pose (Slash / Arcane Bolt). */
+  /** Trigger basic skill pose (Slash / Arcane Bolt / Stab). */
   playSlash(): void {
     this.anim = 'slash';
     this.animT = 0;
-    this.animDur = this.classId === 'mage' ? 0.42 : 0.38;
+    this.animDur =
+      this.classId === 'mage' ? 0.42 : this.classId === 'rogue' ? 0.32 : 0.38;
   }
 
-  /** Trigger AoE pose (Quake / Frost Nova). */
+  /** Trigger AoE pose (Quake / Frost Nova / Fan of Knives). */
   playQuake(): void {
     this.anim = 'quake';
     this.animT = 0;
-    this.animDur = this.classId === 'mage' ? 0.62 : 0.55;
+    this.animDur =
+      this.classId === 'mage' ? 0.62 : this.classId === 'rogue' ? 0.58 : 0.55;
   }
 
-  /** Trigger utility pose (Shield Bash / Arcane Ward). */
+  /** Trigger utility pose (Shield Bash / Arcane Ward / Smoke Bomb). */
   playBash(): void {
     this.anim = 'bash';
     this.animT = 0;
-    this.animDur = this.classId === 'mage' ? 0.5 : 0.42;
+    this.animDur =
+      this.classId === 'mage' ? 0.5 : this.classId === 'rogue' ? 0.4 : 0.42;
   }
 
-  /** Trigger slot-4 pose (Leap Strike / Meteor). */
+  /** Trigger slot-4 pose (Leap Strike / Meteor / Shadow Leap). */
   playBurst(): void {
     this.anim = 'burst';
     this.animT = 0;
-    this.animDur = this.classId === 'mage' ? 0.72 : 0.58;
+    this.animDur =
+      this.classId === 'mage' ? 0.72 : this.classId === 'rogue' ? 0.56 : 0.58;
   }
 
   /**
