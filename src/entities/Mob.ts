@@ -2,27 +2,31 @@ import * as THREE from 'three';
 import { Entity } from './Entity';
 import { dist2, randomPointInRing } from '../utils/math';
 
-export type MobAIState = 'idle' | 'chase' | 'attack' | 'dead';
+export type MobAIState = 'idle' | 'chase' | 'attack' | 'leash' | 'dead';
 
 const sharedBodyGeo = new THREE.SphereGeometry(0.55, 12, 10);
 const sharedEyeGeo = new THREE.SphereGeometry(0.1, 6, 6);
 const sharedSpotGeo = new THREE.SphereGeometry(0.12, 6, 6);
 
 export class Mob extends Entity {
-  readonly moveSpeed = 3.6;
-  readonly aggroRange = 12;
-  readonly attackRange = 1.35;
-  readonly attackDamage = 8;
-  readonly attackCooldown = 1.1;
+  readonly moveSpeed = 3.45;
+  readonly aggroRange = 9.5;
+  readonly leashRange = 16;
+  readonly attackRange = 1.45;
+  readonly attackDamage = 7;
+  readonly attackCooldown = 1.25;
+  /** Soft body radius used for mob-vs-mob separation. */
+  readonly sepRadius = 0.75;
 
   ai: MobAIState = 'idle';
   attackTimer = 0;
   private respawnTimer = 0;
-  private readonly home: THREE.Vector3;
+  readonly home: THREE.Vector3;
   private readonly bodyMat: THREE.MeshLambertMaterial;
   private readonly baseColor: number;
   private wobble = Math.random() * Math.PI * 2;
   private readonly velocity = new THREE.Vector3();
+  private readonly faceTmp = new THREE.Vector3();
 
   constructor(spawn: THREE.Vector3, color = 0xff7eb6) {
     const group = new THREE.Group();
@@ -46,7 +50,7 @@ export class Mob extends Entity {
     spot.position.set(0.25, 0.45, 0.35);
     group.add(spot);
 
-    super(group, 'enemy', 40, 0.6, spawn);
+    super(group, 'enemy', 40, 0.55, spawn);
     this.home = spawn.clone();
     this.bodyMat = bodyMat;
     this.baseColor = color;
@@ -83,11 +87,31 @@ export class Mob extends Entity {
       this.ai = 'idle';
       return;
     }
+
+    const homeD2 = dist2(this.position.x, this.position.z, this.home.x, this.home.z);
+    if (homeD2 > this.leashRange * this.leashRange) {
+      this.ai = 'leash';
+      return;
+    }
+
+    const prev = this.ai;
     const d2 = dist2(this.position.x, this.position.z, playerPos.x, playerPos.z);
     if (d2 <= this.attackRange * this.attackRange) {
       this.ai = 'attack';
+      // Short wind-up when closing into melee so the first bite is readable
+      if (prev === 'chase' || prev === 'idle') {
+        this.attackTimer = Math.max(this.attackTimer, 0.32);
+      }
+      this.faceTmp.set(playerPos.x - this.position.x, 0, playerPos.z - this.position.z);
+      if (this.faceTmp.lengthSq() > 1e-4) {
+        this.mesh.rotation.y = Math.atan2(this.faceTmp.x, this.faceTmp.z);
+      }
     } else if (d2 <= this.aggroRange * this.aggroRange) {
       this.ai = 'chase';
+    } else if (this.ai === 'chase' || this.ai === 'attack') {
+      // Drop aggro when player slips outside a slightly larger deaggro bubble
+      const deaggro = this.aggroRange + 2.5;
+      this.ai = d2 > deaggro * deaggro ? 'idle' : 'chase';
     } else {
       this.ai = 'idle';
     }
@@ -123,7 +147,7 @@ export class Mob extends Entity {
     this.hp = this.maxHp;
     this.alive = true;
     this.ai = 'idle';
-    this.attackTimer = 0.5;
+    this.attackTimer = 0.55;
     this.mesh.visible = true;
     this.mesh.scale.set(1, 1, 1);
     this.syncMesh();
@@ -132,7 +156,7 @@ export class Mob extends Entity {
   protected override onDeath(): void {
     super.onDeath();
     this.ai = 'dead';
-    this.beginRespawn(4.5);
+    this.beginRespawn(5.5);
   }
 }
 

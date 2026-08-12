@@ -8,8 +8,12 @@ export class HUD {
   private readonly lootText: HTMLElement;
   private readonly killsText: HTMLElement;
   private readonly toast: HTMLElement;
+  private readonly hint: HTMLElement;
   private readonly skillEls: Record<SkillId, { root: HTMLElement; overlay: HTMLElement }>;
   private toastTimer = 0;
+  private hintAge = 0;
+  private hintHidden = false;
+  private readonly prevReady: Record<SkillId, boolean> = { basic: true, slam: true };
 
   constructor(host: HTMLElement) {
     this.root = host;
@@ -27,7 +31,7 @@ export class HUD {
         <p class="meta" id="kills-text">Kills: 0</p>
       </div>
       <div class="hud-panel hud-bottom" id="skills"></div>
-      <div class="hud-panel hud-hint">
+      <div class="hud-panel hud-hint" id="controls-hint">
         <strong>Controls</strong><br/>
         WASD — move<br/>
         LMB / 1 — Slash<br/>
@@ -42,6 +46,7 @@ export class HUD {
     this.lootText = this.root.querySelector('#loot-text')!;
     this.killsText = this.root.querySelector('#kills-text')!;
     this.toast = this.root.querySelector('#toast')!;
+    this.hint = this.root.querySelector('#controls-hint')!;
 
     const skillsHost = this.root.querySelector('#skills')!;
     this.skillEls = {
@@ -62,7 +67,7 @@ export class HUD {
     el.innerHTML = `
       <span class="key">${key}</span>
       <span class="name">${name}</span>
-      <div class="cd-overlay">0</div>
+      <div class="cd-overlay"><span class="cd-num">0</span></div>
     `;
     host.appendChild(el);
     return { root: el, overlay: el.querySelector('.cd-overlay') as HTMLElement };
@@ -83,22 +88,39 @@ export class HUD {
       this.toastTimer -= dt;
       if (this.toastTimer <= 0) this.toast.classList.remove('show');
     }
+
+    if (!this.hintHidden) {
+      this.hintAge += dt;
+      if (this.hintAge > 10) {
+        this.hint.classList.add('fade');
+        this.hintHidden = true;
+      }
+    }
   }
 
   private syncSkill(id: SkillId, player: Player): void {
     const state = player.skills[id];
     const el = this.skillEls[id];
     const cd = state.cooldownRemaining;
-    if (cd <= 0) {
+    const num = el.overlay.querySelector('.cd-num') as HTMLElement | null;
+    const ready = cd <= 0;
+    if (ready) {
       el.root.classList.add('ready');
       el.overlay.style.transform = 'translateY(100%)';
-      el.overlay.textContent = '';
+      if (num) num.textContent = '';
+      if (!this.prevReady[id]) {
+        el.root.classList.remove('pop');
+        // restart CSS animation
+        void el.root.offsetWidth;
+        el.root.classList.add('pop');
+      }
     } else {
       el.root.classList.remove('ready');
       const pct = cd / state.def.cooldown;
       el.overlay.style.transform = `translateY(${(1 - pct) * 100}%)`;
-      el.overlay.textContent = cd.toFixed(1);
+      if (num) num.textContent = cd.toFixed(1);
     }
+    this.prevReady[id] = ready;
   }
 
   showToast(message: string, duration = 1.4): void {

@@ -4,9 +4,9 @@ import { clamp } from '../utils/math';
 export class FollowCamera {
   readonly camera: THREE.PerspectiveCamera;
   private yaw = Math.PI * 0.25;
-  private readonly pitch = 0.85;
-  private readonly distance = 14;
-  private readonly lookHeight = 1.2;
+  private readonly pitch = 0.82;
+  private readonly distance = 13.5;
+  private readonly lookHeight = 1.35;
   private readonly follow = new THREE.Vector3();
   private readonly desired = new THREE.Vector3();
   private readonly lookAt = new THREE.Vector3();
@@ -37,7 +37,8 @@ export class FollowCamera {
   }
 
   update(target: THREE.Vector3, dt: number): void {
-    this.follow.lerp(target, clamp(1 - Math.pow(0.001, dt), 0, 1));
+    // Single snappy follow — less double-lerp lag in combat circles.
+    this.follow.lerp(target, clamp(1 - Math.pow(0.00008, dt), 0, 1));
 
     const horizontal = Math.cos(this.pitch) * this.distance;
     const vertical = Math.sin(this.pitch) * this.distance;
@@ -48,7 +49,7 @@ export class FollowCamera {
       this.follow.z + Math.cos(this.yaw) * horizontal,
     );
 
-    this.camera.position.lerp(this.desired, clamp(1 - Math.pow(0.0005, dt), 0, 1));
+    this.camera.position.lerp(this.desired, clamp(1 - Math.pow(0.00005, dt), 0, 1));
     this.lookAt.set(this.follow.x, this.follow.y + this.lookHeight, this.follow.z);
     this.camera.lookAt(this.lookAt);
   }

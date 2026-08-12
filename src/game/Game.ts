@@ -27,6 +27,7 @@ export class Game {
   private readonly moveDir = new THREE.Vector3();
   private readonly forward = new THREE.Vector3();
   private readonly right = new THREE.Vector3();
+  private readonly sepPush = new THREE.Vector3();
 
   private lootCount = 0;
   private kills = 0;
@@ -74,11 +75,11 @@ export class Game {
         this.scene.add(pickup.mesh);
       },
       onPlayerDamaged: () => {
-        /* flash handled on entity */
+        /* flash / i-frames handled on entity + combat */
       },
       onKill: () => {
         this.kills += 1;
-        this.hud.showToast('Blob defeated!');
+        this.hud.showToast('Blob defeated!', 1.0);
       },
     });
 
@@ -138,31 +139,51 @@ export class Game {
       if (this.playerRespawnTimer <= 0) {
         this.player.respawn();
         this.playerRespawnTimer = -1;
-        this.hud.showToast('You regroup and fight on!');
+        this.cameraRig.snapTo(this.player.position);
+        this.hud.showToast('You regroup and fight on!', 1.5);
       }
     }
 
     for (const mob of this.mobs) {
       mob.update(dt);
-      if (mob.alive && mob.ai === 'chase') {
-        mob.moveToward(this.player.position, dt, (p) => this.meadow.clampToPlayArea(p));
-      } else if (mob.readyToRespawn()) {
-        mob.respawnNearHome();
-        this.hud.showToast('A blob reforms nearby…', 1.1);
+      if (!mob.alive) {
+        if (mob.readyToRespawn()) {
+          mob.respawnNearHome();
+          this.hud.showToast('A blob reforms nearby…', 1.0);
+        }
+        continue;
+      }
+
+      if (mob.ai === 'chase') {
+        mob.moveToward(this.player.position, dt, (p) => this.constrainEntity(p, mob.radius));
+      } else if (mob.ai === 'leash') {
+        mob.moveToward(mob.home, dt, (p) => this.constrainEntity(p, mob.radius));
       }
     }
 
+    this.separateMobs();
+
     this.combat.updateMobCombat(this.mobs, this.player);
     if (wasAlive && !this.player.alive) {
-      this.playerRespawnTimer = 2.5;
+      this.playerRespawnTimer = 2.2;
       this.hud.showToast('Defeated — respawning…', 2);
     }
 
-    for (const pickup of this.loot) {
+    for (let i = this.loot.length - 1; i >= 0; i--) {
+      const pickup = this.loot[i]!;
       pickup.update(dt);
-      if (pickup.tryCollect(this.player.position, 1.2)) {
+      if (!pickup.alive) {
+        this.scene.remove(pickup.mesh);
+        pickup.dispose();
+        this.loot.splice(i, 1);
+        continue;
+      }
+      if (this.player.alive && pickup.tryCollect(this.player.position, 1.7)) {
         this.lootCount += 1;
-        this.hud.showToast('+1 loot', 0.9);
+        this.hud.showToast(`+1 loot  ·  ${this.lootCount}`, 0.85);
+        this.scene.remove(pickup.mesh);
+        pickup.dispose();
+        this.loot.splice(i, 1);
       }
     }
 
@@ -184,10 +205,51 @@ export class Game {
 
     if (this.moveDir.lengthSq() > 1e-6) {
       this.moveDir.normalize();
-      this.player.position.addScaledVector(this.moveDir, this.player.moveSpeed * dt);
-      this.meadow.clampToPlayArea(this.player.position);
-      this.player.faceDirection(this.moveDir);
-      this.player.syncMesh();
+    } else {
+      this.moveDir.set(0, 0, 0);
+    }
+
+    this.player.applyMovement(this.moveDir, dt);
+    this.constrainEntity(this.player.position, this.player.radius);
+    this.player.syncMesh();
+  }
+
+  private constrainEntity(position: THREE.Vector3, radius: number): void {
+    this.meadow.resolveObstacles(position, radius);
+    this.meadow.clampToPlayArea(position);
+  }
+
+  /** Keep blobs from stacking into an unreadable pile. */
+  private separateMobs(): void {
+    const n = this.mobs.length;
+    for (let i = 0; i < n; i++) {
+      const a = this.mobs[i]!;
+      if (!a.alive) continue;
+      for (let j = i + 1; j < n; j++) {
+        const b = this.mobs[j]!;
+        if (!b.alive) continue;
+        const minDist = a.sepRadius + b.sepRadius;
+        const dx = b.position.x - a.position.x;
+        const dz = b.position.z - a.position.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= minDist * minDist) continue;
+        if (d2 < 1e-6) {
+          this.sepPush.set(1, 0, 0);
+        } else {
+          const d = Math.sqrt(d2);
+          this.sepPush.set(dx / d, 0, dz / d);
+        }
+        const d = Math.sqrt(Math.max(d2, 1e-6));
+        const push = (minDist - d) * 0.5;
+        a.position.x -= this.sepPush.x * push;
+        a.position.z -= this.sepPush.z * push;
+        b.position.x += this.sepPush.x * push;
+        b.position.z += this.sepPush.z * push;
+        this.constrainEntity(a.position, a.radius);
+        this.constrainEntity(b.position, b.radius);
+        a.syncMesh();
+        b.syncMesh();
+      }
     }
   }
 

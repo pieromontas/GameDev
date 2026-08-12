@@ -1,10 +1,14 @@
 import * as THREE from 'three';
 
+export type Obstacle = { x: number; z: number; radius: number };
+
 /** Shared stylized meadow: green ground, trees, rocks. Reuses geometries/materials. */
 export class MeadowBiome {
   readonly root = new THREE.Group();
   readonly groundSize = 80;
   readonly playRadius = 34;
+  /** Solid props used for soft collision (trees + rocks). */
+  readonly obstacles: Obstacle[] = [];
 
   private readonly treeGeo = new THREE.ConeGeometry(0.9, 2.4, 6);
   private readonly trunkGeo = new THREE.CylinderGeometry(0.22, 0.28, 0.9, 6);
@@ -80,17 +84,72 @@ export class MeadowBiome {
     ];
     for (const [x, z, s] of treeSpots) this.addTree(x, z, s);
 
-    for (let i = 0; i < 18; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 4 + Math.random() * 22;
-      this.addRock(Math.cos(a) * r, Math.sin(a) * r, 0.6 + Math.random() * 0.7);
-    }
+    // Deterministic rock placements so collision matches visuals across reloads
+    const rockSpots: Array<[number, number, number]> = [
+      [4.2, -3.1, 0.85],
+      [-5.5, 2.4, 1.05],
+      [9.1, 5.8, 0.7],
+      [-9.4, -7.2, 0.95],
+      [1.6, 11.3, 0.8],
+      [-13.2, 1.1, 1.1],
+      [11.8, -9.4, 0.75],
+      [-2.8, -10.6, 0.9],
+      [7.4, 14.2, 0.65],
+      [-7.1, 12.5, 1.0],
+      [15.2, 1.8, 0.85],
+      [-14.6, -5.3, 0.7],
+      [5.9, -14.1, 0.95],
+      [-0.8, 7.6, 0.6],
+      [12.4, 10.1, 0.8],
+      [-10.8, 8.9, 0.75],
+      [3.3, 3.7, 0.55],
+      [-6.2, -13.4, 0.9],
+    ];
+    for (const [x, z, s] of rockSpots) this.addRock(x, z, s);
 
-    for (let i = 0; i < 40; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 3 + Math.random() * 24;
-      this.addFlower(Math.cos(a) * r, Math.sin(a) * r);
-    }
+    const flowerSpots: Array<[number, number]> = [
+      [2, 1],
+      [-3, 4],
+      [5, -2],
+      [-6, -1],
+      [8, 3],
+      [-1, -5],
+      [4, 8],
+      [-8, 6],
+      [10, -7],
+      [-4, 10],
+      [1, 13],
+      [-11, -3],
+      [7, 9],
+      [-9, 0],
+      [13, 4],
+      [0, -9],
+      [6, -11],
+      [-5, -8],
+      [9, 12],
+      [-12, 5],
+      [3, -6],
+      [-2, 2],
+      [11, -1],
+      [-7, -11],
+      [14, 7],
+      [-13, 9],
+      [2, -13],
+      [8, -4],
+      [-10, 11],
+      [5, 5],
+      [-3, -14],
+      [12, -12],
+      [-1, 8],
+      [4, -8],
+      [-14, -1],
+      [0, 4],
+      [7, 1],
+      [-6, 7],
+      [10, 8],
+      [-8, -6],
+    ];
+    for (const [x, z] of flowerSpots) this.addFlower(x, z);
   }
 
   private addTree(x: number, z: number, scale: number): void {
@@ -105,27 +164,32 @@ export class MeadowBiome {
 
     const leaves = new THREE.Mesh(
       this.treeGeo,
-      Math.random() > 0.5 ? this.leafMat : this.leafMatB,
+      ((Math.abs(Math.sin(x * 12.9898 + z * 78.233)) * 43758.5453) % 1) > 0.5
+        ? this.leafMat
+        : this.leafMatB,
     );
     leaves.position.y = 1.9;
     leaves.castShadow = true;
     group.add(leaves);
 
     this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.55 * scale });
   }
 
   private addRock(x: number, z: number, scale: number): void {
     const rock = new THREE.Mesh(this.rockGeo, this.rockMat);
     rock.position.set(x, 0.25 * scale, z);
     rock.scale.set(scale, scale * 0.75, scale * 1.1);
-    rock.rotation.y = Math.random() * Math.PI;
+    rock.rotation.y = (x * 1.7 + z * 2.3) % (Math.PI * 2);
     rock.castShadow = true;
     rock.receiveShadow = true;
     this.root.add(rock);
+    this.obstacles.push({ x, z, radius: 0.42 * scale });
   }
 
   private addFlower(x: number, z: number): void {
-    const mat = this.flowerMats[Math.floor(Math.random() * this.flowerMats.length)]!;
+    const idx = Math.abs(Math.floor(x * 3 + z * 5)) % this.flowerMats.length;
+    const mat = this.flowerMats[idx]!;
     const flower = new THREE.Mesh(this.flowerGeo, mat);
     flower.position.set(x, 0.12, z);
     this.root.add(flower);
@@ -139,6 +203,29 @@ export class MeadowBiome {
       const d = Math.sqrt(d2);
       position.x = (position.x / d) * this.playRadius;
       position.z = (position.z / d) * this.playRadius;
+    }
+  }
+
+  /** Soft-push an entity out of solid props. */
+  resolveObstacles(position: THREE.Vector3, radius: number): void {
+    for (const o of this.obstacles) {
+      const minDist = o.radius + radius;
+      const dx = position.x - o.x;
+      const dz = position.z - o.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 >= minDist * minDist || d2 < 1e-8) {
+        if (d2 < 1e-8) {
+          position.x = o.x + minDist;
+          position.z = o.z;
+        }
+        continue;
+      }
+      const d = Math.sqrt(d2);
+      if (d < minDist) {
+        const push = (minDist - d) / d;
+        position.x += dx * push;
+        position.z += dz * push;
+      }
     }
   }
 }
