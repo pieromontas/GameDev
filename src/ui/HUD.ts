@@ -77,6 +77,7 @@ export class HUD {
         <kbd>E</kbd> — awaken east shrine<br/>
         Follow the dirt path west to the misty grove<br/>
         Follow the dirt path north to the ruins<br/>
+        Follow the dirt path south to the river ford<br/>
         RMB drag — rotate camera
       </div>
       <div class="interact-prompt" id="interact-prompt" hidden></div>

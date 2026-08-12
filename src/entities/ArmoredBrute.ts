@@ -593,7 +593,7 @@ export class ArmoredBrute extends Entity {
 }
 
 /**
- * Starter brutes — east shrine + west grove + north ruins (never the starter meadow).
+ * Starter brutes — east shrine + west grove + north ruins + south ford (never the starter meadow).
  * One per clearing keeps them memorable without flooding combat.
  */
 export function createStarterBrutes(): ArmoredBrute[] {
@@ -604,6 +604,8 @@ export function createStarterBrutes(): ArmoredBrute[] {
     new THREE.Vector3(-41, 0, 0),
     // North ruins courtyard — east of the crumbled gate, clear of columns
     new THREE.Vector3(7, 0, 42),
+    // South river ford — west of the cart remnant, clear of the water band
+    new THREE.Vector3(-7, 0, -42),
   ];
   return spots.map((p) => new ArmoredBrute(p));
 }

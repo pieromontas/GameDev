@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine**, **west misty grove**, and **north ruins** clearings, blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine**, **west misty grove**, **north ruins**, and **south river ford** clearings, blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -43,7 +43,11 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **4** | Skill 4 (Leap Strike / Meteor / Shadow Leap) — unlocks at **Level 3** |
 | **RMB drag** | Rotate camera yaw |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A controls hint also lists **C / Tab — cycle Warrior → Mage → Rogue**, **E — awaken east shrine**, the west misty grove path, and the **north ruins** path.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A controls hint also lists **C / Tab — cycle Warrior → Mage → Rogue**, **E — awaken east shrine**, the west misty grove path, the **north ruins** path, and the **south river ford** path.
+
+## South river ford
+
+Follow the dirt path **south** from the main meadow to a fifth reachable clearing. Landmark: a **shallow river ford** with **stepping stones**, **reeds**, and a **broken cart / camp remnant** (distinct from the east shrine tower, west fairy ring, and north ruins gate). **2 blobs + 2 spitters + 1 Armored Brute** patrol the riverside. Play-area clamp includes the south corridor + clearing — fully walkable. No new objective this cycle; explore and fight.
 
 ## North ruins
 
@@ -58,7 +62,7 @@ Follow the dirt path **west** from the main meadow to a second reachable clearin
 A third enemy type — large rust/bronze armored silhouette (procedural toon mesh), clearly distinct from purple meadow blobs and acid-green Spitters.
 
 - **Behavior** — slow chase, high HP tank; telegraphed **ground slam** (crouch wind-up + growing AoE ring → shockwave)
-- **Spawn** — **1** in the east shrine clearing, **1** in the west misty grove, and **1** in the north ruins (none in the starter meadow)
+- **Spawn** — **1** in the east shrine clearing, **1** in the west misty grove, **1** in the north ruins, and **1** in the south river ford (none in the starter meadow)
 - **Rewards** — **3 loot coins** and **+28 XP** on kill (richer than blobs / spitters); distinct toast: *“Armored Brute crushed!”*
 - **CC** — Warrior Shield Bash stun/knockback, Mage Frost Nova slow, and Rogue skills all apply as with other mobs
 

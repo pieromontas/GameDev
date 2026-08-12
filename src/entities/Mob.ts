@@ -539,7 +539,8 @@ export function createStarterMobs(): Mob[] {
     new THREE.Vector3(-7, 0, -8),
     new THREE.Vector3(12, 0, 8),
     new THREE.Vector3(-10, 0, 4),
-    new THREE.Vector3(2, 0, -14),
+    // Was (2, −14) — nudged east so the south path branch stays open
+    new THREE.Vector3(6, 0, -16),
     new THREE.Vector3(-4, 0, 14),
     // East shrine clearing (second playable pocket)
     new THREE.Vector3(36, 0, 2),
@@ -551,6 +552,9 @@ export function createStarterMobs(): Mob[] {
     // North ruins courtyard
     new THREE.Vector3(-2, 0, 36),
     new THREE.Vector3(6, 0, 44),
+    // South river ford clearing
+    new THREE.Vector3(2, 0, -36),
+    new THREE.Vector3(-6, 0, -44),
   ];
   return spots.map((p, i) => new Mob(p, colors[i % colors.length]));
 }
