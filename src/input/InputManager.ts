@@ -1,11 +1,8 @@
 export class InputManager {
   private readonly keys = new Set<string>();
   private readonly justPressed = new Set<string>();
-  private pointerDown = false;
   private pointerX = 0;
   private pointerY = 0;
-  private dragging = false;
-  private lastPointerX = 0;
   private yawDelta = 0;
 
   constructor(private readonly target: HTMLElement) {
@@ -40,10 +37,8 @@ export class InputManager {
   }
 
   consumeAttackClick(): boolean {
-    if (!this.pointerDown || this.dragging) return false;
-    // Primary click attack is edged via pointerdown flag consumed each frame.
-    const clicked = this.justPressed.has('PointerPrimary');
-    return clicked;
+    // Fire on primary pointerdown edge; camera yaw is RMB-only so clicks aren't eaten by drag.
+    return this.justPressed.has('PointerPrimary');
   }
 
   getMoveAxes(): { x: number; z: number } {
@@ -81,30 +76,20 @@ export class InputManager {
 
   private onPointerDown = (e: PointerEvent): void => {
     if (e.button === 0) {
-      this.pointerDown = true;
-      this.dragging = false;
-      this.lastPointerX = e.clientX;
       this.pointerX = e.clientX;
       this.pointerY = e.clientY;
       this.justPressed.add('PointerPrimary');
       this.target.setPointerCapture(e.pointerId);
-    } else if (e.button === 2) {
-      this.dragging = true;
-      this.lastPointerX = e.clientX;
     }
   };
 
   private onPointerUp = (e: PointerEvent): void => {
     if (e.button === 0) {
-      this.pointerDown = false;
       try {
         this.target.releasePointerCapture(e.pointerId);
       } catch {
         /* ignore */
       }
-    }
-    if (e.button === 2) {
-      this.dragging = false;
     }
   };
 
@@ -112,13 +97,9 @@ export class InputManager {
     this.pointerX = e.clientX;
     this.pointerY = e.clientY;
 
-    const buttonsMiddleOrRight = (e.buttons & 2) !== 0 || (e.buttons & 4) !== 0;
-    if (buttonsMiddleOrRight || (this.pointerDown && e.buttons === 1 && Math.abs(e.clientX - this.lastPointerX) > 3)) {
-      if (buttonsMiddleOrRight || Math.abs(e.movementX) > 0) {
-        this.dragging = true;
-        this.yawDelta += e.movementX * 0.005;
-      }
+    // Only right-button drag rotates the camera (middle button also allowed).
+    if ((e.buttons & 2) !== 0 || (e.buttons & 4) !== 0) {
+      this.yawDelta += e.movementX * 0.005;
     }
-    this.lastPointerX = e.clientX;
   };
 }

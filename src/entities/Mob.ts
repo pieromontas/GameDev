@@ -9,11 +9,11 @@ const sharedEyeGeo = new THREE.SphereGeometry(0.1, 6, 6);
 const sharedSpotGeo = new THREE.SphereGeometry(0.12, 6, 6);
 
 export class Mob extends Entity {
-  readonly moveSpeed = 3.6;
-  readonly aggroRange = 12;
-  readonly attackRange = 1.35;
-  readonly attackDamage = 8;
-  readonly attackCooldown = 1.1;
+  readonly moveSpeed = 3.2;
+  readonly aggroRange = 10;
+  readonly attackRange = 1.3;
+  readonly attackDamage = 5;
+  readonly attackCooldown = 1.55;
 
   ai: MobAIState = 'idle';
   attackTimer = 0;
@@ -144,7 +144,6 @@ export function createStarterMobs(): Mob[] {
     new THREE.Vector3(12, 0, 8),
     new THREE.Vector3(-10, 0, 4),
     new THREE.Vector3(2, 0, -14),
-    new THREE.Vector3(-4, 0, 14),
   ];
   return spots.map((p, i) => new Mob(p, colors[i % colors.length]));
 }

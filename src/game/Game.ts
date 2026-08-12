@@ -158,12 +158,16 @@ export class Game {
       this.hud.showToast('Defeated — respawning…', 2);
     }
 
-    for (const pickup of this.loot) {
-      pickup.update(dt);
-      if (pickup.tryCollect(this.player.position, 1.2)) {
-        this.lootCount += 1;
-        this.hud.showToast('+1 loot', 0.9);
+    if (this.player.alive) {
+      for (const pickup of this.loot) {
+        pickup.update(dt);
+        if (pickup.tryCollect(this.player.position, 1.8, dt)) {
+          this.lootCount += 1;
+          this.hud.showToast(`+1 loot  (×${this.lootCount})`, 0.9);
+        }
       }
+    } else {
+      for (const pickup of this.loot) pickup.update(dt);
     }
 
     this.player.update(dt);
