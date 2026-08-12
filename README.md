@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine** and **west misty grove** clearings, blob + **Spitter** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine** and **west misty grove** clearings, blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -39,7 +39,18 @@ HUD skill names and the class line update when you switch. Slot 4 stays grayed w
 
 ## West misty grove
 
-Follow the dirt path **west** from the main meadow to a second reachable clearing. Landmark: a **fallen giant tree**, **fairy-ring mushrooms**, and soft mist volumes (distinct from the east shrine tower). **2 blobs + 2 spitters** patrol the grove. Play-area clamp includes the west corridor + clearing — fully walkable. No new objective this cycle; explore and fight.
+Follow the dirt path **west** from the main meadow to a second reachable clearing. Landmark: a **fallen giant tree**, **fairy-ring mushrooms**, and soft mist volumes (distinct from the east shrine tower). **2 blobs + 2 spitters + 1 Armored Brute** patrol the grove. Play-area clamp includes the west corridor + clearing — fully walkable. No new objective this cycle; explore and fight.
+
+## Armored Brute
+
+A third enemy type — large iron/bronze armored silhouette (procedural toon mesh), clearly distinct from purple meadow blobs and acid-green Spitters.
+
+- **Behavior** — slow chase, high HP tank; telegraphed **ground slam** (crouch wind-up + growing AoE ring → shockwave)
+- **Spawn** — **1** in the east shrine clearing and **1** in the west misty grove (none in the starter meadow)
+- **Rewards** — **3 loot coins** and **+28 XP** on kill (richer than blobs / spitters); distinct toast: *“Armored Brute crushed!”*
+- **CC** — Warrior Shield Bash stun/knockback, Mage Frost Nova slow, and Rogue skills all apply as with other mobs
+
+Sidestep the slam ring during the wind-up, or interrupt with stun.
 
 ## East shrine objective
 
@@ -54,7 +65,7 @@ Ignoring the shrine leaves meadow combat fully playable. Works for Warrior, Mage
 
 ## XP & leveling
 
-Defeat blobs (**+8 XP**) and spitters (**+14 XP**) to level up. The HUD shows **Level** and an XP bar (e.g. `Level 1 · XP 0/20`). Floating **+XP** appears on kills; every few kills also flashes a toast.
+Defeat blobs (**+8 XP**), spitters (**+14 XP**), and **Armored Brutes (+28 XP)** to level up. The HUD shows **Level** and an XP bar (e.g. `Level 1 · XP 0/20`). Floating **+XP** appears on kills; every few kills also flashes a toast.
 
 On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** and **+1–2 damage** (alternating). Reaching **Level 3** unlocks skill 4 for all kits (toast announces Leap Strike / Meteor / Shadow Leap). Level, XP, and bonuses persist through respawn and class swaps for the session. Works for Warrior, Mage, and Rogue — higher levels feel a bit stronger against spitters without a full rebalance.
 
@@ -81,14 +92,15 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 ## What’s in the slice
 
 - Living meadow: vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, tiered pines, mossy rocks, pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** clearings
-- **West misty grove**: dirt path west → fallen giant tree + fairy ring + mist; blobs/spitters; play clamp extended
-- **East shrine mini-objective**: interact (E) → defend 3 waves → temporary damage/speed blessing + loot; crystal activates with cooldown
+- **West misty grove**: dirt path west → fallen giant tree + fairy ring + mist; blobs/spitters/**Armored Brute**; play clamp extended
+- **East shrine mini-objective**: interact (E) → defend 3 waves → temporary damage/speed blessing + loot; crystal activates with cooldown; static **Armored Brute** also patrols the clearing
 - KayKit Knight / Mage / **Rogue** (GLTF) with Idle / Walk / Run + skill clips via three.js `AnimationMixer`
 - Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, frost slow, death squash
 - **Spitter** enemies (acid-green, spiked snout) that kite and fire slow spit projectiles — meadow + east shrine + west grove
-- Combat feedback: slash arcs, bolts, ground seals, Quake/Nova/Fan rings, Shield Bash pulse, Arcane Ward / Smoke Bomb bubbles, Leap / Shadow Leap trail/landing, Meteor telegraph + sky drop, floating damage numbers, world HP bars
-- Tiny loot loop: defeated blobs/spitters drop coins; pickups increment an inventory counter
-- **XP / leveling**: kills grant XP; HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent); **Level 3 unlocks skill 4**
+- **Armored Brute** enemies (iron/bronze tank) with slow chase, high HP, telegraphed ground-slam AoE — east shrine + west grove only
+- Combat feedback: slash arcs, bolts, ground seals, Quake/Nova/Fan rings, Shield Bash pulse, Arcane Ward / Smoke Bomb bubbles, Leap / Shadow Leap trail/landing, Meteor telegraph + sky drop, Brute slam shockwaves, floating damage numbers, world HP bars
+- Tiny loot loop: defeated blobs/spitters drop coins; **brutes drop 3**; pickups increment an inventory counter
+- **XP / leveling**: kills grant XP (blob 8 / spitter 14 / **brute 28**); HUD Level + XP bar; level-up toast + FX with permanent HP/damage bumps (session-persistent); **Level 3 unlocks skill 4**
 - HUD: HP, Level/XP, active class + switch hint, skill cooldowns (1/2/3/4) with locked Lv 3 state, loot/kill counts, shrine prompt/objective banner, blessing chip, controls hint, brief model loading overlay
 
 ## Character art (KayKit Adventurers)
@@ -142,7 +154,7 @@ src/
   input/InputManager.ts   Keyboard + pointer
   camera/FollowCamera.ts  Angled follow cam + optional yaw
   world/MeadowBiome.ts    Ground + props, play-area clamp
-  entities/               Player, PlayerVisual, Mob, Spitter, SpitProjectile, Loot, Entity
+  entities/               Player, PlayerVisual, Mob, Spitter, ArmoredBrute, SpitProjectile, Loot, Entity
   combat/                 Skills, CombatSystem, damage numbers
   render/stylized.ts      Toon materials, sky, palette, ground helpers
   ui/                     HUD + billboard health bars
