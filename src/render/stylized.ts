@@ -87,6 +87,7 @@ export function createToonMaterial(
     transparent?: boolean;
     opacity?: number;
     side?: THREE.Side;
+    depthWrite?: boolean;
   } = {},
 ): THREE.MeshToonMaterial {
   return new THREE.MeshToonMaterial({
@@ -97,6 +98,7 @@ export function createToonMaterial(
     transparent: opts.transparent ?? false,
     opacity: opts.opacity ?? 1,
     side: opts.side ?? THREE.FrontSide,
+    depthWrite: opts.depthWrite ?? true,
   });
 }
 

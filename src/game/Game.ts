@@ -21,7 +21,8 @@ export class Game {
   private readonly loop: GameLoop;
   private readonly meadow: MeadowBiome;
   private readonly shrine: ShrineObjective;
-  private readonly player: Player;
+  /** Public for DevTools playtests via `window.__game`. */
+  readonly player: Player;
   private readonly mobs: Enemy[];
   private readonly loot: LootPickup[] = [];
   private readonly combat: CombatSystem;

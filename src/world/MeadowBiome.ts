@@ -90,15 +90,16 @@ export class MeadowBiome {
   ];
   private readonly mushroomCapMat = createToonMaterial(0xd4e8f0, {
     emissive: 0x7ec8e8,
-    emissiveIntensity: 0.22,
+    emissiveIntensity: 0.55,
   });
   private readonly mushroomStemMat = createToonMaterial(0xf0ebe0);
   private readonly mistMat = createToonMaterial(0xb8d4e8, {
     transparent: true,
-    opacity: 0.22,
+    opacity: 0.38,
     emissive: 0x8ec4e0,
-    emissiveIntensity: 0.15,
+    emissiveIntensity: 0.28,
     side: THREE.DoubleSide,
+    depthWrite: false,
   });
 
   constructor() {
@@ -599,7 +600,7 @@ export class MeadowBiome {
   }
 
   /**
-   * Fallen giant tree — primary west-grove silhouette (horizontal trunk +
+   * Fallen giant tree — primary west-grove silhouette (thick horizontal trunk +
    * root flare + broken canopy pile). Reads at iso distance vs the east tower.
    */
   private addFallenGiantTree(x: number, z: number): void {
@@ -607,92 +608,103 @@ export class MeadowBiome {
     group.position.set(x, 0, z);
     group.name = 'FallenGiantTree';
 
-    // Root plate (upended) near the path-facing side
+    // Root plate (upended) near the path-facing side — tall silhouette cue
     const rootBall = new THREE.Mesh(
-      new THREE.SphereGeometry(1.35, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55),
+      new THREE.SphereGeometry(1.7, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55),
       this.trunkDarkMat,
     );
-    rootBall.position.set(4.2, 0.55, 0.4);
-    rootBall.rotation.z = -0.35;
+    rootBall.position.set(4.6, 0.85, 0.5);
+    rootBall.rotation.z = -0.45;
     rootBall.castShadow = true;
     group.add(rootBall);
 
-    for (let i = 0; i < 5; i++) {
-      const a = -0.4 + (i / 4) * 1.4;
+    for (let i = 0; i < 6; i++) {
+      const a = -0.5 + (i / 5) * 1.6;
       const root = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.12, 0.22, 1.6 + (i % 2) * 0.35, 5),
+        new THREE.CylinderGeometry(0.16, 0.28, 2.0 + (i % 2) * 0.4, 5),
         this.trunkMat,
       );
       root.position.set(
-        4.2 + Math.cos(a) * 0.9,
-        0.35,
-        0.4 + Math.sin(a) * 1.1,
+        4.6 + Math.cos(a) * 1.15,
+        0.55,
+        0.5 + Math.sin(a) * 1.25,
       );
-      root.rotation.z = Math.PI * 0.5 + (hash2(i, x) - 0.5) * 0.4;
+      root.rotation.z = Math.PI * 0.5 + (hash2(i, x) - 0.5) * 0.35;
       root.rotation.y = a;
       root.castShadow = true;
       group.add(root);
     }
 
-    // Main fallen trunk spanning the clearing
+    // Main fallen trunk — thick enough to read as the grove landmark at iso
     const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.72, 0.95, 9.2, 8),
+      new THREE.CylinderGeometry(1.05, 1.35, 10.5, 9),
       this.trunkMat,
     );
     trunk.rotation.z = Math.PI * 0.5;
-    trunk.rotation.y = 0.18;
-    trunk.position.set(0.2, 0.78, -0.3);
+    trunk.rotation.y = 0.12;
+    trunk.position.set(0.1, 1.15, -0.25);
     trunk.castShadow = true;
     trunk.receiveShadow = true;
     group.add(trunk);
 
+    // Darker under-log for depth / readable wood mass
+    const underLog = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 0.85, 8.5, 7),
+      this.trunkDarkMat,
+    );
+    underLog.rotation.z = Math.PI * 0.5;
+    underLog.rotation.y = 0.12;
+    underLog.position.set(0.3, 0.55, 0.35);
+    underLog.castShadow = true;
+    group.add(underLog);
+
     // Bark rings / breaks along the trunk
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       const band = new THREE.Mesh(
-        new THREE.TorusGeometry(0.78 + i * 0.06, 0.08, 5, 10),
+        new THREE.TorusGeometry(1.1 + i * 0.05, 0.11, 5, 12),
         this.trunkDarkMat,
       );
       band.rotation.y = Math.PI * 0.5;
-      band.position.set(-2.4 + i * 2.2, 0.82, -0.25 - i * 0.08);
+      band.position.set(-3.2 + i * 2.1, 1.2, -0.2 - i * 0.06);
       group.add(band);
     }
 
     // Moss blankets on the top face
     const mossA = new THREE.Mesh(this.rockSmallGeo, this.mossMat);
-    mossA.position.set(-1.2, 1.35, -0.5);
-    mossA.scale.set(1.4, 0.35, 0.9);
+    mossA.position.set(-1.2, 2.0, -0.55);
+    mossA.scale.set(1.8, 0.4, 1.1);
     group.add(mossA);
     const mossB = new THREE.Mesh(this.rockSmallGeo, this.mossMat);
-    mossB.position.set(1.8, 1.28, -0.15);
-    mossB.scale.set(1.1, 0.28, 0.75);
+    mossB.position.set(1.8, 1.95, -0.2);
+    mossB.scale.set(1.4, 0.35, 0.9);
     group.add(mossB);
 
-    // Broken canopy pile at the far (west) end
+    // Broken canopy pile at the far (west) end — keep it OFF the trunk top so wood reads
     const crown = new THREE.Group();
-    crown.position.set(-4.6, 0, -1.1);
+    crown.position.set(-5.4, 0, -2.2);
     const canopyLow = new THREE.Mesh(this.canopyLowGeo, this.leafDark);
-    canopyLow.position.set(0.2, 0.9, 0.3);
+    canopyLow.position.set(0.2, 1.1, 0.3);
     canopyLow.rotation.z = 0.9;
     canopyLow.rotation.x = 0.35;
-    canopyLow.scale.setScalar(1.35);
+    canopyLow.scale.setScalar(1.55);
     canopyLow.castShadow = true;
     crown.add(canopyLow);
     const canopyMid = new THREE.Mesh(this.canopyMidGeo, this.leafMatC);
-    canopyMid.position.set(-0.6, 1.1, -0.4);
+    canopyMid.position.set(-0.8, 1.3, -0.5);
     canopyMid.rotation.z = 1.1;
-    canopyMid.scale.setScalar(1.2);
+    canopyMid.scale.setScalar(1.35);
     canopyMid.castShadow = true;
     crown.add(canopyMid);
     const canopyTop = new THREE.Mesh(this.canopyTopGeo, this.leafMat);
-    canopyTop.position.set(0.5, 0.55, -0.7);
+    canopyTop.position.set(0.6, 0.7, -0.9);
     canopyTop.rotation.x = 1.2;
-    canopyTop.scale.setScalar(1.1);
+    canopyTop.scale.setScalar(1.25);
     crown.add(canopyTop);
     const branchStub = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.18, 2.2, 5),
+      new THREE.CylinderGeometry(0.16, 0.24, 2.6, 5),
       this.trunkDarkMat,
     );
-    branchStub.position.set(0.8, 0.9, 0.2);
+    branchStub.position.set(1.0, 1.1, 0.3);
     branchStub.rotation.z = 0.7;
     branchStub.rotation.y = -0.4;
     branchStub.castShadow = true;
@@ -701,10 +713,10 @@ export class MeadowBiome {
 
     this.root.add(group);
     // Soft collision along the trunk length (segment samples)
-    this.obstacles.push({ x: x + 3.5, z: z + 0.2, radius: 1.15 });
-    this.obstacles.push({ x: x + 0.5, z: z - 0.25, radius: 0.95 });
-    this.obstacles.push({ x: x - 2.8, z: z - 0.7, radius: 1.05 });
-    this.obstacles.push({ x: x - 4.6, z: z - 1.1, radius: 1.25 });
+    this.obstacles.push({ x: x + 4.0, z: z + 0.4, radius: 1.35 });
+    this.obstacles.push({ x: x + 0.5, z: z - 0.2, radius: 1.15 });
+    this.obstacles.push({ x: x - 2.8, z: z - 0.5, radius: 1.2 });
+    this.obstacles.push({ x: x - 5.4, z: z - 2.2, radius: 1.45 });
   }
 
   /** Circle of glowing mushrooms — fairy-ring landmark for the misty grove. */
@@ -712,7 +724,7 @@ export class MeadowBiome {
     for (let i = 0; i < count; i++) {
       const a = (i / count) * Math.PI * 2 + 0.15;
       const r = radius + (hash2(i, cx) - 0.5) * 0.35;
-      const scale = 0.75 + hash2(cz, i) * 0.55;
+      const scale = 1.15 + hash2(cz, i) * 0.7;
       this.addMushroom(cx + Math.cos(a) * r, cz + Math.sin(a) * r, scale);
     }
   }
@@ -723,29 +735,29 @@ export class MeadowBiome {
     group.scale.setScalar(scale);
 
     const stem = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.12, 0.45, 6),
+      new THREE.CylinderGeometry(0.1, 0.14, 0.55, 6),
       this.mushroomStemMat,
     );
-    stem.position.y = 0.22;
+    stem.position.y = 0.28;
     stem.castShadow = true;
     group.add(stem);
 
     const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.28, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55),
+      new THREE.SphereGeometry(0.36, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55),
       this.mushroomCapMat,
     );
-    cap.position.y = 0.48;
+    cap.position.y = 0.58;
     cap.castShadow = true;
     group.add(cap);
 
     const spot = new THREE.Mesh(
-      new THREE.SphereGeometry(0.06, 5, 5),
+      new THREE.SphereGeometry(0.08, 5, 5),
       createToonMaterial(Palette.flowerWhite, {
         emissive: 0xa8e8ff,
-        emissiveIntensity: 0.35,
+        emissiveIntensity: 0.7,
       }),
     );
-    spot.position.set(0.08, 0.58, 0.06);
+    spot.position.set(0.1, 0.7, 0.08);
     group.add(spot);
 
     this.root.add(group);
@@ -754,15 +766,16 @@ export class MeadowBiome {
   /** Soft translucent mist blobs so the grove reads “foggy” from the meadow. */
   private addGroveMist(cx: number, cz: number): void {
     const spots: Array<[number, number, number, number]> = [
-      [cx - 2, cz + 3, 2.8, 1.4],
-      [cx + 3, cz - 2, 3.2, 1.6],
-      [cx - 5, cz - 3, 2.4, 1.2],
-      [cx + 1, cz + 5, 2.6, 1.3],
-      [cx - 1, cz - 5, 2.2, 1.1],
+      [cx - 2, cz + 3, 3.4, 1.8],
+      [cx + 3, cz - 2, 3.8, 2.0],
+      [cx - 5, cz - 3, 3.0, 1.5],
+      [cx + 1, cz + 5, 3.2, 1.7],
+      [cx - 1, cz - 5, 2.8, 1.4],
+      [cx + 4.5, cz + 1.5, 2.6, 1.3],
     ];
     for (const [x, z, sx, sy] of spots) {
       const mist = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), this.mistMat);
-      mist.position.set(x, sy * 0.55, z);
+      mist.position.set(x, sy * 0.65, z);
       mist.scale.set(sx, sy, sx * 0.85);
       mist.renderOrder = 2;
       this.root.add(mist);
