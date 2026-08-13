@@ -16,7 +16,11 @@ import {
   hash2,
 } from '../render/stylized';
 import type { WorldPropLibrary } from './WorldPropLibrary';
-import { PROP_COLLISION_SCALE, WELL_OFFSET } from './WorldPropLibrary';
+import {
+  PROP_COLLISION_SCALE,
+  TREE_TRUNK_RADIUS,
+  WELL_OFFSET,
+} from './WorldPropLibrary';
 import {
   MARKET_ALLEY_SPOT,
   MARKET_BLACKSMITH_SPOT,
@@ -791,14 +795,14 @@ export class MeadowBiome {
       // Was (−12, 8) / (−18, 4) — keep wide of the south spawn cam’s near-left.
       [-22, 10, 0.95],
       // Was (6, 12) — sat on the old NE spawn-camera ray (read as a green hill dome).
-      // Parked farther NE so boot framing clears the canopy from south/SW/SE.
-      // Nudged slightly NW of the stone road so trunk collision stays off the gate spur.
-      [15, 28, 1.1],
+      // Was (15, 28) — clustered with (16,34) + NE rim tree + moss ledge into a foliage cage.
+      // Parked east of the north corridor cone, west of the gate road (still off (6,12)).
+      [14, 28, 1.1],
       // Was (−8, 18) / (−3, 16) — kept west of the north path, off the south spawn cam.
       [-16, 24, 1],
-      // Was (14, 6) → (14, 12) — (14, 12) sat on the NE gate-road start (+12,+12).
-      // Parked east of camp, south of the spur, still clear of the east shrine branch.
-      [19, 9, 1.05],
+      // Was (14, 6) → (14, 12) → (19, 9) — spread farther S of camp, clear of east shrine branch.
+      // Still off the old NE spawn-camera ray at (6, 12).
+      [20, 2, 1.05],
       // Was (−16, −2) — nudged south so the west path branch stays open
       [-16, -8, 1.2],
       // Was (3, −12) — nudged east so the south path branch stays open
@@ -809,8 +813,9 @@ export class MeadowBiome {
       // Outer-band fillers for the expanded meadow ring
       [28, -14, 1.05],
       [-30, 14, 0.98],
-      // Was (20, 30) — nudged off the NE city-gate road
-      [16, 34, 1.1],
+      // Was (20, 30) → (16, 34) — (16, 34) sat in the NE foliage cage with (15,28) + rim tree.
+      // Parked on the far-north rim (east of north corridor |x−3|<11, west of NE pocket skip).
+      [14, 38, 1.1],
       [-22, -28, 1.02],
     ];
     for (const [x, z, s] of treeSpots) {
@@ -4639,8 +4644,9 @@ export class MeadowBiome {
       // Outer rim ledges — kept off corridor approaches
       [32, -26, 1.2, 0.9],
       [-34, -20, 1.4, 1],
-      // Was (28, 30) — moved off the NE city-gate road
-      [22, 36, 1.1, 0.85],
+      // Was (28, 30) → (22, 36) — (22, 36) r≈1.65 moss mound caged with NE rim trees.
+      // Parked farther NE rim (outside gate-road cone and NE pocket skip).
+      [27, 42, 1.1, 0.85],
       [-32, 32, 1.3, 0.95],
       [34, 2, 1.5, 1.1],
       [-34, 16, 1.35, 1],
@@ -4724,7 +4730,9 @@ export class MeadowBiome {
     group.add(top);
 
     this.root.add(group);
-    this.obstacles.push({ x, z, radius: 0.6 * scale });
+    // Trunk-only from birth — procedural leftovers must not keep a crown cylinder
+    // when pack swap is skipped / partial. Crowns stay walk-under dressing.
+    this.obstacles.push({ x, z, radius: TREE_TRUNK_RADIUS * scale });
   }
 
   private addRock(x: number, z: number, scale: number): void {
@@ -4964,8 +4972,9 @@ export class MeadowBiome {
   /**
    * Swap the most visible procedural trees / rocks / cottage / windmill for KayKit
    * pack instances. Soft-collision radii are retuned via `PROP_COLLISION_SCALE`
-   * (buildings match Adventurers-relative bulk; trees stay trunk-only so crowns
-   * are walk-under). Paths, shrine/chest interacts, and play clamp stay unchanged.
+   * (buildings match Adventurers-relative bulk; trees keep absolute trunk radii so
+   * crowns stay walk-under; bushes stay walk-through dressing). Paths, shrine/chest
+   * interacts, and play clamp stay unchanged.
    * Safe to call once after `WorldPropLibrary.load()`; no-ops if the library is empty.
    */
   applyPropPack(library: WorldPropLibrary): boolean {
@@ -5128,8 +5137,9 @@ export class MeadowBiome {
 
   /**
    * Retune soft-collision radii for swapped pack props via `PROP_COLLISION_SCALE`.
-   * Trees use the trunk-only factor (not visual crown scale). Matches placements
-   * by exact XZ (same values pushed in addTree/addRock/…).
+   * Trees: *set* trunk-only radius (never multiply by visual `PROP_SCALE.tree`).
+   * Buildings / rocks still multiply so footprints match Adventurers bulk.
+   * Matches placements by exact XZ (same values pushed in addTree/addRock/…).
    */
   private retunePackObstacles(): void {
     const bump = (x: number, z: number, factor: number): void => {
@@ -5140,9 +5150,18 @@ export class MeadowBiome {
         }
       }
     };
+    const setRadius = (x: number, z: number, radius: number): void => {
+      for (const o of this.obstacles) {
+        if (o.x === x && o.z === z) {
+          o.radius = radius;
+          return;
+        }
+      }
+    };
 
+    // Absolute trunk radius — pack-swapped and procedural share the same stem collider.
     for (const p of this.treePlacements) {
-      bump(p.x, p.z, PROP_COLLISION_SCALE.tree);
+      setRadius(p.x, p.z, PROP_COLLISION_SCALE.tree * p.scale);
     }
     for (const p of this.rockPlacements) {
       bump(p.x, p.z, PROP_COLLISION_SCALE.rock);
@@ -5192,27 +5211,33 @@ export class MeadowBiome {
     }
   }
 
-  /** Soft bush dressing near trees / meadow rim — no collision (walk-through foliage). */
+  /**
+   * Soft bush / shrub dressing near trees / meadow rim.
+   * Walk-through only — never pushes into `obstacles` (camera must not sit inside
+   * a bush collider; foliage is visual dressing around trunk-only trees).
+   */
   private scatterPackBushes(library: WorldPropLibrary): void {
     const spots: Array<[number, number, number]> = [];
-    // Nestle bushes beside a subset of trees (farther out — trunks are larger now).
+    // Nestle bushes beside a subset of trees (farther out — clear of stem colliders).
     for (let i = 0; i < this.treePlacements.length; i += 2) {
       const t = this.treePlacements[i]!;
       const ang = hash2(t.z, t.x) * Math.PI * 2;
-      const r = 2.4 + hash2(t.x, i) * 1.2;
+      const r = 3.2 + hash2(t.x, i) * 1.4;
       spots.push([
         t.x + Math.cos(ang) * r,
         t.z + Math.sin(ang) * r,
         0.75 + hash2(i, t.z) * 0.45,
       ]);
     }
-    // A few pocket-rim accents (clear of shrine / ford walkways).
+    // A few pocket-rim accents (clear of shrine / ford / NE spawn→gate walkways).
     spots.push(
       [24, -18, 0.9],
       [-26, 16, 0.85],
-      [18, 28, 0.95],
+      // Was (18, 28) — sat in the NE foliage pocket beside camp trees.
+      [4, 34, 0.95],
       [-18, -26, 0.8],
-      [8, 36, 0.88],
+      // Was (8, 36) — kept west of the north/NE approach seam.
+      [2, 38, 0.88],
       [-34, -6, 0.92],
     );
 
@@ -5224,6 +5249,8 @@ export class MeadowBiome {
       if (this.isOnNorthBranchApproach(x, z)) continue;
       if (this.isOnSouthBranchApproach(x, z)) continue;
       if (this.isOnNortheastBranchApproach(x, z)) continue;
+      // Keep the NE/E spawn→gate meadow open — no bush wall beside trunk clusters.
+      if (x > 8 && z > 20 && x < 28 && z < 42) continue;
       // Keep shrine / ford / gate centers open.
       if (Math.hypot(x - EastShrineClearing.x, z - EastShrineClearing.z) < 8) continue;
       if (Math.hypot(x - SouthRiverFordClearing.x, z - SouthRiverFordClearing.z) < 8) continue;
@@ -5389,6 +5416,9 @@ export class MeadowBiome {
     if (x < 10 || z < 10) return false;
     // Wide cone along +X/+Z so the tree ring does not choke the NE exit / market street.
     if (x > 22 && z > 22 && Math.abs(x - z) < 12) return true;
+    // NE meadow pocket between the north path and gate road — stop rim trees / ledges
+    // from forming an overlapping trunk cage on the spawn→gate approach.
+    if (x > 15 && z > 32 && x < 24 && z < 40) return true;
     if (this.distToNortheastCorridor(x, z) < this.northeastCorridorHalfWidth + 1.6) {
       return true;
     }
