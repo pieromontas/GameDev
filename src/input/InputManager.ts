@@ -1,6 +1,22 @@
+/** Move-key tap latch: discrete keydown+keyup in one tick still yields a visible step. */
+const MOVE_LATCH_MS = 280;
+
+const MOVE_CODES = new Set([
+  'KeyW',
+  'KeyA',
+  'KeyS',
+  'KeyD',
+  'ArrowUp',
+  'ArrowLeft',
+  'ArrowDown',
+  'ArrowRight',
+]);
+
 export class InputManager {
   private readonly keys = new Set<string>();
   private readonly justPressed = new Set<string>();
+  /** performance.now() expiry per move code — held keys stay via `keys`; taps keep latch. */
+  private readonly moveLatchUntil = new Map<string, number>();
   private pointerX = 0;
   private pointerY = 0;
   private yawDragging = false;
@@ -51,11 +67,23 @@ export class InputManager {
   getMoveAxes(): { x: number; z: number } {
     let x = 0;
     let z = 0;
-    if (this.isDown('KeyA') || this.isDown('ArrowLeft')) x -= 1;
-    if (this.isDown('KeyD') || this.isDown('ArrowRight')) x += 1;
-    if (this.isDown('KeyW') || this.isDown('ArrowUp')) z -= 1;
-    if (this.isDown('KeyS') || this.isDown('ArrowDown')) z += 1;
+    // Held keys OR short tap latch (hosts that emit keydown+keyup in one tick).
+    // wasPressed covers the same-frame edge if latch somehow missed.
+    if (this.moveActive('KeyA') || this.moveActive('ArrowLeft')) x -= 1;
+    if (this.moveActive('KeyD') || this.moveActive('ArrowRight')) x += 1;
+    if (this.moveActive('KeyW') || this.moveActive('ArrowUp')) z -= 1;
+    if (this.moveActive('KeyS') || this.moveActive('ArrowDown')) z += 1;
     return { x, z };
+  }
+
+  /** True while key is held, while tap latch is live, or on the press frame. */
+  private moveActive(code: string): boolean {
+    if (this.keys.has(code) || this.justPressed.has(code)) return true;
+    const until = this.moveLatchUntil.get(code);
+    if (until === undefined) return false;
+    if (performance.now() < until) return true;
+    this.moveLatchUntil.delete(code);
+    return false;
   }
 
   consumeYawDelta(): number {
@@ -93,10 +121,15 @@ export class InputManager {
     if (e.repeat) return;
     this.keys.add(e.code);
     this.justPressed.add(e.code);
+    // Latch move axes past a same-tick keyup so getMoveAxes() still samples a step.
+    if (MOVE_CODES.has(e.code)) {
+      this.moveLatchUntil.set(e.code, performance.now() + MOVE_LATCH_MS);
+    }
   };
 
   private onKeyUp = (e: KeyboardEvent): void => {
     this.keys.delete(e.code);
+    // Do not clear moveLatchUntil here — latch lasts until expiry (or keep holding via keys).
   };
 
   private onPointerDown = (e: PointerEvent): void => {
