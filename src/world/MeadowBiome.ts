@@ -782,17 +782,21 @@ export class MeadowBiome {
     const treeSpots: Array<[number, number, number]> = [
       [-8, -6, 1.05],
       [10, -4, 1.15],
-      [-12, 8, 0.95],
-      [6, 12, 1.1],
-      // Was (−3, 16) — nudged west so the north path branch stays open
-      [-8, 18, 1],
+      // Was (−12, 8) / (−18, 4) — keep wide of the south spawn cam’s near-left.
+      [-22, 10, 0.95],
+      // Was (6, 12) — sat on the old NE spawn-camera ray (read as a green hill dome).
+      // Parked farther NE so boot framing clears the canopy from south/SW/SE.
+      [18, 26, 1.1],
+      // Was (−8, 18) / (−3, 16) — kept west of the north path, off the south spawn cam.
+      [-16, 24, 1],
       // Was (14, 6) — moved north so the east path branch stays open
       [14, 12, 1.05],
       // Was (−16, −2) — nudged south so the west path branch stays open
       [-16, -8, 1.2],
       // Was (3, −12) — nudged east so the south path branch stays open
       [8, -14, 1.05],
-      [-18, 10, 0.92],
+      // Was (−18, 10) — pulled farther west so south boot frame isn’t canopy-heavy.
+      [-26, 12, 0.92],
       [16, -12, 1.08],
       // Outer-band fillers for the expanded meadow ring
       [28, -14, 1.05],
