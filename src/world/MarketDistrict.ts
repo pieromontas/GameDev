@@ -124,7 +124,8 @@ export class MarketDistrictSign {
 
 /**
  * Flavor interact at the market blacksmith forge — toast only (no shop panel).
- * Keep E-priority after the market sign so the welcome board still wins on overlap.
+ * Keep E-priority after the gate guard; before street vendor / produce stall / sign
+ * so the forge yard still wins on plaza-edge overlap.
  */
 export class MarketBlacksmith {
   private readonly spot = new THREE.Vector3(MARKET_FORGE_SPOT.x, 0, MARKET_FORGE_SPOT.z);
@@ -252,8 +253,8 @@ const EXTRA_STALL_TOAST = 'Produce stall  ·  ripe gourds · cloth & trinkets';
 /**
  * Flavor interact at the extra west-rim plaza stall — toast only (no shop panel).
  * Distinct from the NW street vendor snacks. Keep E-priority after the street
- * vendor so the snack shop still wins on overlap; before the notice board / inn
- * so this pad stays reachable on the west rim.
+ * vendor so the snack shop still wins on overlap; before the market sign so the
+ * west-rim pad wins where the sign radius overlaps the stall.
  */
 export class MarketExtraStall {
   private readonly spot = new THREE.Vector3(MARKET_EXTRA_STALL.x, 0, MARKET_EXTRA_STALL.z);

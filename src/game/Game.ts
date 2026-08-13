@@ -660,9 +660,12 @@ export class Game {
   }
 
   /**
-   * E key: closed chests → healing spring → east shrine → gate guard → market sign →
-   * blacksmith → street vendor → produce stall → notice board → inn → alley →
-   * harbor catch crate → residential door → town chapel → cottage merchant.
+   * E key: closed chests → healing spring → east shrine → gate guard →
+   * blacksmith → street vendor → produce stall → market sign → notice board →
+   * inn → alley → harbor catch crate → residential door → town chapel →
+   * cottage merchant.
+   * Produce stall is before the market sign so the west-rim pad wins on overlap;
+   * street vendor stays ahead so the snack shop still wins if those pads overlap.
    * Open shop / stall / notice panel always closes on E first so it never blocks
    * other interactables.
    */
@@ -685,10 +688,10 @@ export class Game {
     if (this.springs.tryInteract(this.player)) return;
     if (this.shrine.tryInteract(this.player)) return;
     if (this.gateGuard.tryInteract(this.player)) return;
-    if (this.marketSign.tryInteract(this.player)) return;
     if (this.marketBlacksmith.tryInteract(this.player)) return;
     if (this.marketVendor.tryInteract(this.player)) return;
     if (this.marketExtraStall.tryInteract(this.player)) return;
+    if (this.marketSign.tryInteract(this.player)) return;
     if (this.marketNoticeBoard.tryInteract(this.player)) return;
     if (this.marketInn.tryInteract(this.player)) return;
     if (this.marketAlley.tryInteract(this.player)) return;
@@ -741,12 +744,6 @@ export class Game {
         promptVisible: true,
         promptText: gateGuardPrompt.text,
       });
-    } else if (marketPrompt.visible) {
-      this.hud.setShrineHud({
-        ...shrineHud,
-        promptVisible: true,
-        promptText: marketPrompt.text,
-      });
     } else if (smithPrompt.visible) {
       this.hud.setShrineHud({
         ...shrineHud,
@@ -764,6 +761,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: extraStallPrompt.text,
+      });
+    } else if (marketPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: marketPrompt.text,
       });
     } else if (noticePrompt.visible) {
       this.hud.setShrineHud({

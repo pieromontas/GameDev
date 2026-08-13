@@ -66,7 +66,7 @@ A simple spend-gold shop at the **NW cottage** (rim landmark near the well). Wal
 - **Damage Charm** — **11 gold**, **+35% damage** for **45s** (HUD buff chip)
 - **Feedback** — can’t-afford toast, purchase toast, top-right **Gold** counter updates
 - **Close** — **E**, **Esc**, or the panel ✕; shop also closes if you walk away
-- **E-priority** — chest → spring → shrine → gate guard → market sign → blacksmith → street vendor → produce stall → notice board → inn → alley → harbor catch crate → residential door → town chapel → merchant (merchant never blocks closer interactables)
+- **E-priority** — chest → spring → shrine → gate guard → blacksmith → street vendor → produce stall → market sign → notice board → inn → alley → harbor catch crate → residential door → town chapel → merchant (merchant never blocks closer interactables)
 
 Works for Warrior, Mage, and Rogue. Prices are reachable after opening a couple of chests. Distinct from the **market street vendor** (cheaper snack stall in the plaza).
 
