@@ -577,7 +577,7 @@ export class Game {
     }
     if (!this.homesHintShown && this.meadow.isNearResidentialStreet(this.player.position)) {
       this.homesHintShown = true;
-      this.hud.showToast('Homes  ·  quiet residential street', 2.0);
+      this.hud.showToast('Homes  ·  lanterns & fences along the lane', 2.0);
     }
     if (!this.docksHintShown && this.meadow.isNearHarborDocks(this.player.position)) {
       this.docksHintShown = true;
