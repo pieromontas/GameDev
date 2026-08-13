@@ -1,19 +1,25 @@
 import * as THREE from 'three';
 
 /** Soft see-through when a crown sits between the camera and the knight. */
-const FADE_OPACITY = 0.25;
+const FADE_OPACITY = 0.22;
+/** Only test foliage near the hero — meadow-wide casts are unnecessary. */
+const NEAR_XZ = 18;
+/** Expand bounds a little so sphere crowns still register when the cam clips them. */
+const BOUNDS_PAD = 1.15;
 
 type FoliageBase = {
   transparent: boolean;
   opacity: number;
   depthWrite: boolean;
+  side: THREE.Side;
 };
 
 /**
- * Cheap camera→hero occlusion for KayKit tree / bush crowns.
+ * Cheap camera↔hero occlusion for KayKit tree / bush crowns.
  *
- * One (or a few) rays from the look target toward the camera; only meshes tagged
- * `userData.foliageOccluder` fade. Cottages, gate, stalls, and ground stay opaque.
+ * Fades tagged `foliageOccluder` roots when they sit on the look ray or contain
+ * the camera (the common “inside green sphere” case). Cottages / gate / ground
+ * are never in the occluder list.
  */
 export class FoliageOcclusion {
   private readonly raycaster = new THREE.Raycaster();
@@ -22,13 +28,19 @@ export class FoliageOcclusion {
   private readonly camRight = new THREE.Vector3();
   private readonly camUp = new THREE.Vector3();
   private readonly sampleOrigin = new THREE.Vector3();
+  private readonly toCam = new THREE.Vector3();
+  private readonly bounds = new THREE.Box3();
+  private readonly sphere = new THREE.Sphere();
+  private readonly segDir = new THREE.Vector3();
+  private readonly closest = new THREE.Vector3();
+  private readonly nearList: THREE.Object3D[] = [];
   /** Groups currently faded this frame (restored when the ray is clear). */
   private readonly faded = new Set<THREE.Object3D>();
   private readonly nextFaded = new Set<THREE.Object3D>();
 
   /**
-   * @param lookAt World point near the hero helmet (same as FollowCamera look target).
-   * @param occluders Tree / bush roots tagged `foliageOccluder` (not the whole scene).
+   * @param lookAt World point near the hero helmet (FollowCamera look target).
+   * @param occluders Tree / bush roots tagged `foliageOccluder`.
    */
   update(
     camera: THREE.Camera,
@@ -41,27 +53,38 @@ export class FoliageOcclusion {
       return;
     }
 
-    this.origin.copy(lookAt);
-    this.direction.copy(camera.position).sub(this.origin);
-    const span = this.direction.length();
+    this.toCam.copy(camera.position).sub(lookAt);
+    const span = this.toCam.length();
     if (span < 0.05) {
       this.restoreCleared();
       return;
     }
-    this.direction.multiplyScalar(1 / span);
 
-    // Lateral samples catch thick crowns that miss a single center ray.
+    // 1) Nearby crowns that contain the camera or the look point (inside-sphere case).
+    for (const root of occluders) {
+      const dx = root.position.x - lookAt.x;
+      const dz = root.position.z - lookAt.z;
+      if (dx * dx + dz * dz > NEAR_XZ * NEAR_XZ) continue;
+      if (this.occluderBlocks(root, camera.position, lookAt)) {
+        this.nextFaded.add(root);
+      }
+    }
+
+    // 2) A few camera→hero rays catch crowns that sit on the view line.
+    this.origin.copy(camera.position);
+    this.direction.copy(lookAt).sub(this.origin).normalize();
     this.camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
     this.camUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize();
-    const lateral = Math.min(0.55, span * 0.04);
+    const lateral = Math.min(0.7, span * 0.045);
 
-    this.castSample(this.origin, this.direction, span, occluders);
+    const nearList = this.collectNear(occluders, lookAt);
+    this.castSample(this.origin, this.direction, span, nearList);
     this.sampleOrigin.copy(this.origin).addScaledVector(this.camRight, lateral);
-    this.castSample(this.sampleOrigin, this.direction, span, occluders);
+    this.castSample(this.sampleOrigin, this.direction, span, nearList);
     this.sampleOrigin.copy(this.origin).addScaledVector(this.camRight, -lateral);
-    this.castSample(this.sampleOrigin, this.direction, span, occluders);
-    this.sampleOrigin.copy(this.origin).addScaledVector(this.camUp, lateral * 0.65);
-    this.castSample(this.sampleOrigin, this.direction, span, occluders);
+    this.castSample(this.sampleOrigin, this.direction, span, nearList);
+    this.sampleOrigin.copy(this.origin).addScaledVector(this.camUp, lateral * 0.7);
+    this.castSample(this.sampleOrigin, this.direction, span, nearList);
 
     for (const group of this.nextFaded) {
       if (!this.faded.has(group)) this.fadeGroup(group, true);
@@ -73,14 +96,64 @@ export class FoliageOcclusion {
     for (const group of this.nextFaded) this.faded.add(group);
   }
 
+  private collectNear(
+    occluders: readonly THREE.Object3D[],
+    lookAt: THREE.Vector3,
+  ): THREE.Object3D[] {
+    this.nearList.length = 0;
+    for (const root of occluders) {
+      const dx = root.position.x - lookAt.x;
+      const dz = root.position.z - lookAt.z;
+      if (dx * dx + dz * dz <= NEAR_XZ * NEAR_XZ) this.nearList.push(root);
+    }
+    return this.nearList;
+  }
+
+  /** True if this crown contains the camera / look point or the segment clips its bounds. */
+  private occluderBlocks(
+    root: THREE.Object3D,
+    cameraPos: THREE.Vector3,
+    lookAt: THREE.Vector3,
+  ): boolean {
+    root.updateWorldMatrix(true, false);
+    this.bounds.setFromObject(root);
+    if (this.bounds.isEmpty()) return false;
+    this.bounds.expandByScalar(0.35);
+    this.bounds.getBoundingSphere(this.sphere);
+    this.sphere.radius *= BOUNDS_PAD;
+
+    if (this.sphere.containsPoint(cameraPos) || this.sphere.containsPoint(lookAt)) {
+      return true;
+    }
+    // Segment camera → lookAt vs sphere (cheap; avoids missing thick crowns).
+    return this.segmentHitsSphere(cameraPos, lookAt, this.sphere);
+  }
+
+  private segmentHitsSphere(
+    a: THREE.Vector3,
+    b: THREE.Vector3,
+    sphere: THREE.Sphere,
+  ): boolean {
+    this.segDir.copy(b).sub(a);
+    const len = this.segDir.length();
+    if (len < 1e-6) return sphere.containsPoint(a);
+    this.segDir.multiplyScalar(1 / len);
+    // Closest point on segment to sphere center.
+    const t = THREE.MathUtils.clamp(this.segDir.dot(this.closest.copy(sphere.center).sub(a)), 0, len);
+    this.closest.copy(a).addScaledVector(this.segDir, t);
+    return this.closest.distanceToSquared(sphere.center) <= sphere.radius * sphere.radius;
+  }
+
   private castSample(
     origin: THREE.Vector3,
     direction: THREE.Vector3,
     maxDist: number,
     occluders: readonly THREE.Object3D[],
   ): void {
+    if (occluders.length === 0) return;
     this.raycaster.set(origin, direction);
     this.raycaster.far = maxDist;
+    // Double-sided tests so rays that start inside a crown still register.
     const hits = this.raycaster.intersectObjects(occluders as THREE.Object3D[], true);
     for (const hit of hits) {
       if (hit.distance > maxDist) continue;
@@ -97,7 +170,6 @@ export class FoliageOcclusion {
   private fadeGroup(root: THREE.Object3D, fade: boolean): void {
     root.traverse((obj) => {
       if (!(obj instanceof THREE.Mesh)) return;
-      // Only crown/trunk pack foliage — skip any stray child without the tag.
       if (!obj.userData.foliageOccluder && !root.userData.foliageOccluder) return;
       ensureUniqueMaterials(obj);
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
@@ -106,16 +178,21 @@ export class FoliageOcclusion {
           transparent: mat.transparent,
           opacity: mat.opacity,
           depthWrite: mat.depthWrite,
+          side: mat.side,
         };
+        if (!mat.userData.foliageBase) mat.userData.foliageBase = base;
         if (fade) {
           mat.transparent = true;
           mat.opacity = FADE_OPACITY;
           mat.depthWrite = false;
+          // DoubleSide keeps the soft crown readable when the camera is inside.
+          mat.side = THREE.DoubleSide;
           mat.needsUpdate = true;
         } else {
           mat.transparent = base.transparent;
           mat.opacity = base.opacity;
           mat.depthWrite = base.depthWrite;
+          mat.side = base.side;
           mat.needsUpdate = true;
         }
       }
@@ -145,6 +222,7 @@ function ensureUniqueMaterials(mesh: THREE.Mesh): void {
       transparent: mat.transparent,
       opacity: mat.opacity,
       depthWrite: mat.depthWrite,
+      side: mat.side,
     };
     return cloned;
   });
