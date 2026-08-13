@@ -7,6 +7,7 @@ import {
   SouthRiverFordClearing,
   NortheastCityGate,
   NortheastMarketDistrict,
+  NortheastResidentialStreet,
 } from '../render/stylized';
 import { CHEST_SPOTS } from '../world/TreasureChests';
 import { SPRING_SPOT } from '../world/HealingSprings';
@@ -17,8 +18,8 @@ import {
 } from '../world/CottageMerchant';
 import { MARKET_BLACKSMITH_SPOT, MARKET_INN_SPOT } from '../world/MarketDistrict';
 
-/** World half-extent projected onto the radar (covers clearings + a little padding). */
-const MINIMAP_EXTENT = 70;
+/** World half-extent projected onto the radar (covers clearings + town stubs). */
+const MINIMAP_EXTENT = 78;
 const MINIMAP_SIZE = 152;
 
 type MinimapLandmark = {
@@ -39,6 +40,7 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
   { x: NortheastMarketDistrict.x, z: NortheastMarketDistrict.z, color: '#e07a3a', r: 4.6 },
   { x: MARKET_BLACKSMITH_SPOT.x, z: MARKET_BLACKSMITH_SPOT.z, color: '#c45a2e', r: 2.8 },
   { x: MARKET_INN_SPOT.x, z: MARKET_INN_SPOT.z, color: '#e8a04a', r: 2.8 },
+  { x: NortheastResidentialStreet.x, z: NortheastResidentialStreet.z, color: '#b86b4a', r: 4.2 },
   ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3 })),
   { x: SPRING_SPOT.x, z: SPRING_SPOT.z, color: '#5ed4ef', r: 3.2 },
   { x: COTTAGE_SPOT.x, z: COTTAGE_SPOT.z, color: '#c4784a', r: 3.2 },
@@ -156,6 +158,7 @@ export class HUD {
           <span><i class="lg ford"></i>Ford</span>
           <span><i class="lg gate"></i>Gate</span>
           <span><i class="lg market"></i>Market</span>
+          <span><i class="lg homes"></i>Homes</span>
           <span><i class="lg cottage"></i>Shop</span>
         </div>
       </div>
@@ -168,11 +171,11 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / chests / spring / market sign / blacksmith / inn / alley / cottage merchant<br/>
+        <kbd>E</kbd> — shrine / chests / spring / market / inn / alley / home door / cottage merchant<br/>
         Follow the dirt path west to the misty grove<br/>
         Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>
-        Follow the stone road northeast to the city gate &amp; market<br/>
+        Follow the stone road northeast to the city gate, market &amp; homes<br/>
         NW cottage — spend gold at the merchant<br/>
         RMB drag — rotate camera<br/>
         Scroll / pinch — zoom · <kbd>-</kbd><kbd>=</kbd> or <kbd>[</kbd><kbd>]</kbd>
@@ -421,6 +424,12 @@ export class HUD {
       [0, 0, SouthRiverFordClearing.x, SouthRiverFordClearing.z],
       [0, 0, NortheastCityGate.x, NortheastCityGate.z],
       [NortheastCityGate.x, NortheastCityGate.z, NortheastMarketDistrict.x, NortheastMarketDistrict.z],
+      [
+        NortheastMarketDistrict.x,
+        NortheastMarketDistrict.z,
+        NortheastResidentialStreet.x,
+        NortheastResidentialStreet.z,
+      ],
     ];
     for (const [ax, az, bx, bz] of paths) {
       const a = toScreen(ax, az);
@@ -449,11 +458,14 @@ export class HUD {
         mark.x === NortheastCityGate.x && mark.z === NortheastCityGate.z;
       const isMarket =
         mark.x === NortheastMarketDistrict.x && mark.z === NortheastMarketDistrict.z;
+      const isHomes =
+        mark.x === NortheastResidentialStreet.x &&
+        mark.z === NortheastResidentialStreet.z;
       ctx.fillStyle = mark.color;
       ctx.strokeStyle = 'rgba(31, 42, 36, 0.45)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      if (isGate || isMarket) {
+      if (isGate || isMarket || isHomes) {
         // Town icons — small squares so they read apart from clearing dots
         const s = mark.r;
         ctx.rect(p.sx - s * 0.7, p.sy - s * 0.7, s * 1.4, s * 1.4);

@@ -14,6 +14,7 @@ import {
   MarketDistrictSign,
   MarketInn,
 } from '../world/MarketDistrict';
+import { ResidentialDoor } from '../world/ResidentialStreet';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
@@ -40,6 +41,7 @@ export class Game {
   private readonly marketBlacksmith: MarketBlacksmith;
   private readonly marketInn: MarketInn;
   private readonly marketAlley: MarketAlley;
+  private readonly residentialDoor: ResidentialDoor;
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
   private readonly mobs: Enemy[];
@@ -65,6 +67,8 @@ export class Game {
   private cityGateHintShown = false;
   /** One-shot toast when the player first enters the market district. */
   private marketHintShown = false;
+  /** One-shot toast when the player first enters the residential street. */
+  private homesHintShown = false;
 
   constructor(canvas: HTMLCanvasElement, hudHost: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -199,6 +203,9 @@ export class Game {
       },
     });
     this.marketAlley = new MarketAlley({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+    });
+    this.residentialDoor = new ResidentialDoor({
       onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.hud.bindShopHandlers({
@@ -469,6 +476,10 @@ export class Game {
       this.marketHintShown = true;
       this.hud.showToast('Market District  ·  first slice of town', 2.0);
     }
+    if (!this.homesHintShown && this.meadow.isNearResidentialStreet(this.player.position)) {
+      this.homesHintShown = true;
+      this.hud.showToast('Homes  ·  quiet residential street', 2.0);
+    }
   }
 
   private constrainEntity(position: THREE.Vector3, radius: number): void {
@@ -536,7 +547,8 @@ export class Game {
   }
 
   /**
-   * E key: closed chests → healing spring → east shrine → market sign → blacksmith → inn → alley → cottage merchant.
+   * E key: closed chests → healing spring → east shrine → market sign → blacksmith →
+   * inn → alley → residential door → cottage merchant.
    * Open shop always closes on E first so it never blocks other interactables.
    */
   private handleInteract(): void {
@@ -552,10 +564,11 @@ export class Game {
     if (this.marketBlacksmith.tryInteract(this.player)) return;
     if (this.marketInn.tryInteract(this.player)) return;
     if (this.marketAlley.tryInteract(this.player)) return;
+    if (this.residentialDoor.tryInteract(this.player)) return;
     this.merchant.tryInteract(this.player);
   }
 
-  /** Merge shrine objective HUD with chest / spring / shrine / market / blacksmith / inn / alley / merchant prompts. */
+  /** Merge shrine objective HUD with chest / spring / shrine / market / homes / merchant prompts. */
   private syncInteractHud(): void {
     const shrineHud = this.shrine.getHudState(this.player);
     const chestPrompt = this.chests.getInteractPrompt(this.player);
@@ -564,6 +577,7 @@ export class Game {
     const smithPrompt = this.marketBlacksmith.getInteractPrompt(this.player);
     const innPrompt = this.marketInn.getInteractPrompt(this.player);
     const alleyPrompt = this.marketAlley.getInteractPrompt(this.player);
+    const homeDoorPrompt = this.residentialDoor.getInteractPrompt(this.player);
     const merchantPrompt = this.merchant.getInteractPrompt(this.player);
     if (chestPrompt.visible) {
       this.hud.setShrineHud({
@@ -602,6 +616,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: alleyPrompt.text,
+      });
+    } else if (homeDoorPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: homeDoorPrompt.text,
       });
     } else if (merchantPrompt.visible) {
       this.hud.setShrineHud({

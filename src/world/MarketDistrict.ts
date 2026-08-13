@@ -57,7 +57,7 @@ export const INN_REST_COOLDOWN = 45;
 const SIGN_INTERACT_RADIUS = 3.4;
 const SIGN_INTERACT_RADIUS_SQ = SIGN_INTERACT_RADIUS * SIGN_INTERACT_RADIUS;
 const SIGN_PROMPT = 'Press E — Market District';
-const SIGN_TOAST = 'Market District  ·  stalls & shops (more town coming)';
+const SIGN_TOAST = 'Market District  ·  stalls & shops · homes beyond';
 
 const SMITH_INTERACT_RADIUS = 3.6;
 const SMITH_INTERACT_RADIUS_SQ = SMITH_INTERACT_RADIUS * SMITH_INTERACT_RADIUS;
