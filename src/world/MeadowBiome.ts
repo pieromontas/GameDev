@@ -45,6 +45,8 @@ import {
   RESIDENTIAL_DOOR_SPOT,
   RESIDENTIAL_GARDEN_SPOT,
   RESIDENTIAL_HOME_SPOTS,
+  RESIDENTIAL_STREET_FENCES,
+  RESIDENTIAL_STREET_LANTERNS,
   RESIDENTIAL_WELL_SPOT,
 } from './ResidentialStreet';
 import { HARBOR_CATCH_SIGN } from './HarborDocks';
@@ -1468,8 +1470,8 @@ export class MeadowBiome {
 
   /**
    * Compact residential street stub past the market’s open far-NE exit.
-   * 3 KayKit cottage homes + town chapel landmark + fences / lanterns / garden / well;
-   * clear street lane market → homes.
+   * 3 KayKit cottage homes + town chapel landmark + denser fences / lanterns / garden / well;
+   * clear street lane market → homes (door pads + chapel porch stay open).
    */
   private buildNortheastResidentialStreet(): void {
     const { x: cx, z: cz, radius } = this.northeastHomes;
@@ -1496,11 +1498,13 @@ export class MeadowBiome {
     );
     this.addResidentialDoorMarker(RESIDENTIAL_CHAPEL_DOOR.x, RESIDENTIAL_CHAPEL_DOOR.z);
 
-    this.addResidentialFence(63.5, 70.2, -Math.PI * 0.25, 2.4);
-    this.addResidentialFence(70.2, 63.5, Math.PI * 0.75, 2.3);
-    this.addResidentialLantern(63.0, 66.5);
-    this.addResidentialLantern(70.5, 66.0);
-    this.addResidentialLantern(74.8, 67.2);
+    // Fence runs + warm street lanterns along the cobble (not market plaza lamps).
+    for (const fence of RESIDENTIAL_STREET_FENCES) {
+      this.addResidentialFence(fence.x, fence.z, fence.yaw, fence.length);
+    }
+    for (const lamp of RESIDENTIAL_STREET_LANTERNS) {
+      this.addResidentialLantern(lamp.x, lamp.z);
+    }
     this.addResidentialGarden(RESIDENTIAL_GARDEN_SPOT.x, RESIDENTIAL_GARDEN_SPOT.z);
 
     this.residentialWellPlacement = {
@@ -2156,7 +2160,10 @@ export class MeadowBiome {
     this.obstacles.push({ x, z, radius: Math.min(0.85, 0.35 + length * 0.12) });
   }
 
-  /** Warm street lantern post — light dressing along the homes lane. */
+  /**
+   * Warm street lantern post — light dressing along the homes lane.
+   * Soft post collision only; modest point light (plaza-like) so MeshToon stays readable.
+   */
   private addResidentialLantern(x: number, z: number): void {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
@@ -2172,13 +2179,14 @@ export class MeadowBiome {
 
     const lanternMat = createToonMaterial(Palette.flowerYellow, {
       emissive: 0xffaa44,
-      emissiveIntensity: 0.9,
+      emissiveIntensity: 0.85,
     });
     const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), lanternMat);
     lamp.position.y = 2.15;
     group.add(lamp);
 
-    const light = new THREE.PointLight(0xffb060, 0.45, 5.0, 2);
+    // Dim + short range — denser street lamps must not blow out MeshToon.
+    const light = new THREE.PointLight(0xffb060, 0.4, 4.8, 2);
     light.position.y = 2.2;
     group.add(light);
 

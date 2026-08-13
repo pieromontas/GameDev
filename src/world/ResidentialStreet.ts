@@ -61,6 +61,37 @@ export const RESIDENTIAL_WELL_SPOT = { x: 72.5, z: 64.8 } as const;
 /** Small garden patch north of the chapel apron — clear of house / church footprints. */
 export const RESIDENTIAL_GARDEN_SPOT = { x: 74.2, z: 72.5 } as const;
 
+/**
+ * Low fence runs flanking the homes cobble — densify the lived-in street read.
+ * Centers sit ≥~3 off the NE diagonal so soft blockers leave the walk lane open;
+ * clear of door pad, chapel porch, well, and garden.
+ */
+export const RESIDENTIAL_STREET_FENCES = [
+  { x: 63.5, z: 70.2, yaw: -Math.PI * 0.25, length: 2.4 },
+  { x: 70.2, z: 63.5, yaw: Math.PI * 0.75, length: 2.3 },
+  // Approach flanks (market → homes)
+  { x: 58.5, z: 63.2, yaw: -Math.PI * 0.25, length: 2.2 },
+  { x: 63.2, z: 58.5, yaw: Math.PI * 0.75, length: 2.2 },
+  // Extra homes-pocket segments
+  { x: 66.0, z: 73.2, yaw: -Math.PI * 0.25, length: 2.1 },
+  { x: 68.8, z: 61.5, yaw: Math.PI * 0.75, length: 2.0 },
+] as const;
+
+/**
+ * Warm street lanterns along the residential cobble (not market plaza lamps).
+ * Rim offsets keep the lane / door / chapel porch walkable; soft post collision only.
+ */
+export const RESIDENTIAL_STREET_LANTERNS = [
+  { x: 63.0, z: 66.5 },
+  { x: 70.5, z: 66.0 },
+  { x: 74.8, z: 67.2 },
+  // Approach pair + homes densify
+  { x: 57.8, z: 61.2 },
+  { x: 61.2, z: 57.8 },
+  { x: 67.5, z: 71.8 },
+  { x: 70.0, z: 62.5 },
+] as const;
+
 /** Free chapel blessing — smaller heal than the market inn rest, no gold. */
 export const CHAPEL_BLESS_HEAL = 22;
 export const CHAPEL_BLESS_COOLDOWN = 40;
