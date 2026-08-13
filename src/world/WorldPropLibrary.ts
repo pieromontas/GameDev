@@ -99,8 +99,24 @@ const TARGET = {
   church: BASE_HEIGHT.church * PROP_SCALE.church,
 } as const;
 
-/** Soft-collision radius multipliers — same knobs as visuals (uniform scale). */
-export const PROP_COLLISION_SCALE = PROP_SCALE;
+/**
+ * Soft-collision radius multipliers for pack-retuned obstacles.
+ * Buildings / rocks / wells keep visual scale so footprints match bulk.
+ * Trees use a trunk-only factor: KayKit crowns are walk-under foliage, not a
+ * full-height cylinder the size of the canopy (PROP_SCALE.tree ≈ 2.7 made NE
+ * camp trees softlock the knight inside green spheres).
+ * Final tree radius ≈ `0.6 * instanceScale * tree` → ~0.7–1.0 wu at the stem.
+ */
+export const PROP_COLLISION_SCALE = {
+  tree: 1.2,
+  rock: PROP_SCALE.rock,
+  /** Pack bushes are walk-through dressing (no obstacle entries); API parity. */
+  bush: 1,
+  cottage: PROP_SCALE.cottage,
+  windmill: PROP_SCALE.windmill,
+  well: PROP_SCALE.well,
+  church: PROP_SCALE.church,
+} as const;
 
 /** Well offset from cottage center — clears the ~3× cottage footprint. */
 export const WELL_OFFSET = { x: 5.4, z: -2.3 } as const;
