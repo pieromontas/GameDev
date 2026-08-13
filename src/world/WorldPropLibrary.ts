@@ -245,7 +245,8 @@ export class WorldPropLibrary {
   createTree(x: number, z: number, scale: number, seed: number): THREE.Group | null {
     if (this.trees.length === 0) return null;
     const tmpl = this.trees[Math.abs(Math.floor(seed)) % this.trees.length]!;
-    return this.instantiate(tmpl, x, z, scale, seed * 1.7);
+    // Unique mats so camera-occlusion fade can soft-out one crown without affecting siblings.
+    return this.instantiate(tmpl, x, z, scale, seed * 1.7, { foliage: true });
   }
 
   createRock(x: number, z: number, scale: number, seed: number): THREE.Group | null {
@@ -257,7 +258,8 @@ export class WorldPropLibrary {
   createBush(x: number, z: number, scale: number, seed: number): THREE.Group | null {
     if (this.bushes.length === 0) return null;
     const tmpl = this.bushes[Math.abs(Math.floor(seed * 5.3)) % this.bushes.length]!;
-    return this.instantiate(tmpl, x, z, scale, seed * 0.9);
+    // Bushes share the crown occlusion path with trees (walk-through dressing).
+    return this.instantiate(tmpl, x, z, scale, seed * 0.9, { foliage: true });
   }
 
   createCottage(
@@ -302,6 +304,7 @@ export class WorldPropLibrary {
     z: number,
     scale: number,
     yawSeed: number,
+    opts?: { foliage?: boolean },
   ): THREE.Group {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
@@ -313,8 +316,36 @@ export class WorldPropLibrary {
     clone.position.y = -tmpl.rawMinY * worldScale;
     group.add(clone);
     group.userData.packProp = true;
+    if (opts?.foliage) {
+      // Tag for FollowCamera foliage raycasts — never cottages / gate / stalls / ground.
+      group.userData.foliageOccluder = true;
+      // clone(true) shares materials across instances; unique mats keep fade local.
+      uniquifyFoliageMaterials(clone);
+    }
     return group;
   }
+}
+
+/**
+ * Give each foliage instance its own materials so opacity fade cannot bleed across
+ * every Tree_1_A / bush of the same template.
+ */
+function uniquifyFoliageMaterials(root: THREE.Object3D): void {
+  root.traverse((obj) => {
+    if (!(obj instanceof THREE.Mesh)) return;
+    obj.userData.foliageOccluder = true;
+    const srcMats = Array.isArray(obj.material) ? obj.material : [obj.material];
+    const next = srcMats.map((mat) => {
+      const cloned = mat.clone();
+      cloned.userData.foliageBase = {
+        transparent: mat.transparent,
+        opacity: mat.opacity,
+        depthWrite: mat.depthWrite,
+      };
+      return cloned;
+    });
+    obj.material = Array.isArray(obj.material) ? next : next[0]!;
+  });
 }
 
 /** Remap KayKit PBR atlas mats → MeshToon so meadow lighting stays cel-readable. */
