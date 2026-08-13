@@ -562,6 +562,8 @@ export class Game {
     }
 
     this.player.applyMovement(this.moveDir, dt);
+    // Soft unstick vs living enemies so adjacent WASD is not zeroed (dodge still punches through).
+    this.separatePlayerFromEnemies();
     this.constrainEntity(this.player.position, this.player.radius);
     this.player.syncMesh();
 
@@ -632,6 +634,37 @@ export class Game {
         a.syncMesh();
         b.syncMesh();
       }
+    }
+  }
+
+  /**
+   * Soft capsule push between the player and living enemies (same spirit as mob-mob sep).
+   * Lets WASD slide past an adjacent blob instead of hard body-blocking to zero displacement.
+   * Caller must still `constrainEntity` the player afterward so world solids win.
+   */
+  private separatePlayerFromEnemies(): void {
+    if (!this.player.alive) return;
+    for (const mob of this.mobs) {
+      if (!mob.alive) continue;
+      const minDist = this.player.radius + mob.sepRadius;
+      const dx = mob.position.x - this.player.position.x;
+      const dz = mob.position.z - this.player.position.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 >= minDist * minDist) continue;
+      if (d2 < 1e-6) {
+        this.sepPush.set(1, 0, 0);
+      } else {
+        const d = Math.sqrt(d2);
+        this.sepPush.set(dx / d, 0, dz / d);
+      }
+      const d = Math.sqrt(Math.max(d2, 1e-6));
+      const push = (minDist - d) * 0.5;
+      this.player.position.x -= this.sepPush.x * push;
+      this.player.position.z -= this.sepPush.z * push;
+      mob.position.x += this.sepPush.x * push;
+      mob.position.z += this.sepPush.z * push;
+      this.constrainEntity(mob.position, mob.radius);
+      mob.syncMesh();
     }
   }
 

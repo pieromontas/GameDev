@@ -558,10 +558,13 @@ export function createStarterMobs(): Mob[] {
     0xffb347,
   ];
   const spots = [
-    // Main meadow — outer ring only (outside spawn-safe radius around camp at z=6)
+    // Main meadow — outer ring only (outside spawn-safe radius around camp at z=6).
+    // Keep the NE stone road to the city gate clear: homes sit in meadow pockets
+    // beside the approach, not on the mandatory walk lane (one shoulder flavor ok).
     new THREE.Vector3(16, 0, -8),
     new THREE.Vector3(-16, 0, -6),
-    new THREE.Vector3(14, 0, 20),
+    // Was (14, 20) — sat on the spawn→gate corridor; SE shoulder pocket instead.
+    new THREE.Vector3(22, 0, 12),
     new THREE.Vector3(-15, 0, 22),
     // East shrine clearing (second playable pocket)
     new THREE.Vector3(48, 0, 4),
