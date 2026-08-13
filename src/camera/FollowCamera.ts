@@ -1,16 +1,16 @@
 import * as THREE from 'three';
 import { clamp } from '../utils/math';
 
-/** Default orbit distance — readable combat rings + city streets. */
-const DEFAULT_DISTANCE = 15;
+/** Default orbit distance — pulled back so spawn meadow hill doesn’t swallow the hero. */
+const DEFAULT_DISTANCE = 21;
 const MIN_DISTANCE = 7.5;
 const MAX_DISTANCE = 26;
 
 export class FollowCamera {
   readonly camera: THREE.PerspectiveCamera;
   private yaw = Math.PI * 0.25;
-  /** Slightly steeper than before so streets and packs read clearly. */
-  private readonly pitch = 0.86;
+  /** Slightly steeper + higher than street-combat framing so boot spawn stays readable. */
+  private readonly pitch = 0.92;
   /** Smoothed orbit radius (lerps toward `distanceTarget`). */
   private distance = DEFAULT_DISTANCE;
   private distanceTarget = DEFAULT_DISTANCE;
@@ -24,7 +24,8 @@ export class FollowCamera {
   constructor(aspect: number) {
     // Slightly wider FOV keeps the iso-ish frame without going FPS.
     this.camera = new THREE.PerspectiveCamera(48, aspect, 0.1, 280);
-    this.camera.position.set(10, 12, 10);
+    // Initial pose matches snap defaults (distance 21 / pitch 0.92 / yaw π/4).
+    this.camera.position.set(9, 17, 9);
   }
 
   /** Subtle forward nudge on heavy impacts (Quake). Keep tiny. */
