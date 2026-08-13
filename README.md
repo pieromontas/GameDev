@@ -34,7 +34,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 
 | Input | Action |
 | --- | --- |
-| **W A S D** / arrows | Move relative to camera |
+| **W A S D** / arrows | Move relative to camera (hold walks; a tap still steps) |
 | **Shift** | Dodge roll — short burst + brief i-frames (~1.55s cooldown) |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
 | **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / talk to the city gate guard / read market sign / talk to blacksmith / trade with market street vendor / browse the produce stall / read the town notice board / rest at market inn / peek the market alley / read the docks catch crate / try a residential door / bless at the town chapel / talk to cottage merchant (when near) |
