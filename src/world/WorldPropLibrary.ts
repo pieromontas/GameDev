@@ -100,18 +100,25 @@ const TARGET = {
 } as const;
 
 /**
- * Soft-collision radius multipliers for pack-retuned obstacles.
+ * Soft-collision radius for a tree stem at instance scale 1.
+ * Crowns (KayKit spheres / procedural cones) are walk-under foliage — never use
+ * `PROP_SCALE.tree` here (that ~2.7× visual multiplier turned crowns into cages).
+ * Final radius = `TREE_TRUNK_RADIUS * instanceScale` → ~0.5–0.7 wu at the stem.
+ */
+export const TREE_TRUNK_RADIUS = 0.55;
+
+/**
+ * Soft-collision radius multipliers / absolutes for pack-retuned obstacles.
  * Buildings / rocks / wells keep visual scale so footprints match bulk.
- * Trees use a trunk-only factor: KayKit crowns are walk-under foliage, not a
- * full-height cylinder the size of the canopy (PROP_SCALE.tree ≈ 2.7 made NE
- * camp trees softlock the knight inside green spheres).
- * Final tree radius ≈ `0.6 * instanceScale * tree` → ~0.7–1.0 wu at the stem.
+ * Trees: retune *sets* `TREE_TRUNK_RADIUS * instanceScale` (not a multiply of a
+ * crown-sized procedural radius). Bushes never receive obstacle entries.
  */
 export const PROP_COLLISION_SCALE = {
-  tree: 1.2,
+  /** Absolute trunk radius at scale 1 — see `TREE_TRUNK_RADIUS`. */
+  tree: TREE_TRUNK_RADIUS,
   rock: PROP_SCALE.rock,
   /** Pack bushes are walk-through dressing (no obstacle entries); API parity. */
-  bush: 1,
+  bush: 0,
   cottage: PROP_SCALE.cottage,
   windmill: PROP_SCALE.windmill,
   well: PROP_SCALE.well,
