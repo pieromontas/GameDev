@@ -559,13 +559,17 @@ export function createStarterMobs(): Mob[] {
   ];
   const spots = [
     // Main meadow — outer ring only (outside spawn-safe radius around camp at z=6).
-    // Keep the NE stone road to the city gate clear: homes sit in meadow pockets
-    // beside the approach, not on the mandatory walk lane (one shoulder flavor ok).
-    new THREE.Vector3(16, 0, -8),
+    // Keep the NE stone on-ramp clear: aggro (9.5) must sit 10+ units off the
+    // (12,12)→gate centerline so first paving stones are not a 2-slime intercept.
+    // Was (16, -8) — pink home nestled on the ruin pillar; SE meadow pocket instead.
+    new THREE.Vector3(12, 0, -18),
     new THREE.Vector3(-16, 0, -6),
-    // Was (14, 20) — sat on the spawn→gate corridor; SE shoulder pocket instead.
-    new THREE.Vector3(22, 0, 12),
-    new THREE.Vector3(-15, 0, 22),
+    // Was (14, 20) → (22, 12) — still leashed onto the on-ramp (pathDist ~7).
+    // Farther SE pocket (~15.6 off centerline); one off-road flavor slime ok.
+    new THREE.Vector3(30, 0, 8),
+    // Was (-15, 22) — NW of the approach; pushed farther into the NW pocket
+    // so a north→gate cut does not auto-pull on the way to the stones.
+    new THREE.Vector3(-22, 0, 26),
     // East shrine clearing (second playable pocket)
     new THREE.Vector3(48, 0, 4),
     new THREE.Vector3(57, 0, 13),
