@@ -1252,6 +1252,16 @@ export class CombatSystem {
     }
   }
 
+  /** Drop in-flight spit so a camp respawn can't eat leftover acid. */
+  clearSpitProjectiles(): void {
+    for (let i = this.spits.length - 1; i >= 0; i--) {
+      const spit = this.spits[i]!;
+      this.scene.remove(spit.mesh);
+      spit.dispose();
+      this.spits.splice(i, 1);
+    }
+  }
+
   private updateSpitProjectiles(dt: number, player: Player): void {
     for (let i = this.spits.length - 1; i >= 0; i--) {
       const spit = this.spits[i]!;

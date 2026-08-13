@@ -28,6 +28,11 @@ import { CombatSystem } from '../combat/CombatSystem';
 import { HUD } from '../ui/HUD';
 import { HealthBars } from '../ui/HealthBars';
 import { Palette, createSkyDome } from '../render/stylized';
+import {
+  SPAWN_AGGRO_GRACE,
+  isInsideSpawnSafe,
+  pushOutOfSpawnSafe,
+} from '../world/spawnSafe';
 
 export class Game {
   private readonly scene = new THREE.Scene();
@@ -68,6 +73,8 @@ export class Game {
   private lootCount = 0;
   private kills = 0;
   private playerRespawnTimer = -1;
+  /** After camp respawn — enemies ignore the player until this elapses. */
+  private spawnAggroGrace = 0;
   /** One-shot toast so the Shift dodge binding is obvious on first use. */
   private dodgeHintShown = false;
   /** One-shot toast when the player first finds the NE city-gate road. */
@@ -115,6 +122,9 @@ export class Game {
       ...createStarterWisps(),
     ];
     for (const mob of this.mobs) this.scene.add(mob.mesh);
+    // Boot: keep camp clear even if a home ever drifts inside the safe radius.
+    this.clearEnemiesFromSpawnSafe();
+    this.spawnAggroGrace = SPAWN_AGGRO_GRACE;
 
     this.cameraRig = new FollowCamera(window.innerWidth / window.innerHeight);
     this.cameraRig.snapTo(this.player.position);
@@ -366,6 +376,9 @@ export class Game {
     this.applyCameraZoom(dt);
 
     this.player.tickSkills(dt);
+    if (this.spawnAggroGrace > 0) {
+      this.spawnAggroGrace = Math.max(0, this.spawnAggroGrace - dt);
+    }
 
     if (this.player.alive) {
       this.updatePlayerMovement(dt);
@@ -377,10 +390,19 @@ export class Game {
       if (this.playerRespawnTimer <= 0) {
         this.player.respawn();
         this.playerRespawnTimer = -1;
+        this.combat.clearSpitProjectiles();
+        this.clearEnemiesFromSpawnSafe();
+        this.spawnAggroGrace = SPAWN_AGGRO_GRACE;
         this.cameraRig.snapTo(this.player.position);
         this.hud.showToast('You regroup and fight on!', 1.5);
       }
     }
+
+    // Camp sanctuary: no aggro while grace is active or the player is still in the clear circle.
+    const campProtected =
+      !this.player.alive ||
+      this.spawnAggroGrace > 0 ||
+      isInsideSpawnSafe(this.player.position.x, this.player.position.z);
 
     for (const mob of this.mobs) {
       mob.update(dt);
@@ -402,6 +424,14 @@ export class Game {
         continue;
       }
 
+      if (campProtected) {
+        // Hold idle at current pose — don't chase into / linger on the camp.
+        if (mob.ai === 'chase' || mob.ai === 'attack' || mob.ai === 'retreat') {
+          mob.ai = 'idle';
+        }
+        continue;
+      }
+
       if (mob.isStunned) {
         // Shield Bash hold — no chase/leash while dazed.
       } else if (mob instanceof Spitter) {
@@ -418,7 +448,14 @@ export class Game {
 
     this.separateMobs();
 
-    this.combat.updateMobCombat(this.mobs, this.player);
+    if (campProtected) {
+      // Force idle AI so bites / spit windups cannot start on the camp.
+      for (const mob of this.mobs) {
+        if (mob.alive) mob.think(this.player.position, false);
+      }
+    } else {
+      this.combat.updateMobCombat(this.mobs, this.player);
+    }
     // Always arm respawn when dead with no timer — covers same-frame death right after
     // a prior respawn (wasAlive was false at frame start), which previously softlocked.
     if (!this.player.alive && this.playerRespawnTimer < 0) {
@@ -532,6 +569,19 @@ export class Game {
   private constrainEntity(position: THREE.Vector3, radius: number): void {
     this.meadow.resolveObstacles(position, radius);
     this.meadow.clampToPlayArea(position);
+  }
+
+  /** Teleport living enemies out of the camp clear circle (boot + player respawn). */
+  private clearEnemiesFromSpawnSafe(): void {
+    for (const mob of this.mobs) {
+      if (!mob.alive) continue;
+      if (!isInsideSpawnSafe(mob.position.x, mob.position.z)) continue;
+      if (!pushOutOfSpawnSafe(mob.position)) continue;
+      this.constrainEntity(mob.position, mob.radius);
+      // Prefer leash home so they don't immediately re-enter after a shove.
+      mob.ai = 'leash';
+      mob.syncMesh();
+    }
   }
 
   /** Keep blobs from stacking into an unreadable pile. */

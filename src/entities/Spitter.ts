@@ -1,9 +1,15 @@
 import * as THREE from 'three';
 import { Entity } from './Entity';
 import type { MobAIState } from './Mob';
+import {
+  clampEnemyCollisionRadius,
+  clampEnemyRootScale,
+  clampEnemyVisualScale,
+} from './enemyScale';
 import { dist2, randomPointInRing } from '../utils/math';
 import { createToonMaterial } from '../render/stylized';
 import { clamp01, easeOutCubic, smoothstep } from '../anim/ease';
+import { isInsideSpawnSafe, pushOutOfSpawnSafe } from '../world/spawnSafe';
 
 /** Acid-green ranged blob — taller snouted silhouette, kites and spits. */
 export const SPITTER_COLOR = 0x6fdc3a;
@@ -165,7 +171,7 @@ export class Spitter extends Entity {
     shadow.position.y = 0.02;
     group.add(shadow);
 
-    super(group, 'enemy', 34, 0.6, spawn);
+    super(group, 'enemy', 34, clampEnemyCollisionRadius(0.6), spawn);
     this.home = spawn.clone();
     this.bodyMat = bodyMat;
     this.baseColor = color;
@@ -178,6 +184,10 @@ export class Spitter extends Entity {
     this.spikes = spikes;
     this.shadow = shadow;
     this.shadowMat = shadowMat;
+    this.mesh.scale.set(1, 1, 1);
+    this.visual.scale.set(1, 1, 1);
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
     this.syncMesh();
     this.setFace('idle');
   }
@@ -186,6 +196,8 @@ export class Spitter extends Entity {
     if (this.deathT >= 0) {
       this.deathT += dt;
       this.applyDeathAnim(this.deathT / 0.55);
+      clampEnemyRootScale(this.mesh);
+      clampEnemyVisualScale(this.visual);
       if (this.deathT >= 0.55) {
         this.deathT = -1;
         this.mesh.visible = false;
@@ -235,6 +247,8 @@ export class Spitter extends Entity {
       this.stunRemain <= 0 && (this.ai === 'chase' || this.ai === 'leash' || this.ai === 'retreat');
     this.hopPhase += dt * (moving ? 8.2 : this.ai === 'idle' || this.stunRemain > 0 ? 3.6 : 2.6);
     this.applyLivePose();
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
   }
 
   get isStunned(): boolean {
@@ -435,6 +449,9 @@ export class Spitter extends Entity {
   respawnNearHome(): void {
     const p = randomPointInRing(this.home, 0.5, 3);
     this.position.copy(p);
+    if (isInsideSpawnSafe(this.position.x, this.position.z)) {
+      pushOutOfSpawnSafe(this.position);
+    }
     this.hp = this.maxHp;
     this.alive = true;
     this.ai = 'idle';
@@ -449,6 +466,8 @@ export class Spitter extends Entity {
     this.mesh.visible = true;
     this.mesh.scale.set(1, 1, 1);
     this.visual.scale.set(1, 1, 1);
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
     this.visual.position.set(0, 0.95, 0);
     this.bodyMat.transparent = false;
     this.bodyMat.opacity = 1;
@@ -604,9 +623,9 @@ export class Spitter extends Entity {
 
 export function createStarterSpitters(): Spitter[] {
   const spots = [
-    // Meadow — noticeable without hunting
-    new THREE.Vector3(6, 0, 10),
-    new THREE.Vector3(-12, 0, -2),
+    // Meadow — outer ring only (past spawn-safe + spitter aggro reach from camp)
+    new THREE.Vector3(20, 0, -4),
+    new THREE.Vector3(-20, 0, 8),
     // East shrine clearing
     new THREE.Vector3(52, 0, 8),
     new THREE.Vector3(50, 0, 0),

@@ -1,9 +1,15 @@
 import * as THREE from 'three';
 import { Entity } from './Entity';
 import type { MobAIState } from './Mob';
+import {
+  clampEnemyCollisionRadius,
+  clampEnemyRootScale,
+  clampEnemyVisualScale,
+} from './enemyScale';
 import { dist2, randomPointInRing } from '../utils/math';
 import { createToonMaterial } from '../render/stylized';
 import { clamp01, easeOutCubic, smoothstep } from '../anim/ease';
+import { isInsideSpawnSafe, pushOutOfSpawnSafe } from '../world/spawnSafe';
 
 /** Rust / bronze armored tank — clearly not a blob, spitter, or shrine stone. */
 export const BRUTE_ARMOR = 0x8a5a38;
@@ -211,7 +217,7 @@ export class ArmoredBrute extends Entity {
     group.add(shadow);
 
     // High HP tank — more durable than blobs (40) / spitters (34).
-    super(group, 'enemy', 110, 1.05, spawn);
+    super(group, 'enemy', 110, clampEnemyCollisionRadius(1.05), spawn);
     this.home = spawn.clone();
     this.bodyMat = bodyMat;
     this.baseColor = color;
@@ -226,6 +232,10 @@ export class ArmoredBrute extends Entity {
     this.telegraphMat = telegraphMat;
     this.shadow = shadow;
     this.shadowMat = shadowMat;
+    this.mesh.scale.set(1, 1, 1);
+    this.visual.scale.set(BRUTE_VISUAL_SCALE, BRUTE_VISUAL_SCALE, BRUTE_VISUAL_SCALE);
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
     this.syncMesh();
   }
 
@@ -233,6 +243,8 @@ export class ArmoredBrute extends Entity {
     if (this.deathT >= 0) {
       this.deathT += dt;
       this.applyDeathAnim(this.deathT / 0.7);
+      clampEnemyRootScale(this.mesh);
+      clampEnemyVisualScale(this.visual);
       if (this.deathT >= 0.7) {
         this.deathT = -1;
         this.mesh.visible = false;
@@ -284,6 +296,8 @@ export class ArmoredBrute extends Entity {
     const moving = this.stunRemain <= 0 && (this.ai === 'chase' || this.ai === 'leash');
     this.walkPhase += dt * (moving ? 6.2 : this.ai === 'idle' || this.stunRemain > 0 ? 2.8 : 2.2);
     this.applyLivePose();
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
   }
 
   get isStunned(): boolean {
@@ -419,6 +433,9 @@ export class ArmoredBrute extends Entity {
   respawnNearHome(): void {
     const p = randomPointInRing(this.home, 0.6, 2.8);
     this.position.copy(p);
+    if (isInsideSpawnSafe(this.position.x, this.position.z)) {
+      pushOutOfSpawnSafe(this.position);
+    }
     this.hp = this.maxHp;
     this.alive = true;
     this.ai = 'idle';
@@ -434,6 +451,8 @@ export class ArmoredBrute extends Entity {
     this.mesh.visible = true;
     this.mesh.scale.set(1, 1, 1);
     this.visual.scale.set(BRUTE_VISUAL_SCALE, BRUTE_VISUAL_SCALE, BRUTE_VISUAL_SCALE);
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
     this.visual.position.set(0, 1.35, 0);
     this.visual.rotation.z = 0;
     this.bodyMat.transparent = false;

@@ -1,8 +1,14 @@
 import * as THREE from 'three';
 import { Entity } from './Entity';
+import {
+  clampEnemyCollisionRadius,
+  clampEnemyRootScale,
+  clampEnemyVisualScale,
+} from './enemyScale';
 import { dist2, randomPointInRing } from '../utils/math';
 import { Palette, createToonMaterial } from '../render/stylized';
 import { clamp01, easeOutCubic, smoothstep } from '../anim/ease';
+import { isInsideSpawnSafe, pushOutOfSpawnSafe } from '../world/spawnSafe';
 
 export type MobAIState = 'idle' | 'chase' | 'attack' | 'leash' | 'retreat' | 'dead';
 
@@ -150,7 +156,7 @@ export class Mob extends Entity {
     shadow.position.y = 0.02;
     group.add(shadow);
 
-    super(group, 'enemy', 40, 0.55, spawn);
+    super(group, 'enemy', 40, clampEnemyCollisionRadius(0.55), spawn);
     this.home = spawn.clone();
     this.bodyMat = bodyMat;
     this.baseColor = color;
@@ -164,6 +170,10 @@ export class Mob extends Entity {
     this.rightEar = rightEar;
     this.shadow = shadow;
     this.shadowMat = shadowMat;
+    this.mesh.scale.set(1, 1, 1);
+    this.visual.scale.set(1, 1, 1);
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
     this.syncMesh();
     this.setFace('happy');
   }
@@ -172,6 +182,8 @@ export class Mob extends Entity {
     if (this.deathT >= 0) {
       this.deathT += dt;
       this.applyDeathAnim(this.deathT / 0.55);
+      clampEnemyRootScale(this.mesh);
+      clampEnemyVisualScale(this.visual);
       if (this.deathT >= 0.55) {
         this.deathT = -1;
         this.mesh.visible = false;
@@ -223,6 +235,8 @@ export class Mob extends Entity {
     const moving = this.stunRemain <= 0 && (this.ai === 'chase' || this.ai === 'leash');
     this.hopPhase += dt * (moving ? 9.5 : this.ai === 'idle' || this.stunRemain > 0 ? 4.2 : 3.0);
     this.applyLivePose();
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
   }
 
   /** True while Shield Bash (or similar) stun is active. */
@@ -345,6 +359,10 @@ export class Mob extends Entity {
   respawnNearHome(): void {
     const p = randomPointInRing(this.home, 0.5, 3);
     this.position.copy(p);
+    // Never reform inside the player camp clear circle.
+    if (isInsideSpawnSafe(this.position.x, this.position.z)) {
+      pushOutOfSpawnSafe(this.position);
+    }
     this.hp = this.maxHp;
     this.alive = true;
     this.ai = 'idle';
@@ -358,6 +376,8 @@ export class Mob extends Entity {
     this.mesh.visible = true;
     this.mesh.scale.set(1, 1, 1);
     this.visual.scale.set(1, 1, 1);
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
     this.visual.position.set(0, 0.62, 0);
     this.bodyMat.transparent = false;
     this.bodyMat.opacity = 1;
@@ -495,6 +515,7 @@ export class Mob extends Entity {
 
     // Keep visual center above ground when squashed
     this.visual.scale.set(squashX, squashY, squashX);
+    clampEnemyVisualScale(this.visual);
     this.visual.position.set(0, 0.62 * squashY + hop, zOff);
 
     const shadowScale = Math.max(0.4, 1.05 * squashX - hop * 0.55);
@@ -507,12 +528,14 @@ export class Mob extends Entity {
     if (u < 0.45) {
       const k = smoothstep(u / 0.45);
       this.visual.scale.set(1 + k * 0.6, 1 - k * 0.78, 1 + k * 0.6);
+      clampEnemyVisualScale(this.visual);
       this.visual.position.y = 0.62 * (1 - k * 0.78);
       this.setFace('hurt');
     } else {
       const k = easeOutCubic((u - 0.45) / 0.55);
       const s = Math.max(0.01, 1.5 * (1 - k));
       this.visual.scale.set(s * 1.25, s * 0.3, s * 1.25);
+      clampEnemyVisualScale(this.visual);
       this.visual.position.y = 0.12 * (1 - k);
       this.bodyMat.transparent = true;
       this.bodyMat.opacity = 1 - k;
@@ -535,14 +558,11 @@ export function createStarterMobs(): Mob[] {
     0xffb347,
   ];
   const spots = [
-    // Main meadow (starter pocket stays calm — only a light outer-ring spread)
-    new THREE.Vector3(8, 0, -4),
-    new THREE.Vector3(-7, 0, -8),
-    new THREE.Vector3(12, 0, 8),
-    new THREE.Vector3(-10, 0, 4),
-    // Was (2, −14) — nudged east so the south path branch stays open
-    new THREE.Vector3(8, 0, -20),
-    new THREE.Vector3(-5, 0, 18),
+    // Main meadow — outer ring only (outside spawn-safe radius around camp at z=6)
+    new THREE.Vector3(16, 0, -8),
+    new THREE.Vector3(-16, 0, -6),
+    new THREE.Vector3(14, 0, 20),
+    new THREE.Vector3(-15, 0, 22),
     // East shrine clearing (second playable pocket)
     new THREE.Vector3(48, 0, 4),
     new THREE.Vector3(57, 0, 13),

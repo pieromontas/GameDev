@@ -1,9 +1,15 @@
 import * as THREE from 'three';
 import { Entity } from './Entity';
 import type { MobAIState } from './Mob';
+import {
+  clampEnemyCollisionRadius,
+  clampEnemyRootScale,
+  clampEnemyVisualScale,
+} from './enemyScale';
 import { dist2, randomPointInRing } from '../utils/math';
 import { createToonMaterial } from '../render/stylized';
 import { clamp01, easeOutCubic, smoothstep } from '../anim/ease';
+import { isInsideSpawnSafe, pushOutOfSpawnSafe } from '../world/spawnSafe';
 
 /** Soft cyan-violet spirit — glowing orb, distinct from blobs / spitters / brutes. */
 export const WISP_CORE = 0xa8e8ff;
@@ -165,7 +171,7 @@ export class SpiritWisp extends Entity {
     group.add(shadow);
 
     // Fragile — lower HP than blobs (40) / spitters (34); far below brutes (110).
-    super(group, 'enemy', 28, 0.45, spawn);
+    super(group, 'enemy', 28, clampEnemyCollisionRadius(0.45), spawn);
     this.home = spawn.clone();
     this.bodyMat = bodyMat;
     this.haloMat = haloMat;
@@ -177,6 +183,10 @@ export class SpiritWisp extends Entity {
     this.telegraphMat = telegraphMat;
     this.shadow = shadow;
     this.shadowMat = shadowMat;
+    this.mesh.scale.set(1, 1, 1);
+    this.visual.scale.set(1, 1, 1);
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
     this.syncMesh();
   }
 
@@ -184,6 +194,8 @@ export class SpiritWisp extends Entity {
     if (this.deathT >= 0) {
       this.deathT += dt;
       this.applyDeathAnim(this.deathT / 0.5);
+      clampEnemyRootScale(this.mesh);
+      clampEnemyVisualScale(this.visual);
       if (this.deathT >= 0.5) {
         this.deathT = -1;
         this.mesh.visible = false;
@@ -241,6 +253,8 @@ export class SpiritWisp extends Entity {
     const moving = this.stunRemain <= 0 && (this.ai === 'chase' || this.ai === 'leash');
     this.hoverPhase += dt * (moving ? 7.5 : this.ai === 'idle' || this.stunRemain > 0 ? 3.8 : 2.8);
     this.applyLivePose();
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
   }
 
   get isStunned(): boolean {
@@ -376,6 +390,9 @@ export class SpiritWisp extends Entity {
   respawnNearHome(): void {
     const p = randomPointInRing(this.home, 0.5, 2.8);
     this.position.copy(p);
+    if (isInsideSpawnSafe(this.position.x, this.position.z)) {
+      pushOutOfSpawnSafe(this.position);
+    }
     this.hp = this.maxHp;
     this.alive = true;
     this.ai = 'idle';
@@ -391,6 +408,8 @@ export class SpiritWisp extends Entity {
     this.mesh.visible = true;
     this.mesh.scale.set(1, 1, 1);
     this.visual.scale.set(1, 1, 1);
+    clampEnemyRootScale(this.mesh);
+    clampEnemyVisualScale(this.visual);
     this.visual.position.set(0, HOVER_Y, 0);
     this.bodyMat.transparent = false;
     this.bodyMat.opacity = 1;
