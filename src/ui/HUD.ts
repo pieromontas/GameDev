@@ -231,7 +231,7 @@ export class HUD {
       <div class="hud-panel hud-bottom" id="skills"></div>
       <div class="hud-panel hud-hint" id="controls-hint">
         <strong>Controls</strong><br/>
-        WASD — move<br/>
+        WASD — move (tap or hold)<br/>
         <kbd>Shift</kbd> — dodge roll<br/>
         LMB / 1 — skill 1<br/>
         2 / 3 / 4 — skills 2–4<br/>
