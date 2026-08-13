@@ -623,8 +623,10 @@ export class Spitter extends Entity {
 
 export function createStarterSpitters(): Spitter[] {
   const spots = [
-    // Meadow — outer ring only (past spawn-safe + spitter aggro reach from camp)
-    new THREE.Vector3(20, 0, -4),
+    // Meadow — outer ring only (past spawn-safe + spitter aggro reach from camp).
+    // Was (20, -4) — green spitter paired with the pink blob at the ruin pillar
+    // and leashed onto the SE cut into the NE stone on-ramp; SE pocket instead.
+    new THREE.Vector3(26, 0, -18),
     new THREE.Vector3(-20, 0, 8),
     // East shrine clearing
     new THREE.Vector3(52, 0, 8),
