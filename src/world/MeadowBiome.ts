@@ -27,6 +27,7 @@ import {
   MARKET_INN_SPOT,
   MARKET_NOTICE_BOARD_SPOT,
   MARKET_NOTICE_BOARD_YAW,
+  MARKET_PLAZA_LANTERNS,
   MARKET_SIGN_SPOT,
 } from './MarketDistrict';
 import {
@@ -1319,8 +1320,9 @@ export class MeadowBiome {
 
   /**
    * Compact market district stub behind the NE gate — first town slice.
-   * KayKit cottage shops + stylized stalls/awning props; residential street
-   * continues through the open far-NE exit; harbor docks through the open SE exit.
+   * KayKit cottage shops + stylized stalls/awning props + plaza lanterns;
+   * residential street continues through the open far-NE exit; harbor docks
+   * through the open SE exit.
    */
   private buildNortheastMarketDistrict(): void {
     const { x: cx, z: cz, radius } = this.northeastMarket;
@@ -1404,6 +1406,11 @@ export class MeadowBiome {
       MARKET_NOTICE_BOARD_SPOT.z,
       MARKET_NOTICE_BOARD_YAW,
     );
+
+    // Warm plaza street lanterns on the cobble rim — town-hub read at a glance.
+    for (const lamp of MARKET_PLAZA_LANTERNS) {
+      this.addMarketPlazaLantern(lamp.x, lamp.z);
+    }
 
     // KayKit well accent off the fountain — pack-swapped with shops.
     this.marketWellPlacement = { x: 47.8, z: 55.4 };
@@ -2923,6 +2930,48 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 0.65 });
+  }
+
+  /**
+   * Warm street lantern on the market cobble rim — procedural post + toon bulb.
+   * Soft pole collision only; modest point light so MeshToon stays readable.
+   */
+  private addMarketPlazaLantern(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'MarketPlazaLantern';
+
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.07, 0.09, 2.2, 5),
+      this.woodDarkMat,
+    );
+    post.position.y = 1.1;
+    post.castShadow = true;
+    group.add(post);
+
+    const arm = new THREE.Mesh(
+      new THREE.BoxGeometry(0.45, 0.07, 0.07),
+      this.woodDarkMat,
+    );
+    arm.position.set(0.22, 2.05, 0);
+    arm.castShadow = true;
+    group.add(arm);
+
+    const lanternMat = createToonMaterial(Palette.flowerYellow, {
+      emissive: 0xffaa44,
+      emissiveIntensity: 0.85,
+    });
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.15, 6, 5), lanternMat);
+    lamp.position.set(0.38, 1.95, 0);
+    group.add(lamp);
+
+    // Dim + short range — several plaza lamps must not blow out MeshToon.
+    const light = new THREE.PointLight(0xffb060, 0.4, 4.8, 2);
+    light.position.set(0.38, 2.0, 0);
+    group.add(light);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.32 });
   }
 
   /** Banner pole dressing for the market street. */

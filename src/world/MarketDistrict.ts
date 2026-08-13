@@ -74,6 +74,19 @@ export const MARKET_NOTICE_BOARD_YAW = Math.atan2(
   MARKET_FOUNTAIN_SPOT.z - MARKET_NOTICE_BOARD_SPOT.z,
 );
 
+/**
+ * Warm street lanterns on the cobble plaza rim (around the fountain).
+ * Clear of gate→market diagonal, fountain walk lanes, vendor stand, produce stall,
+ * forge pad, inn porch, notice board, and west-rim alley. Soft pole collision only.
+ */
+export const MARKET_PLAZA_LANTERNS = [
+  { x: 50.2, z: 55.95 }, // N rim — west of forge
+  { x: 45.9, z: 53.4 }, // WNW — between alley mouth and vendor stall
+  { x: 45.7, z: 50.5 }, // WSW — between produce stall and west crates
+  { x: 52.85, z: 46.25 }, // SSE — east of inn porch approach
+  { x: 55.65, z: 49.35 }, // ESE — between notice board and SE stall
+] as const;
+
 /** Cheap short rest — reachable after one chest. */
 export const INN_REST_COST = 3;
 export const INN_REST_HEAL = 40;
