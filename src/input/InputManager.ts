@@ -73,7 +73,7 @@ export class InputManager {
   getMoveAxes(): { x: number; z: number } {
     let x = 0;
     let z = 0;
-    // Held keys OR tap latch / impulse (hosts that emit keydown+keyup or keydown.repeat).
+    // Held keys OR tap latch / impulse (hosts that emit keydown+keyup or latch-refreshing repeats).
     // wasPressed covers the same-frame edge if latch somehow missed.
     if (this.moveActive('KeyA') || this.moveActive('ArrowLeft')) x -= 1;
     if (this.moveActive('KeyD') || this.moveActive('ArrowRight')) x += 1;
@@ -128,14 +128,13 @@ export class InputManager {
     }
 
     // Synthetic / remote hosts often pulse keydown+keyup then stream keydown.repeat
-    // with no lasting `keys` entry. Re-arm move keys + latch on those repeats so
-    // walking continues; never add repeat to justPressed (dodge/skills are one-shots).
+    // with no lasting `keys` entry — and often no final keyup. Refresh latch only
+    // so walking continues while repeats arrive, then stops ~MOVE_LATCH_MS later.
+    // Never keys.add on repeat (would stick if keyup never comes); never justPressed.
     if (e.repeat) {
       if (MOVE_CODES.has(e.code)) {
-        this.keys.add(e.code);
         this.moveLatchUntil.set(e.code, performance.now() + MOVE_LATCH_MS);
       }
-      // Non-move repeats stay ignored (no justPressed spam).
       return;
     }
 
