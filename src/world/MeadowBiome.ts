@@ -28,6 +28,7 @@ import {
   MARKET_VENDOR_NPC,
   MARKET_VENDOR_STALL,
 } from './MarketStreetVendor';
+import { GATE_GUARD_NPC, GATE_GUARD_YAW } from './GateGuard';
 import {
   RESIDENTIAL_CHAPEL_DOOR,
   RESIDENTIAL_CHAPEL_SPOT,
@@ -133,6 +134,11 @@ export class MeadowBiome {
   private readonly marketForgeSmoke: THREE.Mesh[] = [];
   private readonly marketForgeEmbers: THREE.Mesh[] = [];
   private marketForgeLight: THREE.PointLight | null = null;
+  /** Gate sentry mesh — idle sway + slight head-track toward nearby players. */
+  private gateGuardGroup: THREE.Group | null = null;
+  private gateGuardHead: THREE.Object3D | null = null;
+  private gateGuardBaseYaw = 0;
+  private gateGuardIdleT = 0;
 
   private readonly canopyLowGeo = new THREE.ConeGeometry(1.15, 1.55, 7);
   private readonly canopyMidGeo = new THREE.ConeGeometry(0.88, 1.35, 7);
@@ -1249,6 +1255,8 @@ export class MeadowBiome {
     const { x: cx, z: cz, radius } = this.northeastGate;
 
     this.addCityGateArch(cx, cz);
+    // Townsfolk sentry beside the arch — soft collision, walk-through lane stays open.
+    this.addGateGuard(GATE_GUARD_NPC.x, GATE_GUARD_NPC.z, GATE_GUARD_YAW);
     this.addRoadsideDressing();
 
     // Sparse rim trees — leave the SW entrance open for the road, NE open for market.
@@ -2039,6 +2047,143 @@ export class MeadowBiome {
     this.obstacles.push({ x: right.x, z: right.z, radius: 0.85 });
     this.obstacles.push({ x: wallL.x, z: wallL.z, radius: 0.7 });
     this.obstacles.push({ x: wallR.x, z: wallR.z, radius: 0.7 });
+  }
+
+  /**
+   * Low-poly toon gate sentry — steel/teal kit (distinct from terracotta street vendor).
+   * Soft collision beside the left pillar; arch center stays walkable into market.
+   */
+  private addGateGuard(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'CityGateGuard';
+
+    // Steel + deep teal — KayKit-adjacent townsfolk sentry (not the plaza vendor).
+    const skinMat = createToonMaterial(Palette.warriorSkin);
+    const tunicMat = createToonMaterial(0x3d6b6e, {
+      emissive: 0x2a4a4c,
+      emissiveIntensity: 0.05,
+    });
+    const armorMat = createToonMaterial(Palette.warriorSteel, {
+      emissive: Palette.warriorSteel,
+      emissiveIntensity: 0.04,
+    });
+    const trimMat = createToonMaterial(Palette.warriorTrimGold, {
+      emissive: Palette.warriorTrimGold,
+      emissiveIntensity: 0.1,
+    });
+    const bootMat = createToonMaterial(Palette.warriorBoot);
+    const hairMat = createToonMaterial(0x2a2430);
+    const woodMat = createToonMaterial(Palette.woodDark);
+    const bladeMat = createToonMaterial(Palette.warriorSteelDark, {
+      emissive: Palette.warriorSteel,
+      emissiveIntensity: 0.08,
+    });
+
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.4, 14),
+      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.28 }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.02;
+    group.add(shadow);
+
+    const boots = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.18, 0.38), bootMat);
+    boots.position.y = 0.1;
+    boots.castShadow = true;
+    group.add(boots);
+
+    const legs = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.58, 0.3), tunicMat);
+    legs.position.y = 0.46;
+    legs.castShadow = true;
+    group.add(legs);
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.64, 0.36), armorMat);
+    torso.position.y = 1.04;
+    torso.castShadow = true;
+    group.add(torso);
+
+    const tabard = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.55, 0.08), tunicMat);
+    tabard.position.set(0, 0.9, 0.22);
+    tabard.castShadow = true;
+    group.add(tabard);
+
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.1, 0.38), trimMat);
+    belt.position.y = 0.74;
+    group.add(belt);
+
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.52, 0.17), armorMat);
+    armL.position.set(-0.4, 1.0, 0.04);
+    armL.rotation.z = 0.22;
+    armL.castShadow = true;
+    group.add(armL);
+
+    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.52, 0.17), armorMat);
+    armR.position.set(0.4, 1.0, 0.04);
+    armR.rotation.z = -0.12;
+    armR.castShadow = true;
+    group.add(armR);
+
+    // Round shield on left arm — readable sentry silhouette from iso.
+    const shield = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.32, 0.34, 0.08, 10),
+      createToonMaterial(0x4a7a7e, {
+        emissive: 0x3d6b6e,
+        emissiveIntensity: 0.08,
+      }),
+    );
+    shield.rotation.z = Math.PI / 2;
+    shield.rotation.y = 0.35;
+    shield.position.set(-0.52, 1.05, 0.18);
+    shield.castShadow = true;
+    group.add(shield);
+    const boss = new THREE.Mesh(new THREE.CircleGeometry(0.1, 8), trimMat);
+    boss.position.set(-0.56, 1.05, 0.22);
+    boss.rotation.y = 0.35;
+    group.add(boss);
+
+    // Spear planted beside the right side — idle stance, not blocking the arch.
+    const spearGroup = new THREE.Group();
+    spearGroup.position.set(0.42, 0, 0.12);
+    spearGroup.rotation.z = -0.08;
+    const shaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.04, 2.55, 5),
+      woodMat,
+    );
+    shaft.position.y = 1.35;
+    shaft.castShadow = true;
+    spearGroup.add(shaft);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.32, 5), bladeMat);
+    tip.position.y = 2.75;
+    tip.castShadow = true;
+    spearGroup.add(tip);
+    group.add(spearGroup);
+
+    const head = new THREE.Group();
+    head.name = 'GateGuardHead';
+    head.position.y = 1.52;
+    const skull = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.36, 0.34), skinMat);
+    skull.castShadow = true;
+    head.add(skull);
+    const helm = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.2, 0.4), armorMat);
+    helm.position.y = 0.18;
+    helm.castShadow = true;
+    head.add(helm);
+    const plume = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.28, 0.12), tunicMat);
+    plume.position.set(0, 0.38, -0.02);
+    head.add(plume);
+    const hair = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.12, 0.2), hairMat);
+    hair.position.set(0, 0.08, -0.12);
+    head.add(hair);
+    group.add(head);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.55 });
+
+    this.gateGuardGroup = group;
+    this.gateGuardHead = head;
+    this.gateGuardBaseYaw = yaw;
   }
 
   /** A few roadside posts + banners along the NE spur — optional light dressing. */
@@ -3181,6 +3326,36 @@ export class MeadowBiome {
     if (this.marketForgeLight) {
       this.marketForgeLight.intensity = 0.7 + 0.35 * (0.5 + 0.5 * Math.sin(t * 9.5));
     }
+  }
+
+  /**
+   * Idle spear sway + slight head yaw toward the player when close.
+   * Call once per frame from the game loop (optional flavor; no combat AI).
+   */
+  updateGateGuard(dt: number, playerPos: THREE.Vector3): void {
+    const group = this.gateGuardGroup;
+    const head = this.gateGuardHead;
+    if (!group || !head) return;
+
+    this.gateGuardIdleT += dt;
+    const idle = this.gateGuardIdleT;
+    // Soft planted stance — tiny vertical bob, not a full walk cycle.
+    group.position.y = Math.sin(idle * 1.7) * 0.012;
+
+    const dx = playerPos.x - group.position.x;
+    const dz = playerPos.z - group.position.z;
+    const distSq = dx * dx + dz * dz;
+    const trackRadiusSq = 9 * 9;
+    let headYaw = 0;
+    if (distSq < trackRadiusSq && distSq > 1e-4) {
+      const worldYaw = Math.atan2(dx, dz);
+      let delta = worldYaw - this.gateGuardBaseYaw;
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      while (delta < -Math.PI) delta += Math.PI * 2;
+      // Cap so the helmet doesn't spin through the body.
+      headYaw = THREE.MathUtils.clamp(delta, -0.55, 0.55);
+    }
+    head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, headYaw, 1 - Math.exp(-6 * dt));
   }
 
   /**
