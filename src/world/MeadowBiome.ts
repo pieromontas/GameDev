@@ -12,6 +12,7 @@ import {
   NortheastCityGate,
   NortheastMarketDistrict,
   NortheastResidentialStreet,
+  NortheastHarborDocks,
   hash2,
 } from '../render/stylized';
 import type { WorldPropLibrary } from './WorldPropLibrary';
@@ -39,6 +40,7 @@ import {
   RESIDENTIAL_HOME_SPOTS,
   RESIDENTIAL_WELL_SPOT,
 } from './ResidentialStreet';
+import { HARBOR_CATCH_SIGN } from './HarborDocks';
 
 export type Obstacle = { x: number; z: number; radius: number };
 
@@ -52,7 +54,7 @@ type SignFacing = 'east' | 'west' | 'north' | 'south' | 'northeast';
 /** Shared stylized meadow: living ground, tiered trees, rocks, landmarks. */
 export class MeadowBiome {
   readonly root = new THREE.Group();
-  /** Larger disk so clearings + NE gate / market / homes sit on painted ground. */
+  /** Larger disk so clearings + NE gate / market / homes / docks sit on painted ground. */
   readonly groundSize = 160;
   readonly playRadius = 44;
   /** Second playable pocket — ancient shrine clearing east of the main ring. */
@@ -83,6 +85,10 @@ export class MeadowBiome {
   readonly northeastHomes = NortheastResidentialStreet;
   /** Soft corridor half-width connecting market plaza → residential street. */
   readonly residentialCorridorHalfWidth = 5.5;
+  /** Ninth playable stub — harbor / docks past the market’s open SE exit. */
+  readonly northeastDocks = NortheastHarborDocks;
+  /** Soft corridor half-width connecting market plaza → harbor docks. */
+  readonly docksCorridorHalfWidth = 5.5;
   /** World XZ of the city gate arch (for minimap / discovery cues). */
   readonly cityGatePosition = new THREE.Vector3(NortheastCityGate.x, 0, NortheastCityGate.z);
   /** World XZ of the market plaza center (for minimap / discovery cues). */
@@ -96,6 +102,12 @@ export class MeadowBiome {
     NortheastResidentialStreet.x,
     0,
     NortheastResidentialStreet.z,
+  );
+  /** World XZ of the harbor / docks pocket (for minimap / discovery cues). */
+  readonly docksPosition = new THREE.Vector3(
+    NortheastHarborDocks.x,
+    0,
+    NortheastHarborDocks.z,
   );
   /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
@@ -225,6 +237,7 @@ export class MeadowBiome {
     this.buildNortheastCityGate();
     this.buildNortheastMarketDistrict();
     this.buildNortheastResidentialStreet();
+    this.buildNortheastHarborDocks();
     this.buildEdgeLedges();
   }
 
@@ -345,6 +358,16 @@ export class MeadowBiome {
     homesPad.position.set(this.northeastHomes.x, 0.025, this.northeastHomes.z);
     homesPad.receiveShadow = true;
     this.root.add(homesPad);
+
+    // Soft grass RING under the harbor docks — leave center open for pier boards.
+    const docksPad = new THREE.Mesh(
+      new THREE.RingGeometry(3.0, this.northeastDocks.radius + 1.3, 28),
+      createToonMaterial(0x5a8a62),
+    );
+    docksPad.rotation.x = -Math.PI / 2;
+    docksPad.position.set(this.northeastDocks.x, 0.025, this.northeastDocks.z);
+    docksPad.receiveShadow = true;
+    this.root.add(docksPad);
 
     this.buildEastPathRibbon();
     this.buildWestPathRibbon();
@@ -1286,7 +1309,7 @@ export class MeadowBiome {
   /**
    * Compact market district stub behind the NE gate — first town slice.
    * KayKit cottage shops + stylized stalls/awning props; residential street
-   * continues through the open far-NE exit (see `buildNortheastResidentialStreet`).
+   * continues through the open far-NE exit; harbor docks through the open SE exit.
    */
   private buildNortheastMarketDistrict(): void {
     const { x: cx, z: cz, radius } = this.northeastMarket;
@@ -1298,7 +1321,8 @@ export class MeadowBiome {
     // Street runs along the NE diagonal; shops sit well off the walk lane
     // (KayKit cottage collision ≈ 1.6 × PROP_SCALE.cottage after pack apply).
     this.addMarketShop(44.8, 58.2, 1.08, Math.PI * 0.78);
-    this.addMarketShop(58.2, 44.6, 1.12, -Math.PI * 0.22);
+    // SE shop — nudged SW so the open SE docks spur clears pack r≈4.4
+    this.addMarketShop(57.2, 43.2, 1.12, -Math.PI * 0.22);
     // Far-side shop — stay ≥~5 units off the diagonal so pack-scaled cottage r≈4.4 clears the street
     this.addMarketShop(61.0, 53.0, 1.18, -Math.PI * 0.45);
 
@@ -1368,18 +1392,20 @@ export class MeadowBiome {
     this.addMarketWellStandIn(this.marketWellPlacement.x, this.marketWellPlacement.z);
 
     // Low curtain walls + corner posts — enclose parts of the rim, link to the gate.
-    // Leave SW (gate approach) and far NE (residential street exit) open.
+    // Leave SW (gate), far NE (homes), and SE (harbor docks) exits open.
     this.buildMarketPerimeterWalls();
     // Short west-rim alley off the plaza (walkable crate lane + E flavor).
     this.buildMarketSideAlley();
 
-    // Sparse rim trees — leave SW open toward the gate, far NE for the homes street.
+    // Sparse rim trees — leave SW open toward the gate, far NE for homes, SE for docks.
     // Skip blacksmith + inn pads so foliage doesn't swallow the landmark silhouettes.
     const rimTrees = 6;
     for (let i = 0; i < rimTrees; i++) {
       const a = (i / rimTrees) * Math.PI * 2 + 0.55;
       if (Math.cos(a) + Math.sin(a) < -0.7) continue;
       if (Math.cos(a) + Math.sin(a) > 1.2) continue;
+      // SE bearing toward the harbor spur — keep the open exit readable.
+      if (Math.cos(a) > 0.55 && Math.sin(a) < -0.15) continue;
       const r = radius + 0.35 + (i % 2) * 0.4;
       const tx = cx + Math.cos(a) * r;
       const tz = cz + Math.sin(a) * r;
@@ -1538,6 +1564,338 @@ export class MeadowBiome {
     plaza.position.set(this.northeastHomes.x, 0.04, this.northeastHomes.z);
     plaza.receiveShadow = true;
     this.root.add(plaza);
+  }
+
+  /**
+   * Compact harbor / docks stub past the market’s open SE exit (not the NE homes lane).
+   * Stone/wood spur, small pier with pilings, crates, hanging nets, and moored boats.
+   * Soft collisions on boats/crates; center pier lane stays walkable. No new enemies.
+   */
+  private buildNortheastHarborDocks(): void {
+    const { x: cx, z: cz, radius } = this.northeastDocks;
+
+    this.buildHarborStreetRibbon();
+    this.buildHarborWaterPad(cx, cz);
+    this.buildHarborPier(cx, cz);
+
+    // Catch crate / sign — E flavor via HarborCatchSign (pad itself is not a blocker).
+    this.addHarborCatchCrate(HARBOR_CATCH_SIGN.x, HARBOR_CATCH_SIGN.z);
+
+    // Flank crates — soft blockers off the pier lane.
+    this.addMarketCrates(62.4, 44.8, 0.35);
+    this.addMarketCrates(64.2, 41.2, -0.4);
+    this.addMarketCrates(68.2, 40.6, 0.2);
+
+    // Moored boats beside the pier (soft collision; leave center boards open).
+    this.addHarborBoat(69.4, 39.2, -0.55, 1.05);
+    this.addHarborBoat(71.2, 43.6, 0.85, 0.92);
+
+    this.addHarborNetRack(65.6, 45.2, -0.35);
+    this.addHarborNetRack(70.0, 41.8, 0.9);
+    this.addHarborLantern(63.2, 42.4);
+    this.addHarborLantern(67.6, 40.0);
+
+    // Sparse rim trees — leave NW open toward the market spur.
+    const rimTrees = 4;
+    for (let i = 0; i < rimTrees; i++) {
+      const a = (i / rimTrees) * Math.PI * 2 + 0.9;
+      // NW bearing back to market — keep the approach clear.
+      if (Math.cos(a) < -0.2 && Math.sin(a) > 0.15) continue;
+      const r = radius + 0.2 + (i % 2) * 0.3;
+      const tx = cx + Math.cos(a) * r;
+      const tz = cz + Math.sin(a) * r;
+      if (meadowPathInfluence(tx, tz) > 0.45) continue;
+      if (Math.hypot(tx - HARBOR_CATCH_SIGN.x, tz - HARBOR_CATCH_SIGN.z) < 3.5) {
+        continue;
+      }
+      this.addTree(tx, tz, 0.82 + (i % 3) * 0.05);
+    }
+  }
+
+  /** Stone/wood ribbon from the market’s SE exit into the docks pocket. */
+  private buildHarborStreetRibbon(): void {
+    const pathMat = createToonMaterial(Palette.pathDark);
+    const edgeMat = createToonMaterial(Palette.rockLight);
+    const woodMat = createToonMaterial(Palette.wood);
+    // Clear of SE shop pack r≈4.4 and the NE homes diagonal.
+    const ax = this.northeastMarket.x + 6.5;
+    const az = this.northeastMarket.z - 1.5;
+    const bx = this.northeastDocks.x - 1.0;
+    const bz = this.northeastDocks.z + 1.0;
+    const segments = 6;
+    for (let i = 0; i < segments; i++) {
+      const t0 = i / segments;
+      const t1 = (i + 1) / segments;
+      const x0 = ax + (bx - ax) * t0;
+      const z0 = az + (bz - az) * t0;
+      const x1 = ax + (bx - ax) * t1;
+      const z1 = az + (bz - az) * t1;
+      const mx = (x0 + x1) * 0.5;
+      const mz = (z0 + z1) * 0.5;
+      const dx = x1 - x0;
+      const dz = z1 - z0;
+      const len = Math.hypot(dx, dz);
+      const ang = Math.atan2(dx, dz);
+      const width = 3.3 + Math.sin(t0 * Math.PI) * 0.3;
+
+      const plank = new THREE.Mesh(
+        new THREE.BoxGeometry(width, 0.05, len + 0.12),
+        i < 3 ? pathMat : woodMat,
+      );
+      plank.position.set(mx, 0.048, mz);
+      plank.rotation.y = ang;
+      plank.receiveShadow = true;
+      this.root.add(plank);
+
+      const edge = new THREE.Mesh(
+        new THREE.BoxGeometry(width + 0.5, 0.028, len + 0.16),
+        edgeMat,
+      );
+      edge.position.set(mx, 0.032, mz);
+      edge.rotation.y = ang;
+      edge.receiveShadow = true;
+      this.root.add(edge);
+    }
+  }
+
+  /** Shallow harbor water under / beside the pier (reads as docks, not a river ford). */
+  private buildHarborWaterPad(cx: number, cz: number): void {
+    const water = new THREE.Mesh(
+      new THREE.CircleGeometry(5.8, 28),
+      this.pondMat,
+    );
+    water.rotation.x = -Math.PI / 2;
+    water.position.set(cx + 2.4, 0.02, cz - 1.6);
+    water.receiveShadow = true;
+    this.root.add(water);
+
+    const deep = new THREE.Mesh(
+      new THREE.CircleGeometry(3.2, 22),
+      this.pondDeepMat,
+    );
+    deep.rotation.x = -Math.PI / 2;
+    deep.position.set(cx + 3.2, 0.015, cz - 2.2);
+    deep.receiveShadow = true;
+    this.root.add(deep);
+  }
+
+  /** Walkable pier boards + pilings — center lane clear of boat/crate blockers. */
+  private buildHarborPier(cx: number, cz: number): void {
+    const deckMat = createToonMaterial(Palette.wood);
+    const railMat = createToonMaterial(Palette.woodDark);
+    const pierYaw = -0.55;
+    const pier = new THREE.Group();
+    pier.position.set(cx + 1.2, 0, cz - 0.6);
+    pier.rotation.y = pierYaw;
+    pier.name = 'HarborPier';
+
+    // Main walk deck — knight-scale width (~3.2) so WASD feels open.
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.12, 9.2), deckMat);
+    deck.position.y = 0.18;
+    deck.castShadow = true;
+    deck.receiveShadow = true;
+    pier.add(deck);
+
+    // Cross planks for silhouette.
+    for (let i = 0; i < 5; i++) {
+      const board = new THREE.Mesh(
+        new THREE.BoxGeometry(3.35, 0.04, 0.55),
+        railMat,
+      );
+      board.position.set(0, 0.25, -3.6 + i * 1.8);
+      board.receiveShadow = true;
+      pier.add(board);
+    }
+
+    // Pilings along both edges — obstacles only at world positions, not deck center.
+    const pilingOffsets: Array<[number, number]> = [
+      [-1.45, -3.8],
+      [1.45, -3.6],
+      [-1.45, -1.2],
+      [1.45, -1.0],
+      [-1.45, 1.4],
+      [1.45, 1.6],
+      [-1.45, 3.6],
+      [1.45, 3.8],
+    ];
+    for (const [ox, oz] of pilingOffsets) {
+      const piling = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.16, 0.2, 1.35, 6),
+        this.woodDarkMat,
+      );
+      piling.position.set(ox, 0.2, oz);
+      piling.castShadow = true;
+      pier.add(piling);
+    }
+
+    // Light side rails — leave ends open for boarding / walk-off.
+    for (const side of [-1.55, 1.55]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.35, 7.2), railMat);
+      rail.position.set(side, 0.45, 0.2);
+      rail.castShadow = true;
+      pier.add(rail);
+    }
+
+    this.root.add(pier);
+
+    // Soft blockers for edge pilings only — center of pier stays walkable.
+    const cos = Math.cos(pierYaw);
+    const sin = Math.sin(pierYaw);
+    for (const [ox, oz] of pilingOffsets) {
+      const wx = cx + 1.2 + ox * cos + oz * sin;
+      const wz = cz - 0.6 - ox * sin + oz * cos;
+      this.obstacles.push({ x: wx, z: wz, radius: 0.38 });
+    }
+  }
+
+  /** Catch crate stack + small board — E flavor pad (soft collision modest). */
+  private addHarborCatchCrate(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = 0.4;
+    group.name = 'HarborCatchCrate';
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.6, 0.75), this.woodMat);
+    base.position.y = 0.3;
+    base.castShadow = true;
+    base.receiveShadow = true;
+    group.add(base);
+
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.12, 0.6), this.woodDarkMat);
+    lid.position.set(0.05, 0.66, 0);
+    lid.castShadow = true;
+    group.add(lid);
+
+    const board = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 0.4, 0.06),
+      this.signBoardMat,
+    );
+    board.position.set(0.15, 1.05, 0.2);
+    board.castShadow = true;
+    group.add(board);
+
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.06, 1.1, 5),
+      this.woodDarkMat,
+    );
+    post.position.set(0.15, 0.55, 0.22);
+    post.castShadow = true;
+    group.add(post);
+
+    this.root.add(group);
+    // Keep radius modest so the pier lane beside the crate stays open.
+    this.obstacles.push({ x, z, radius: 0.55 });
+  }
+
+  /** Simple moored skiff — soft hull blocker off the pier walk lane. */
+  private addHarborBoat(x: number, z: number, yaw: number, scale: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.scale.setScalar(scale);
+    group.name = 'HarborBoat';
+
+    const hull = new THREE.Mesh(
+      new THREE.BoxGeometry(1.1, 0.45, 2.6),
+      this.woodMat,
+    );
+    hull.position.y = 0.22;
+    hull.castShadow = true;
+    hull.receiveShadow = true;
+    group.add(hull);
+
+    const bow = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.9, 4), this.woodDarkMat);
+    bow.rotation.x = Math.PI / 2;
+    bow.position.set(0, 0.28, -1.55);
+    bow.castShadow = true;
+    group.add(bow);
+
+    const mast = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.06, 2.1, 5),
+      this.woodDarkMat,
+    );
+    mast.position.y = 1.2;
+    mast.castShadow = true;
+    group.add(mast);
+
+    const sail = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.9, 1.2),
+      createToonMaterial(0xe8e0d0, { side: THREE.DoubleSide }),
+    );
+    sail.position.set(0.35, 1.35, 0.1);
+    sail.rotation.y = 0.2;
+    group.add(sail);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.05 * scale });
+  }
+
+  /** Drying-net rack dressing for the pier apron. */
+  private addHarborNetRack(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'HarborNetRack';
+
+    for (const ox of [-0.55, 0.55]) {
+      const post = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.07, 1.8, 5),
+        this.woodDarkMat,
+      );
+      post.position.set(ox, 0.9, 0);
+      post.castShadow = true;
+      group.add(post);
+    }
+
+    const beam = new THREE.Mesh(
+      new THREE.BoxGeometry(1.3, 0.08, 0.08),
+      this.woodMat,
+    );
+    beam.position.y = 1.65;
+    beam.castShadow = true;
+    group.add(beam);
+
+    const netMat = createToonMaterial(0x8aa8a0, {
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const net = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.1), netMat);
+    net.position.set(0, 1.0, 0.05);
+    group.add(net);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.5 });
+  }
+
+  /** Small dock lantern post — readable at iso distance. */
+  private addHarborLantern(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'HarborLantern';
+
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.07, 0.09, 2.2, 5),
+      this.woodDarkMat,
+    );
+    post.position.y = 1.1;
+    post.castShadow = true;
+    group.add(post);
+
+    const lamp = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 8, 8),
+      createToonMaterial(Palette.flowerYellow, {
+        emissive: Palette.flowerYellow,
+        emissiveIntensity: 0.45,
+      }),
+    );
+    lamp.position.y = 2.25;
+    lamp.castShadow = true;
+    group.add(lamp);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.3 });
   }
 
   /** Procedural KayKit-cottage stand-in for a residential home (pack-swapped later). */
@@ -2533,7 +2891,7 @@ export class MeadowBiome {
   /**
    * Low curtain walls + corner towers around parts of the market rim.
    * Matches the city-gate flanking-wall style; does not fully box the district —
-   * SW gate approach and far NE street exits stay open.
+   * SW gate approach, far NE homes exit, and SE docks exit stay open.
    */
   private buildMarketPerimeterWalls(): void {
     // Yaw ≈ tangent to the rim (wall length runs along the curtain).
@@ -2551,17 +2909,16 @@ export class MeadowBiome {
     this.addMarketWallSegment(51.4, 62.6, -1.2, 2.3);
     this.addMarketWallSegment(54.2, 62.2, -1.45, 2.2);
 
-    // South / SE chain — links toward the gate's SE flank, outside the inn footprint.
+    // South chain — links toward the gate's SE flank, outside the inn footprint.
+    // Stop before the open SE docks exit (do not continue to the old SE tower).
     this.addMarketWallTower(46.8, 41.2, false);
     this.addMarketWallSegment(49.4, 40.4, 1.45, 2.5);
     this.addMarketWallSegment(52.4, 40.2, 1.55, 2.5);
     this.addMarketWallTower(55.4, 41.0, true);
-    this.addMarketWallSegment(57.8, 42.4, 1.85, 2.4);
-    this.addMarketWallSegment(60.2, 44.6, 2.05, 2.3);
-    this.addMarketWallTower(61.6, 47.2, false);
+    this.addMarketWallSegment(57.2, 41.8, 1.75, 2.1);
 
-    // Light east accent only — leave the far NE approach open for the homes street.
-    this.addMarketWallSegment(62.4, 50.6, 2.35, 2.2);
+    // Light east accent only — leave far NE for homes; leave SE gap for docks.
+    this.addMarketWallSegment(62.4, 53.2, 2.35, 2.2);
   }
 
   /** Low stone curtain segment — same language as the gate flank walls. */
@@ -4746,12 +5103,15 @@ export class MeadowBiome {
       ) {
         continue;
       }
+      if (Math.hypot(x - NortheastHarborDocks.x, z - NortheastHarborDocks.z) < 7.5) {
+        continue;
+      }
       const bush = library.createBush(x, z, s, hash2(x, z) * 500 + i);
       if (bush) this.root.add(bush);
     }
   }
 
-  /** True if inside main meadow, any corridor, clearing, NE gate, market, or homes. */
+  /** True if inside main meadow, any corridor, clearing, NE gate, market, homes, or docks. */
   isInPlayArea(x: number, z: number): boolean {
     if (x * x + z * z <= this.playRadius * this.playRadius) return true;
     const cdx = x - this.eastClearing.x;
@@ -4793,16 +5153,26 @@ export class MeadowBiome {
     ) {
       return true;
     }
+    const ddx = x - this.northeastDocks.x;
+    const ddz = z - this.northeastDocks.z;
+    if (
+      ddx * ddx + ddz * ddz <= this.northeastDocks.radius * this.northeastDocks.radius
+    ) {
+      return true;
+    }
     if (this.distToEastCorridor(x, z) <= this.eastCorridorHalfWidth) return true;
     if (this.distToWestCorridor(x, z) <= this.westCorridorHalfWidth) return true;
     if (this.distToNorthCorridor(x, z) <= this.northCorridorHalfWidth) return true;
     if (this.distToSouthCorridor(x, z) <= this.southCorridorHalfWidth) return true;
     if (this.distToNortheastCorridor(x, z) <= this.northeastCorridorHalfWidth) return true;
     if (this.distToMarketCorridor(x, z) <= this.marketCorridorHalfWidth) return true;
-    return this.distToResidentialCorridor(x, z) <= this.residentialCorridorHalfWidth;
+    if (this.distToResidentialCorridor(x, z) <= this.residentialCorridorHalfWidth) {
+      return true;
+    }
+    return this.distToDocksCorridor(x, z) <= this.docksCorridorHalfWidth;
   }
 
-  /** Keep entities inside meadow ∪ corridors ∪ clearings ∪ NE gate ∪ market ∪ homes. */
+  /** Keep entities inside meadow ∪ corridors ∪ clearings ∪ NE gate ∪ market ∪ homes ∪ docks. */
   clampToPlayArea(position: THREE.Vector3): void {
     if (this.isInPlayArea(position.x, position.z)) return;
     const nearest = this.nearestPlayPoint(position.x, position.z);
@@ -4833,6 +5203,14 @@ export class MeadowBiome {
     const dz = position.z - this.northeastHomes.z;
     if (dx * dx + dz * dz <= 7.5 * 7.5) return true;
     return this.distToResidentialCorridor(position.x, position.z) <= 3.8;
+  }
+
+  /** True when the player is on the harbor / docks stub (discovery toast). */
+  isNearHarborDocks(position: THREE.Vector3): boolean {
+    const dx = position.x - this.northeastDocks.x;
+    const dz = position.z - this.northeastDocks.z;
+    if (dx * dx + dz * dz <= 7.0 * 7.0) return true;
+    return this.distToDocksCorridor(position.x, position.z) <= 3.6;
   }
 
   /** Corridor + path samples used to keep props from blocking the branch. */
@@ -4871,7 +5249,7 @@ export class MeadowBiome {
     return meadowPathInfluence(x, z) > 0.35 && z < -15;
   }
 
-  /** Keep props off the northeast dirt/stone road into the city gate + market + homes. */
+  /** Keep props off the northeast dirt/stone road into the city gate + market + homes + docks. */
   private isOnNortheastBranchApproach(x: number, z: number): boolean {
     if (x < 10 || z < 10) return false;
     // Wide cone along +X/+Z so the tree ring does not choke the NE exit / market street.
@@ -4885,6 +5263,9 @@ export class MeadowBiome {
     if (
       this.distToResidentialCorridor(x, z) < this.residentialCorridorHalfWidth + 1.3
     ) {
+      return true;
+    }
+    if (this.distToDocksCorridor(x, z) < this.docksCorridorHalfWidth + 1.3) {
       return true;
     }
     return meadowPathInfluence(x, z) > 0.35 && x > 14 && z > 14;
@@ -4952,6 +5333,15 @@ export class MeadowBiome {
     const az = this.northeastMarket.z + 4.0;
     const bx = this.northeastHomes.x - 1.5;
     const bz = this.northeastHomes.z - 1.5;
+    return this.distToSegment(x, z, ax, az, bx, bz);
+  }
+
+  /** Distance from point to the docks corridor segment (market → harbor). */
+  private distToDocksCorridor(x: number, z: number): number {
+    const ax = this.northeastMarket.x + 6.5;
+    const az = this.northeastMarket.z - 1.5;
+    const bx = this.northeastDocks.x - 1.0;
+    const bz = this.northeastDocks.z + 1.0;
     return this.distToSegment(x, z, ax, az, bx, bz);
   }
 
@@ -5072,6 +5462,17 @@ export class MeadowBiome {
       );
     }
 
+    // Harbor docks rim
+    {
+      const dx = x - this.northeastDocks.x;
+      const dz = z - this.northeastDocks.z;
+      const d = Math.hypot(dx, dz) || 1;
+      consider(
+        this.northeastDocks.x + (dx / d) * this.northeastDocks.radius,
+        this.northeastDocks.z + (dz / d) * this.northeastDocks.radius,
+      );
+    }
+
     // East corridor capsule surface
     this.considerCorridorSurface(
       x,
@@ -5153,6 +5554,18 @@ export class MeadowBiome {
       this.northeastHomes.x - 1.5,
       this.northeastHomes.z - 1.5,
       this.residentialCorridorHalfWidth,
+      consider,
+    );
+
+    // Market → docks corridor capsule surface
+    this.considerCorridorSurface(
+      x,
+      z,
+      this.northeastMarket.x + 6.5,
+      this.northeastMarket.z - 1.5,
+      this.northeastDocks.x - 1.0,
+      this.northeastDocks.z + 1.0,
+      this.docksCorridorHalfWidth,
       consider,
     );
 
