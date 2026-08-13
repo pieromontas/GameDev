@@ -22,6 +22,8 @@ import {
   MARKET_FORGE_SPOT,
   MARKET_FOUNTAIN_SPOT,
   MARKET_INN_SPOT,
+  MARKET_NOTICE_BOARD_SPOT,
+  MARKET_NOTICE_BOARD_YAW,
   MARKET_SIGN_SPOT,
 } from './MarketDistrict';
 import {
@@ -1354,6 +1356,13 @@ export class MeadowBiome {
     this.addMarketBannerPost(47.0, 49.2, 0.1);
     this.addMarketBannerPost(55.0, 52.6, -0.08);
 
+    // Town notice / bounty board on the east plaza rim (E interact via MarketNoticeBoard).
+    this.addMarketNoticeBoard(
+      MARKET_NOTICE_BOARD_SPOT.x,
+      MARKET_NOTICE_BOARD_SPOT.z,
+      MARKET_NOTICE_BOARD_YAW,
+    );
+
     // KayKit well accent off the fountain — pack-swapped with shops.
     this.marketWellPlacement = { x: 47.8, z: 55.4 };
     this.addMarketWellStandIn(this.marketWellPlacement.x, this.marketWellPlacement.z);
@@ -1385,6 +1394,12 @@ export class MeadowBiome {
       }
       // Keep the west-rim alley + curtain-wall walk ring readable.
       if (Math.hypot(tx - MARKET_ALLEY_SPOT.x, tz - MARKET_ALLEY_SPOT.z) < 5.0) {
+        continue;
+      }
+      // Keep the east-rim notice board silhouette clear.
+      if (
+        Math.hypot(tx - MARKET_NOTICE_BOARD_SPOT.x, tz - MARKET_NOTICE_BOARD_SPOT.z) < 4.5
+      ) {
         continue;
       }
       this.addTree(tx, tz, 0.86 + (i % 3) * 0.06);
@@ -2753,6 +2768,68 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 0.35 });
+  }
+
+  /**
+   * Stylized plaza notice / bounty board — twin posts, papers, nails.
+   * Soft collision only; fountain / stall lanes stay open.
+   */
+  private addMarketNoticeBoard(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'MarketNoticeBoard';
+
+    const paperMat = createToonMaterial(0xf3e6c8);
+    const paperAltMat = createToonMaterial(0xe8d9b0);
+    const nailMat = createToonMaterial(0x6a6e72);
+
+    for (const px of [-0.72, 0.72] as const) {
+      const post = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.09, 2.35, 6),
+        this.woodDarkMat,
+      );
+      post.position.set(px, 1.15, 0);
+      post.castShadow = true;
+      post.receiveShadow = true;
+      group.add(post);
+    }
+
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.14, 0.12), this.woodMat);
+    beam.position.set(0, 2.28, 0);
+    beam.castShadow = true;
+    group.add(beam);
+
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.55, 1.15, 0.1), this.signBoardMat);
+    board.position.set(0, 1.55, 0.02);
+    board.castShadow = true;
+    board.receiveShadow = true;
+    group.add(board);
+
+    const header = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.16, 0.12), this.bannerMat);
+    header.position.set(0, 2.05, 0.08);
+    group.add(header);
+
+    const papers: Array<[number, number, number, number, number, THREE.Material]> = [
+      [-0.32, 1.85, 0.09, 0.42, 0.34, paperMat],
+      [0.28, 1.78, 0.1, 0.38, 0.4, paperAltMat],
+      [-0.18, 1.35, 0.09, 0.48, 0.3, paperMat],
+      [0.35, 1.32, 0.1, 0.34, 0.28, paperAltMat],
+    ];
+    for (const [px, py, pz, w, h, mat] of papers) {
+      const paper = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.02), mat);
+      paper.position.set(px, py, pz);
+      paper.rotation.z = (hash2(px + x, py + z) - 0.5) * 0.22;
+      paper.castShadow = true;
+      group.add(paper);
+
+      const nail = new THREE.Mesh(new THREE.SphereGeometry(0.035, 5, 4), nailMat);
+      nail.position.set(px, py + h * 0.38, pz + 0.02);
+      group.add(nail);
+    }
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.42 });
   }
 
   /** Procedural well stand-in at the market plaza (replaced by KayKit well). */

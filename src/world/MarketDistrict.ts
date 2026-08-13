@@ -49,6 +49,18 @@ export const MARKET_INN_DOOR = { x: 49.6, z: 45.3 } as const;
  */
 export const MARKET_ALLEY_SPOT = { x: 43.6, z: 52.4 } as const;
 
+/**
+ * Town notice / bounty board on the east plaza rim (between the SE + E stalls).
+ * Clear of fountain walk lanes, vendor stand, forge pad, and shop pack radii (~4.4).
+ */
+export const MARKET_NOTICE_BOARD_SPOT = { x: 54.6, z: 50.8 } as const;
+
+/** Face the plaza fountain so posted papers read from the cobble. */
+export const MARKET_NOTICE_BOARD_YAW = Math.atan2(
+  MARKET_FOUNTAIN_SPOT.x - MARKET_NOTICE_BOARD_SPOT.x,
+  MARKET_FOUNTAIN_SPOT.z - MARKET_NOTICE_BOARD_SPOT.z,
+);
+
 /** Cheap short rest — reachable after one chest. */
 export const INN_REST_COST = 3;
 export const INN_REST_HEAL = 40;
@@ -252,5 +264,129 @@ export class MarketAlley {
     if (!player.alive || !this.isNear(player.position)) return false;
     this.onToast(ALLEY_TOAST, 2.0);
     return true;
+  }
+}
+
+const NOTICE_INTERACT_RADIUS = 3.4;
+const NOTICE_INTERACT_RADIUS_SQ = NOTICE_INTERACT_RADIUS * NOTICE_INTERACT_RADIUS;
+const NOTICE_OPEN_PROMPT = 'Press E — Notice Board';
+const NOTICE_CLOSE_PROMPT = 'Press E — Close Notices';
+/** Matches GateGuard’s meadow-blob flavor stub (total kills). */
+export const NOTICE_BLOB_GOAL = 3;
+
+export type NoticeBoardLine = {
+  title: string;
+  body: string;
+};
+
+export type MarketNoticeBoardHooks = {
+  onToast: (message: string, duration?: number) => void;
+  /** Kill counter for the live meadow-blob bounty line. */
+  getKills: () => number;
+  onBoardChanged: (open: boolean, lines: NoticeBoardLine[]) => void;
+};
+
+/**
+ * Plaza notice / bounty board — E opens a tiny read-only HUD listing 2–3 notices.
+ * Keep E-priority after the street vendor so the snack stall still wins on overlap;
+ * before the inn so the board wins on the east rim vs porch.
+ */
+export class MarketNoticeBoard {
+  private open = false;
+  private lastPostedKills = -1;
+  private readonly spot = new THREE.Vector3(
+    MARKET_NOTICE_BOARD_SPOT.x,
+    0,
+    MARKET_NOTICE_BOARD_SPOT.z,
+  );
+
+  constructor(private readonly hooks: MarketNoticeBoardHooks) {}
+
+  get isOpen(): boolean {
+    return this.open;
+  }
+
+  isNear(pos: THREE.Vector3): boolean {
+    const dx = pos.x - this.spot.x;
+    const dz = pos.z - this.spot.z;
+    return dx * dx + dz * dz <= NOTICE_INTERACT_RADIUS_SQ;
+  }
+
+  getInteractPrompt(player: Player): MarketHudPrompt {
+    if (!player.alive) return { visible: false, text: '' };
+    if (this.open) {
+      return { visible: true, text: NOTICE_CLOSE_PROMPT };
+    }
+    if (!this.isNear(player.position)) return { visible: false, text: '' };
+    return { visible: true, text: NOTICE_OPEN_PROMPT };
+  }
+
+  /** Edge-triggered interact — open notice panel, or close if already open. */
+  tryInteract(player: Player): boolean {
+    if (!player.alive) return false;
+    if (this.open) {
+      this.close();
+      return true;
+    }
+    if (!this.isNear(player.position)) return false;
+    this.setOpen(true);
+    this.hooks.onToast('Town board  ·  bounties & notices', 1.5);
+    return true;
+  }
+
+  close(): void {
+    if (!this.open) return;
+    this.setOpen(false);
+  }
+
+  /**
+   * Auto-close if the player walks away or dies; refresh live bounty line while open.
+   * Call once per frame from the game loop.
+   */
+  update(player: Player): void {
+    if (!this.open) return;
+    if (!player.alive || !this.isNear(player.position)) {
+      this.close();
+      return;
+    }
+    const kills = this.hooks.getKills();
+    if (kills !== this.lastPostedKills) {
+      this.lastPostedKills = kills;
+      this.hooks.onBoardChanged(true, this.buildLines());
+    }
+  }
+
+  private setOpen(open: boolean): void {
+    this.open = open;
+    if (!open) {
+      this.lastPostedKills = -1;
+      this.hooks.onBoardChanged(false, []);
+      return;
+    }
+    this.lastPostedKills = this.hooks.getKills();
+    this.hooks.onBoardChanged(true, this.buildLines());
+  }
+
+  private buildLines(): NoticeBoardLine[] {
+    const kills = this.hooks.getKills();
+    const blobBody =
+      kills >= NOTICE_BLOB_GOAL
+        ? `Meadow blobs cleared (${kills}) — road's quieter`
+        : `Clear meadow blobs when you can (${kills}/${NOTICE_BLOB_GOAL})`;
+
+    return [
+      {
+        title: 'Bounty — Meadow Blobs',
+        body: blobBody,
+      },
+      {
+        title: 'Call — East Shrine',
+        body: 'Defend the shrine if the meadow stirs',
+      },
+      {
+        title: 'Town Notice',
+        body: 'Townsfolk coming soon — watch this board',
+      },
+    ];
   }
 }

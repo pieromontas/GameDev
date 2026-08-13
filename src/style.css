@@ -686,6 +686,38 @@ kbd {
   color: #b8423a;
 }
 
+.notice-panel .shop-title {
+  color: #6b4a22;
+}
+
+.notice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.notice-item {
+  padding: 9px 11px;
+  border: 2px solid rgba(160, 120, 70, 0.3);
+  border-radius: 10px;
+  background: rgba(255, 248, 232, 0.95);
+}
+
+.notice-item-title {
+  margin: 0 0 2px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #6b3f1e;
+}
+
+.notice-item-body {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 0.82;
+}
+
 .shop-head {
   display: flex;
   align-items: center;
