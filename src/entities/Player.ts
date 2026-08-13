@@ -288,6 +288,17 @@ export class Player extends Entity {
     this.buffLabel = 'Town Blessing';
   }
 
+  /**
+   * Market street-vendor honey nibble — tiny move-speed snack (all classes).
+   * Speed-only; does not grant shrine / charm damage.
+   */
+  applySpeedNibble(duration: number, moveMult = 1.12): void {
+    this.buffRemain = Math.max(this.buffRemain, duration);
+    this.damageBuffMult = 1;
+    this.moveBuffMult = moveMult;
+    this.buffLabel = 'Honey Nibble';
+  }
+
   clearShrineBuff(): void {
     this.buffRemain = 0;
     this.damageBuffMult = 1;
