@@ -138,6 +138,9 @@ export class Game {
       onKill: (enemy) => {
         this.kills += 1;
         this.grantKillXp(enemy);
+        if (enemy.kind === 'blob') {
+          this.marketNoticeBoard.onBlobKilled();
+        }
         if (enemy.kind === 'brute') {
           this.hud.showToast('Armored Brute crushed!  ·  rich loot + XP', 2.0);
         }
@@ -212,8 +215,8 @@ export class Game {
     });
     this.marketNoticeBoard = new MarketNoticeBoard({
       onToast: (message, duration) => this.hud.showToast(message, duration),
-      getKills: () => this.kills,
       onBoardChanged: (open, lines) => this.hud.setNoticeOpen(open, lines),
+      onBountyReward: (gold, xp) => this.grantBountyReward(gold, xp),
     });
     this.marketInn = new MarketInn({
       onToast: (message, duration) => this.hud.showToast(message, duration),
@@ -249,6 +252,7 @@ export class Game {
     });
     this.hud.bindNoticeHandlers({
       onClose: () => this.marketNoticeBoard.close(),
+      onAction: (actionId) => this.marketNoticeBoard.tryBoardAction(actionId),
     });
 
     this.loop = new GameLoop({
@@ -607,7 +611,8 @@ export class Game {
       return;
     }
     if (this.marketNoticeBoard.isOpen) {
-      this.marketNoticeBoard.close();
+      // Accept / claim bounty, or close — handled inside tryInteract.
+      this.marketNoticeBoard.tryInteract(this.player);
       return;
     }
     if (this.chests.tryInteract(this.player)) return;
@@ -628,6 +633,12 @@ export class Game {
   /** Merge shrine objective HUD with chest / spring / shrine / market / homes / merchant prompts. */
   private syncInteractHud(): void {
     const shrineHud = this.shrine.getHudState(this.player);
+    // Bounty progress banner when shrine defense isn't already using the slot.
+    const bountyBanner = this.marketNoticeBoard.getObjectiveBanner();
+    if (!shrineHud.objectiveVisible && bountyBanner) {
+      shrineHud.objectiveVisible = true;
+      shrineHud.objectiveText = bountyBanner;
+    }
     const chestPrompt = this.chests.getInteractPrompt(this.player);
     const springPrompt = this.springs.getInteractPrompt(this.player);
     const gateGuardPrompt = this.gateGuard.getInteractPrompt(this.player);
@@ -748,6 +759,12 @@ export class Game {
   /** Chest open → XP floater + level-up feedback (loot toast already fired). */
   private grantChestXp(amount: number, worldPos: THREE.Vector3): void {
     this.applyXpGain(amount, worldPos);
+  }
+
+  /** Notice-board bounty turn-in — gold to purse + XP floater at the player. */
+  private grantBountyReward(gold: number, xp: number): void {
+    this.lootCount += gold;
+    this.applyXpGain(xp, this.player.position);
   }
 
   private applyXpGain(amount: number, worldPos: THREE.Vector3): ReturnType<Player['gainXp']> {

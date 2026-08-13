@@ -271,39 +271,81 @@ const NOTICE_INTERACT_RADIUS = 3.4;
 const NOTICE_INTERACT_RADIUS_SQ = NOTICE_INTERACT_RADIUS * NOTICE_INTERACT_RADIUS;
 const NOTICE_OPEN_PROMPT = 'Press E — Notice Board';
 const NOTICE_CLOSE_PROMPT = 'Press E — Close Notices';
-/** Matches GateGuard’s meadow-blob flavor stub (total kills). */
-export const NOTICE_BLOB_GOAL = 3;
+const NOTICE_ACCEPT_PROMPT = 'Press E — Accept Bounty';
+const NOTICE_CLAIM_PROMPT = 'Press E — Claim Bounty';
+
+/** Meadow-blob bounty kill goal (tracked after accept). */
+export const NOTICE_BLOB_GOAL = 5;
+/** Gold paid on bounty turn-in. */
+export const NOTICE_BOUNTY_GOLD = 8;
+/** XP paid on bounty turn-in. */
+export const NOTICE_BOUNTY_XP = 40;
+
+const BOUNTY_STORAGE_KEY = 'spiritvale.meadowBlobBounty';
+
+export type NoticeBountyState = 'available' | 'active' | 'ready' | 'claimed';
 
 export type NoticeBoardLine = {
   title: string;
   body: string;
+  /** Optional Accept / Claim button on the bounty line. */
+  action?: { id: 'accept' | 'claim'; label: string };
 };
 
 export type MarketNoticeBoardHooks = {
   onToast: (message: string, duration?: number) => void;
-  /** Kill counter for the live meadow-blob bounty line. */
-  getKills: () => number;
   onBoardChanged: (open: boolean, lines: NoticeBoardLine[]) => void;
+  /** Grant turn-in rewards (gold + XP). */
+  onBountyReward: (gold: number, xp: number) => void;
+};
+
+type StoredBounty = {
+  state: NoticeBountyState;
+  kills: number;
 };
 
 /**
- * Plaza notice / bounty board — E opens a tiny read-only HUD listing 2–3 notices.
+ * Plaza notice / bounty board — E opens a HUD with notices + a real meadow-blob
+ * bounty (accept → kill progress → turn in for gold/XP, once per session).
  * Keep E-priority after the street vendor so the snack stall still wins on overlap;
  * before the inn so the board wins on the east rim vs porch.
  */
 export class MarketNoticeBoard {
   private open = false;
   private lastPostedKills = -1;
+  private bountyState: NoticeBountyState = 'available';
+  private bountyKills = 0;
   private readonly spot = new THREE.Vector3(
     MARKET_NOTICE_BOARD_SPOT.x,
     0,
     MARKET_NOTICE_BOARD_SPOT.z,
   );
 
-  constructor(private readonly hooks: MarketNoticeBoardHooks) {}
+  constructor(private readonly hooks: MarketNoticeBoardHooks) {
+    this.loadBounty();
+  }
 
   get isOpen(): boolean {
     return this.open;
+  }
+
+  get bountyStatus(): NoticeBountyState {
+    return this.bountyState;
+  }
+
+  get bountyProgress(): number {
+    return this.bountyKills;
+  }
+
+  /** Compact objective line while the bounty is active / ready (shrine takes priority). */
+  getObjectiveBanner(): string | null {
+    if (this.bountyState === 'active') {
+      return `Bounty  ·  meadow blobs ${this.bountyKills}/${NOTICE_BLOB_GOAL}`;
+    }
+    if (this.bountyState === 'ready') {
+      return 'Bounty ready  ·  turn in at the notice board';
+    }
+    return null;
   }
 
   isNear(pos: THREE.Vector3): boolean {
@@ -315,28 +357,91 @@ export class MarketNoticeBoard {
   getInteractPrompt(player: Player): MarketHudPrompt {
     if (!player.alive) return { visible: false, text: '' };
     if (this.open) {
+      if (this.bountyState === 'available') {
+        return { visible: true, text: NOTICE_ACCEPT_PROMPT };
+      }
+      if (this.bountyState === 'ready') {
+        return { visible: true, text: NOTICE_CLAIM_PROMPT };
+      }
       return { visible: true, text: NOTICE_CLOSE_PROMPT };
     }
     if (!this.isNear(player.position)) return { visible: false, text: '' };
+    if (this.bountyState === 'ready') {
+      return { visible: true, text: NOTICE_CLAIM_PROMPT };
+    }
     return { visible: true, text: NOTICE_OPEN_PROMPT };
   }
 
-  /** Edge-triggered interact — open notice panel, or close if already open. */
+  /**
+   * Edge-triggered interact — open board, accept/claim bounty, or close.
+   * Ready bounty can be claimed in one E at the board (panel optional).
+   */
   tryInteract(player: Player): boolean {
     if (!player.alive) return false;
     if (this.open) {
+      if (this.bountyState === 'available') {
+        this.acceptBounty();
+        return true;
+      }
+      if (this.bountyState === 'ready') {
+        this.claimBounty();
+        return true;
+      }
       this.close();
       return true;
     }
     if (!this.isNear(player.position)) return false;
+    if (this.bountyState === 'ready') {
+      this.claimBounty();
+      return true;
+    }
     this.setOpen(true);
     this.hooks.onToast('Town board  ·  bounties & notices', 1.5);
     return true;
   }
 
+  /** HUD Accept / Claim button — same actions as E while the panel is open. */
+  tryBoardAction(actionId: 'accept' | 'claim'): boolean {
+    if (actionId === 'accept' && this.bountyState === 'available') {
+      this.acceptBounty();
+      return true;
+    }
+    if (actionId === 'claim' && this.bountyState === 'ready') {
+      this.claimBounty();
+      return true;
+    }
+    return false;
+  }
+
   close(): void {
     if (!this.open) return;
     this.setOpen(false);
+  }
+
+  /**
+   * Count a meadow-blob kill toward the active bounty.
+   * Call from Game.onKill when enemy.kind === 'blob'.
+   */
+  onBlobKilled(): void {
+    if (this.bountyState !== 'active') return;
+    this.bountyKills = Math.min(NOTICE_BLOB_GOAL, this.bountyKills + 1);
+    if (this.bountyKills >= NOTICE_BLOB_GOAL) {
+      this.bountyState = 'ready';
+      this.persistBounty();
+      this.hooks.onToast(
+        `Bounty complete  ·  return to the notice board (${NOTICE_BLOB_GOAL}/${NOTICE_BLOB_GOAL})`,
+        2.4,
+      );
+    } else {
+      this.persistBounty();
+      if (this.bountyKills === 1 || this.bountyKills === Math.ceil(NOTICE_BLOB_GOAL / 2)) {
+        this.hooks.onToast(
+          `Bounty  ·  meadow blobs ${this.bountyKills}/${NOTICE_BLOB_GOAL}`,
+          1.2,
+        );
+      }
+    }
+    this.refreshOpenBoard();
   }
 
   /**
@@ -349,11 +454,41 @@ export class MarketNoticeBoard {
       this.close();
       return;
     }
-    const kills = this.hooks.getKills();
-    if (kills !== this.lastPostedKills) {
-      this.lastPostedKills = kills;
+    if (this.bountyKills !== this.lastPostedKills) {
+      this.lastPostedKills = this.bountyKills;
       this.hooks.onBoardChanged(true, this.buildLines());
     }
+  }
+
+  private acceptBounty(): void {
+    if (this.bountyState !== 'available') return;
+    this.bountyState = 'active';
+    this.bountyKills = 0;
+    this.persistBounty();
+    this.hooks.onToast(
+      `Bounty accepted  ·  clear ${NOTICE_BLOB_GOAL} meadow blobs`,
+      2.2,
+    );
+    this.refreshOpenBoard();
+  }
+
+  private claimBounty(): void {
+    if (this.bountyState !== 'ready') return;
+    this.bountyState = 'claimed';
+    this.persistBounty();
+    // Toast before XP grant so a level-up toast can take over if needed.
+    this.hooks.onToast(
+      `Bounty claimed  ·  +${NOTICE_BOUNTY_GOLD}g  ·  +${NOTICE_BOUNTY_XP} XP`,
+      2.6,
+    );
+    this.hooks.onBountyReward(NOTICE_BOUNTY_GOLD, NOTICE_BOUNTY_XP);
+    if (this.open) this.refreshOpenBoard();
+  }
+
+  private refreshOpenBoard(): void {
+    if (!this.open) return;
+    this.lastPostedKills = this.bountyKills;
+    this.hooks.onBoardChanged(true, this.buildLines());
   }
 
   private setOpen(open: boolean): void {
@@ -363,22 +498,14 @@ export class MarketNoticeBoard {
       this.hooks.onBoardChanged(false, []);
       return;
     }
-    this.lastPostedKills = this.hooks.getKills();
+    this.lastPostedKills = this.bountyKills;
     this.hooks.onBoardChanged(true, this.buildLines());
   }
 
   private buildLines(): NoticeBoardLine[] {
-    const kills = this.hooks.getKills();
-    const blobBody =
-      kills >= NOTICE_BLOB_GOAL
-        ? `Meadow blobs cleared (${kills}) — road's quieter`
-        : `Clear meadow blobs when you can (${kills}/${NOTICE_BLOB_GOAL})`;
-
+    const bountyLine = this.buildBountyLine();
     return [
-      {
-        title: 'Bounty — Meadow Blobs',
-        body: blobBody,
-      },
+      bountyLine,
       {
         title: 'Call — East Shrine',
         body: 'Defend the shrine if the meadow stirs',
@@ -388,5 +515,72 @@ export class MarketNoticeBoard {
         body: 'Townsfolk coming soon — watch this board',
       },
     ];
+  }
+
+  private buildBountyLine(): NoticeBoardLine {
+    if (this.bountyState === 'available') {
+      return {
+        title: 'Bounty — Meadow Blobs',
+        body: `Wanted: clear ${NOTICE_BLOB_GOAL} meadow blobs · reward ${NOTICE_BOUNTY_GOLD}g + ${NOTICE_BOUNTY_XP} XP`,
+        action: { id: 'accept', label: 'Accept bounty' },
+      };
+    }
+    if (this.bountyState === 'active') {
+      return {
+        title: 'Bounty — Meadow Blobs',
+        body: `In progress  ·  ${this.bountyKills}/${NOTICE_BLOB_GOAL} blobs cleared`,
+      };
+    }
+    if (this.bountyState === 'ready') {
+      return {
+        title: 'Bounty — Meadow Blobs',
+        body: `Complete  ·  ${NOTICE_BLOB_GOAL}/${NOTICE_BLOB_GOAL} — press E or Claim for ${NOTICE_BOUNTY_GOLD}g + ${NOTICE_BOUNTY_XP} XP`,
+        action: { id: 'claim', label: 'Claim reward' },
+      };
+    }
+    return {
+      title: 'Bounty — Meadow Blobs',
+      body: 'Claimed this session  ·  road\'s quieter — thanks, traveler',
+    };
+  }
+
+  private persistBounty(): void {
+    try {
+      const payload: StoredBounty = {
+        state: this.bountyState,
+        kills: this.bountyKills,
+      };
+      sessionStorage.setItem(BOUNTY_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      /* private mode / blocked storage — in-memory still works */
+    }
+  }
+
+  private loadBounty(): void {
+    try {
+      const raw = sessionStorage.getItem(BOUNTY_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<StoredBounty>;
+      const state = parsed.state;
+      if (
+        state !== 'available' &&
+        state !== 'active' &&
+        state !== 'ready' &&
+        state !== 'claimed'
+      ) {
+        return;
+      }
+      this.bountyState = state;
+      const kills = typeof parsed.kills === 'number' ? parsed.kills : 0;
+      this.bountyKills = Math.max(0, Math.min(NOTICE_BLOB_GOAL, Math.floor(kills)));
+      if (this.bountyState === 'active' && this.bountyKills >= NOTICE_BLOB_GOAL) {
+        this.bountyState = 'ready';
+      }
+      if (this.bountyState === 'ready' || this.bountyState === 'claimed') {
+        this.bountyKills = NOTICE_BLOB_GOAL;
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
   }
 }

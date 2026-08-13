@@ -87,12 +87,13 @@ Works for Warrior, Mage, and Rogue. Prices are reachable after one chest.
 
 A stylized **wooden notice / bounty board** (twin posts, pinned papers, nails) sits on the **east plaza rim** between the SE + E stalls — clear of the fountain, street vendor, and forge pad. Walk up and press **E** (“Press E — Notice Board”):
 
-- **Notices** — meadow-blob bounty (live kill progress when you’ve been fighting), east shrine defense call, and a “townsfolk coming soon” stub
-- **Close** — **E**, **Esc**, or the panel ✕; board also closes if you walk away
+- **Notices** — meadow-blob **bounty** (accept → track kills → turn in), east shrine defense call, and a “townsfolk coming soon” stub
+- **Bounty** — **Accept** at the board (**E** or the panel button), kill **5 meadow blobs**, then **Claim** at the board for **8 gold + 40 XP** (toast + objective banner while active). One claim per browser session (`sessionStorage`); cannot farm infinitely
+- **Close** — **E** (when no accept/claim action), **Esc**, or the panel ✕; board also closes if you walk away
 - Soft collision on the board posts; plaza lanes stay open
 - Minimap marks the board with a small parchment accent
 
-Lightweight read-only panel — not a full quest log. Distinct from the west-rim alley flavor board.
+Lightweight board HUD — not a full quest log. Distinct from the west-rim alley flavor board.
 
 ## Northeast city gate
 

@@ -718,6 +718,33 @@ kbd {
   opacity: 0.82;
 }
 
+.notice-item-bounty {
+  border-color: rgba(180, 120, 40, 0.45);
+  background: rgba(255, 244, 214, 0.98);
+}
+
+.notice-action {
+  margin-top: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 2px solid rgba(120, 75, 30, 0.45);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f0c878 0%, #d49a3c 100%);
+  color: #3a2410;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.notice-action:hover {
+  filter: brightness(1.06);
+}
+
+.notice-action:active {
+  transform: translateY(1px);
+}
+
 .shop-head {
   display: flex;
   align-items: center;

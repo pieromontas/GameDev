@@ -123,6 +123,7 @@ export class HUD {
   private readonly noticePanel: HTMLElement;
   private readonly noticeList: HTMLElement;
   private noticeCloseHandler: (() => void) | null = null;
+  private noticeActionHandler: ((actionId: 'accept' | 'claim') => void) | null = null;
   private prevDodgeReady = true;
   private shownClass: PlayerClass | null = null;
   /** North-up radar canvas (world +Z = up). */
@@ -201,7 +202,7 @@ export class HUD {
         </div>
         <p class="shop-blurb">Pinned bounties &amp; town chatter.</p>
         <div class="notice-list" id="notice-list"></div>
-        <p class="shop-hint"><kbd>E</kbd> / <kbd>Esc</kbd> close</p>
+        <p class="shop-hint"><kbd>E</kbd> accept / claim · <kbd>E</kbd> / <kbd>Esc</kbd> close</p>
       </div>
       <div class="hud-panel hud-minimap" id="minimap-panel" title="Minimap · north up">
         <div class="minimap-head">
@@ -469,12 +470,16 @@ export class HUD {
     else this.vendorPanel.setAttribute('hidden', '');
   }
 
-  /** Wire notice-board close callback (market plaza bounty board). */
-  bindNoticeHandlers(handlers: { onClose: () => void }): void {
+  /** Wire notice-board close / bounty-action callbacks (market plaza). */
+  bindNoticeHandlers(handlers: {
+    onClose: () => void;
+    onAction: (actionId: 'accept' | 'claim') => void;
+  }): void {
     this.noticeCloseHandler = handlers.onClose;
+    this.noticeActionHandler = handlers.onAction;
   }
 
-  /** Open / refresh the read-only town notice panel (live bounty lines). */
+  /** Open / refresh the town notice panel (live bounty accept / progress / claim). */
   setNoticeOpen(open: boolean, lines: NoticeBoardLine[] = []): void {
     if (!open) {
       this.noticePanel.setAttribute('hidden', '');
@@ -482,14 +487,26 @@ export class HUD {
       return;
     }
     this.noticeList.innerHTML = lines
-      .map(
-        (line) => `
-      <div class="notice-item">
+      .map((line) => {
+        const action = line.action
+          ? `<button type="button" class="notice-action" data-notice-action="${line.action.id}">${line.action.label}</button>`
+          : '';
+        return `
+      <div class="notice-item${line.action ? ' notice-item-bounty' : ''}">
         <p class="notice-item-title">${line.title}</p>
         <p class="notice-item-body">${line.body}</p>
-      </div>`,
-      )
+        ${action}
+      </div>`;
+      })
       .join('');
+    this.noticeList.querySelectorAll<HTMLButtonElement>('[data-notice-action]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.noticeAction;
+        if (id === 'accept' || id === 'claim') {
+          this.noticeActionHandler?.(id);
+        }
+      });
+    });
     this.noticePanel.removeAttribute('hidden');
   }
 
