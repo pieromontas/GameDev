@@ -782,7 +782,8 @@ export class MeadowBiome {
     const treeSpots: Array<[number, number, number]> = [
       [-8, -6, 1.05],
       [10, -4, 1.15],
-      [-12, 8, 0.95],
+      // Was (−12, 8) — loomed in the south spawn cam’s near-left after the yaw retarget.
+      [-18, 4, 0.95],
       // Was (6, 12) — sat on the old NE spawn-camera ray (read as a green hill dome).
       // Parked farther NE so boot framing clears the canopy from south/SW/SE.
       [12, 20, 1.1],
