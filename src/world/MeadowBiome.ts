@@ -791,11 +791,13 @@ export class MeadowBiome {
       [-22, 10, 0.95],
       // Was (6, 12) — sat on the old NE spawn-camera ray (read as a green hill dome).
       // Parked farther NE so boot framing clears the canopy from south/SW/SE.
-      [18, 26, 1.1],
+      // Nudged slightly NW of the stone road so trunk collision stays off the gate spur.
+      [15, 28, 1.1],
       // Was (−8, 18) / (−3, 16) — kept west of the north path, off the south spawn cam.
       [-16, 24, 1],
-      // Was (14, 6) — moved north so the east path branch stays open
-      [14, 12, 1.05],
+      // Was (14, 6) → (14, 12) — (14, 12) sat on the NE gate-road start (+12,+12).
+      // Parked east of camp, south of the spur, still clear of the east shrine branch.
+      [19, 9, 1.05],
       // Was (−16, −2) — nudged south so the west path branch stays open
       [-16, -8, 1.2],
       // Was (3, −12) — nudged east so the south path branch stays open
@@ -4912,9 +4914,9 @@ export class MeadowBiome {
 
   /**
    * Swap the most visible procedural trees / rocks / cottage / windmill for KayKit
-   * pack instances. Soft-collision radii are retuned via `PROP_COLLISION_SCALE` so
-   * blockers match the larger Adventurers-relative visuals. Paths, shrine/chest
-   * interacts, and play clamp stay unchanged.
+   * pack instances. Soft-collision radii are retuned via `PROP_COLLISION_SCALE`
+   * (buildings match Adventurers-relative bulk; trees stay trunk-only so crowns
+   * are walk-under). Paths, shrine/chest interacts, and play clamp stay unchanged.
    * Safe to call once after `WorldPropLibrary.load()`; no-ops if the library is empty.
    */
   applyPropPack(library: WorldPropLibrary): boolean {
@@ -5076,8 +5078,9 @@ export class MeadowBiome {
   }
 
   /**
-   * Grow soft-collision radii for swapped pack props so blockers match `PROP_SCALE`.
-   * Matches placements by exact XZ (same values pushed in addTree/addRock/…).
+   * Retune soft-collision radii for swapped pack props via `PROP_COLLISION_SCALE`.
+   * Trees use the trunk-only factor (not visual crown scale). Matches placements
+   * by exact XZ (same values pushed in addTree/addRock/…).
    */
   private retunePackObstacles(): void {
     const bump = (x: number, z: number, factor: number): void => {
