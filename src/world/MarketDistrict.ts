@@ -50,6 +50,19 @@ export const MARKET_INN_DOOR = { x: 49.6, z: 45.3 } as const;
 export const MARKET_ALLEY_SPOT = { x: 43.6, z: 52.4 } as const;
 
 /**
+ * Extra west-rim plaza stall (toast-only produce / cloth / trinket flavor).
+ * Clear of gate→market diagonal, fountain lanes, vendor stand, alley, inn porch,
+ * notice board, and KayKit shop pack radii (~4.4). Soft collision in MeadowBiome.
+ */
+export const MARKET_EXTRA_STALL = { x: 45.0, z: 48.5 } as const;
+
+/** Face the plaza fountain so the awning reads from the cobble. */
+export const MARKET_EXTRA_STALL_YAW = Math.atan2(
+  MARKET_FOUNTAIN_SPOT.x - MARKET_EXTRA_STALL.x,
+  MARKET_FOUNTAIN_SPOT.z - MARKET_EXTRA_STALL.z,
+);
+
+/**
  * Town notice / bounty board on the east plaza rim (between the SE + E stalls).
  * Clear of fountain walk lanes, vendor stand, forge pad, and shop pack radii (~4.4).
  */
@@ -227,6 +240,46 @@ export class MarketInn {
     if (this.cooldownRemain > 0) {
       this.cooldownRemain = Math.max(0, this.cooldownRemain - dt);
     }
+  }
+}
+
+const EXTRA_STALL_INTERACT_RADIUS = 3.2;
+const EXTRA_STALL_INTERACT_RADIUS_SQ =
+  EXTRA_STALL_INTERACT_RADIUS * EXTRA_STALL_INTERACT_RADIUS;
+const EXTRA_STALL_PROMPT = 'Press E — Produce Stall';
+const EXTRA_STALL_TOAST = 'Produce stall  ·  ripe gourds · cloth & trinkets';
+
+/**
+ * Flavor interact at the extra west-rim plaza stall — toast only (no shop panel).
+ * Distinct from the NW street vendor snacks. Keep E-priority after the street
+ * vendor so the snack shop still wins on overlap; before the notice board / inn
+ * so this pad stays reachable on the west rim.
+ */
+export class MarketExtraStall {
+  private readonly spot = new THREE.Vector3(MARKET_EXTRA_STALL.x, 0, MARKET_EXTRA_STALL.z);
+  private readonly onToast: (message: string, duration?: number) => void;
+
+  constructor(hooks: { onToast: (message: string, duration?: number) => void }) {
+    this.onToast = hooks.onToast;
+  }
+
+  isNear(pos: THREE.Vector3): boolean {
+    const dx = pos.x - this.spot.x;
+    const dz = pos.z - this.spot.z;
+    return dx * dx + dz * dz <= EXTRA_STALL_INTERACT_RADIUS_SQ;
+  }
+
+  getInteractPrompt(player: Player): MarketHudPrompt {
+    if (!player.alive || !this.isNear(player.position)) {
+      return { visible: false, text: '' };
+    }
+    return { visible: true, text: EXTRA_STALL_PROMPT };
+  }
+
+  tryInteract(player: Player): boolean {
+    if (!player.alive || !this.isNear(player.position)) return false;
+    this.onToast(EXTRA_STALL_TOAST, 2.0);
+    return true;
   }
 }
 

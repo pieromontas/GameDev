@@ -12,6 +12,7 @@ import {
   MarketAlley,
   MarketBlacksmith,
   MarketDistrictSign,
+  MarketExtraStall,
   MarketInn,
   MarketNoticeBoard,
 } from '../world/MarketDistrict';
@@ -49,6 +50,7 @@ export class Game {
   private readonly marketSign: MarketDistrictSign;
   private readonly marketBlacksmith: MarketBlacksmith;
   private readonly marketVendor: MarketStreetVendor;
+  private readonly marketExtraStall: MarketExtraStall;
   private readonly marketNoticeBoard: MarketNoticeBoard;
   private readonly marketInn: MarketInn;
   private readonly marketAlley: MarketAlley;
@@ -226,6 +228,9 @@ export class Game {
         return true;
       },
       onShopChanged: (open) => this.hud.setVendorOpen(open, this.lootCount),
+    });
+    this.marketExtraStall = new MarketExtraStall({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.marketNoticeBoard = new MarketNoticeBoard({
       onToast: (message, duration) => this.hud.showToast(message, duration),
@@ -656,8 +661,8 @@ export class Game {
 
   /**
    * E key: closed chests → healing spring → east shrine → gate guard → market sign →
-   * blacksmith → street vendor → notice board → inn → alley → harbor catch crate →
-   * residential door → town chapel → cottage merchant.
+   * blacksmith → street vendor → produce stall → notice board → inn → alley →
+   * harbor catch crate → residential door → town chapel → cottage merchant.
    * Open shop / stall / notice panel always closes on E first so it never blocks
    * other interactables.
    */
@@ -683,6 +688,7 @@ export class Game {
     if (this.marketSign.tryInteract(this.player)) return;
     if (this.marketBlacksmith.tryInteract(this.player)) return;
     if (this.marketVendor.tryInteract(this.player)) return;
+    if (this.marketExtraStall.tryInteract(this.player)) return;
     if (this.marketNoticeBoard.tryInteract(this.player)) return;
     if (this.marketInn.tryInteract(this.player)) return;
     if (this.marketAlley.tryInteract(this.player)) return;
@@ -707,6 +713,7 @@ export class Game {
     const marketPrompt = this.marketSign.getInteractPrompt(this.player);
     const smithPrompt = this.marketBlacksmith.getInteractPrompt(this.player);
     const vendorPrompt = this.marketVendor.getInteractPrompt(this.player);
+    const extraStallPrompt = this.marketExtraStall.getInteractPrompt(this.player);
     const noticePrompt = this.marketNoticeBoard.getInteractPrompt(this.player);
     const innPrompt = this.marketInn.getInteractPrompt(this.player);
     const alleyPrompt = this.marketAlley.getInteractPrompt(this.player);
@@ -751,6 +758,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: vendorPrompt.text,
+      });
+    } else if (extraStallPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: extraStallPrompt.text,
       });
     } else if (noticePrompt.visible) {
       this.hud.setShrineHud({

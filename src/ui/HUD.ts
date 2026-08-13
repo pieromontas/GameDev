@@ -237,12 +237,12 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / chests / spring / gate guard / market / vendor / notice board / inn / alley / docks crate / home door / chapel / cottage merchant<br/>
+        <kbd>E</kbd> — shrine / chests / spring / gate guard / market / vendor / produce stall / notice board / inn / alley / docks crate / home door / chapel / cottage merchant<br/>
         Follow the dirt path west to the misty grove<br/>
         Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>
         Follow the stone road northeast to the city gate, market, homes &amp; docks<br/>
-        City gate — talk to the guard · Market stall — street vendor · Plaza board — notices · SE pier — docks · NW cottage — merchant<br/>
+        City gate — talk to the guard · Market stall — street vendor · West rim — produce stall · Plaza board — notices · SE pier — docks · NW cottage — merchant<br/>
         RMB drag — rotate camera<br/>
         Scroll / pinch — zoom · <kbd>-</kbd><kbd>=</kbd> or <kbd>[</kbd><kbd>]</kbd>
       </div>
