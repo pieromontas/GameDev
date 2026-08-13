@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine**, **west misty grove**, **north ruins**, **south river ford** clearings, a **northeast city-gate** road spur, a compact **market district** town stub behind the gate, and a short **residential street** beyond the market, blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine**, **west misty grove**, **north ruins**, **south river ford** clearings, a **northeast city-gate** road spur, a compact **market district** town stub behind the gate, a short **residential street** beyond the market, and a compact **harbor / docks** stub off the market’s SE exit, blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -37,7 +37,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **W A S D** / arrows | Move relative to camera |
 | **Shift** | Dodge roll — short burst + brief i-frames (~1.55s cooldown) |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
-| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / talk to the city gate guard / read market sign / talk to blacksmith / trade with market street vendor / read the town notice board / rest at market inn / peek the market alley / try a residential door / bless at the town chapel / talk to cottage merchant (when near) |
+| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / talk to the city gate guard / read market sign / talk to blacksmith / trade with market street vendor / read the town notice board / rest at market inn / peek the market alley / read the docks catch crate / try a residential door / bless at the town chapel / talk to cottage merchant (when near) |
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt / Stab) |
 | **2** | Skill 2 (Quake / Frost Nova / Fan of Knives) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
@@ -46,7 +46,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **Mouse wheel** / trackpad pinch | Zoom camera in / out (clamped) |
 | **-** / **=** or **[** / **]** | Zoom out / in (alternate) |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / gate guard / market / street vendor / notice board / inn / alley / home door / chapel / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market & homes** road, the **city gate guard**, the **market street vendor**, the **plaza notice board**, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, gate guard accent, **Market** (fountain), street vendor stall, notice board, **Homes**, chapel, blacksmith, inn, chests, the healing spring, the cottage shop, and nearby enemies.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / gate guard / market / street vendor / notice board / inn / alley / docks crate / home door / chapel / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market, homes & docks** roads, the **city gate guard**, the **market street vendor**, the **plaza notice board**, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, gate guard accent, **Market** (fountain), street vendor stall, notice board, **Homes**, chapel, **Docks**, blacksmith, inn, chests, the healing spring, the cottage shop, and nearby enemies.
 
 ## Treasure chests
 
@@ -66,7 +66,7 @@ A simple spend-gold shop at the **NW cottage** (rim landmark near the well). Wal
 - **Damage Charm** — **11 gold**, **+35% damage** for **45s** (HUD buff chip)
 - **Feedback** — can’t-afford toast, purchase toast, top-right **Gold** counter updates
 - **Close** — **E**, **Esc**, or the panel ✕; shop also closes if you walk away
-- **E-priority** — chest → spring → shrine → gate guard → market sign → blacksmith → street vendor → notice board → inn → alley → residential door → town chapel → merchant (merchant never blocks closer interactables)
+- **E-priority** — chest → spring → shrine → gate guard → market sign → blacksmith → street vendor → notice board → inn → alley → harbor catch crate → residential door → town chapel → merchant (merchant never blocks closer interactables)
 
 Works for Warrior, Mage, and Rogue. Prices are reachable after opening a couple of chests. Distinct from the **market street vendor** (cheaper snack stall in the plaza).
 
@@ -101,11 +101,15 @@ Follow the **dirt/stone road northeast** from the main meadow to a readable **ci
 
 ## City market district
 
-Through the gate, a compact **market district** stub fills the first town pocket: a short **cobble/stone street** and plaza, **3 KayKit cottage shops** (street-facing facades at knight-correct scale), a **central toon fountain**, a **blacksmith workshop** (KayKit cottage + forge/anvil yard with light smoke/ember VFX), a **market inn / tavern** on the south rim (KayKit cottage + warm windows, hanging sign, outdoor tables/barrels, evening lanterns), **stylized stall awnings**, crates, banners, and a well accent. A **street vendor** NPC tends the NW plaza stall (press **E** for a cheap snack shop — see above). An east-rim **town notice / bounty board** lists light quest flavor (press **E** — see above). **Low curtain walls + corner towers** (gate-matching stone, optional wall banners) wrap parts of the market rim so the district feels enclosed and tied to the city gate — the **SW gate approach** and **far NE street exits** stay open (not a full box). A short **west-rim side alley** (narrow cobble lane with crates/barrels) branches off the plaza; press **E** at the alley board for a flavor toast (`Back alley`). Soft collisions on building / stall / vendor / fountain / forge / inn / wall / alley / notice-board footprints keep the street walkable — gate→market path and fountain lanes stay clear. Press **E** at the market sign or forge for flavor toasts (`Market District` / `Blacksmith`). At the inn door, press **E** for a **paid short rest** (**3 gold**, **+40 HP**, **45s** cooldown). No new combat or full smith shop UI here. Play clamp includes the gate→market corridor + market plaza. Minimap marks **Market** (plaza fountain) plus small blacksmith, inn, street-vendor, and notice-board accents (in addition to Gate).
+Through the gate, a compact **market district** stub fills the first town pocket: a short **cobble/stone street** and plaza, **3 KayKit cottage shops** (street-facing facades at knight-correct scale), a **central toon fountain**, a **blacksmith workshop** (KayKit cottage + forge/anvil yard with light smoke/ember VFX), a **market inn / tavern** on the south rim (KayKit cottage + warm windows, hanging sign, outdoor tables/barrels, evening lanterns), **stylized stall awnings**, crates, banners, and a well accent. A **street vendor** NPC tends the NW plaza stall (press **E** for a cheap snack shop — see above). An east-rim **town notice / bounty board** lists light quest flavor (press **E** — see above). **Low curtain walls + corner towers** (gate-matching stone, optional wall banners) wrap parts of the market rim so the district feels enclosed and tied to the city gate — the **SW gate approach**, **far NE street** (homes), and **SE harbor** exits stay open (not a full box). A short **west-rim side alley** (narrow cobble lane with crates/barrels) branches off the plaza; press **E** at the alley board for a flavor toast (`Back alley`). Soft collisions on building / stall / vendor / fountain / forge / inn / wall / alley / notice-board footprints keep the street walkable — gate→market path and fountain lanes stay clear. Press **E** at the market sign or forge for flavor toasts (`Market District` / `Blacksmith`). At the inn door, press **E** for a **paid short rest** (**3 gold**, **+40 HP**, **45s** cooldown). No new combat or full smith shop UI here. Play clamp includes the gate→market corridor + market plaza. Minimap marks **Market** (plaza fountain) plus small blacksmith, inn, street-vendor, and notice-board accents (in addition to Gate).
 
 ## Residential street
 
 Past the market’s open **far-NE exit**, a short **residential street** stub continues the town diagonal: a cobble lane, **3 KayKit cottage homes** (street-facing, soft house footprints), a **town chapel** landmark on the east rim (**KayKit church** with steeple — distinct from the east meadow shrine and market fountain), a couple **fences** and **lanterns**, a small **garden patch**, and a **well** accent. Soft collisions on house / chapel / fence footprints keep the street walkable — market → homes path stays clear. Press **E** at one cottage door for a flavor toast (`Locked — townsfolk later`). At the chapel door, press **E** for a free **town blessing** (**+22 HP**, brief mild damage favor, **40s** cooldown) — not the meadow shrine wave defend. Optional benches / lantern on the chapel apron. No new enemies. Play clamp includes the market→homes corridor + residential pocket. Minimap marks **Homes** plus a small chapel accent.
+
+## Harbor docks
+
+Past the market’s open **SE exit** (not the NE homes lane), a compact **harbor / docks** stub: a short stone/wood spur to a small **pier** with pilings, planks, crates, hanging nets, dock lanterns, and a couple of **moored boats**. Soft collisions on boats / crates / nets keep a walkable pier lane. Press **E** at the catch crate for a flavor toast (`Catch of the day later`). No new enemies or combat systems. Play clamp includes the market→docks corridor + docks pocket. Minimap marks **Docks** plus a small catch-crate accent.
 
 ## South river ford
 
@@ -258,13 +262,14 @@ src/
     loop.ts               rAF loop with fixed 60 Hz update
   input/InputManager.ts   Keyboard + pointer
   camera/FollowCamera.ts  Angled follow cam + yaw + smooth zoom
-  world/MeadowBiome.ts    Ground + props, play-area clamp, gate + market + homes
+  world/MeadowBiome.ts    Ground + props, play-area clamp, gate + market + homes + docks
   world/WorldPropLibrary.ts  KayKit prop GLTF loader + toon remap
   world/CottageMerchant.ts   NW cottage spend-gold shop (E interact)
   world/MarketDistrict.ts    NE market sign + blacksmith + notice board + inn + alley interacts (E)
   world/MarketStreetVendor.ts Market plaza street-vendor snack shop (E)
   world/GateGuard.ts         NE city gate sentry flavor dialogue (E)
   world/ResidentialStreet.ts Homes door + town chapel interacts (E)
+  world/HarborDocks.ts       Harbor pier catch-crate flavor interact (E)
   world/TreasureChests.ts Treasure chest interact + rewards
   world/HealingSprings.ts Healing spring interact
   world/ShrineObjective.ts East shrine defend objective

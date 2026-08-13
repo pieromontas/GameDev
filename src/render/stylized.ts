@@ -286,7 +286,17 @@ export const NortheastResidentialStreet = {
   radius: 11,
 } as const;
 
-/** Smooth 0–1 influence of dirt paths (main S-curve + E/W/N/S + NE city-gate / market / homes branches). */
+/**
+ * Compact harbor / docks stub past the market’s open SE exit (not the NE homes lane).
+ * Small pier pocket east-southeast of the plaza — walkable, not a full port.
+ */
+export const NortheastHarborDocks = {
+  x: 66,
+  z: 42,
+  radius: 9,
+} as const;
+
+/** Smooth 0–1 influence of dirt paths (main S-curve + E/W/N/S + NE city-gate / market / homes / docks branches). */
 export function meadowPathInfluence(x: number, z: number): number {
   return Math.max(
     mainMeadowPathInfluence(x, z),
@@ -546,5 +556,35 @@ function northeastBranchPathInfluence(x: number, z: number): number {
     homesPad = hcr < 2.6 ? 0.92 : 0.92 * (1 - (hcr - 2.6) / 2.2);
   }
 
-  return Math.max(branch, pad, marketRoad, marketPad, homeRoad, homesPad);
+  // Short harbor spur market → docks stub (SE of plaza — not the NE homes diagonal).
+  const dx0 = NortheastMarketDistrict.x + 6.5;
+  const dz0 = NortheastMarketDistrict.z - 1.5;
+  const dx1 = NortheastHarborDocks.x;
+  const dz1 = NortheastHarborDocks.z;
+  const ddx = dx1 - dx0;
+  const ddz = dz1 - dz0;
+  const dLen2 = ddx * ddx + ddz * ddz;
+  const dt =
+    dLen2 > 1e-8
+      ? THREE.MathUtils.clamp(((x - dx0) * ddx + (z - dz0) * ddz) / dLen2, 0, 1)
+      : 0;
+  const dpx = dx0 + ddx * dt;
+  const dpz = dz0 + ddz * dt;
+  const dDist = Math.hypot(x - dpx, z - dpz);
+  const dHalfW = 2.45 + Math.sin(dt * Math.PI) * 0.28;
+  let dockRoad = 0;
+  const dd = dDist / dHalfW;
+  if (dd < 1.35) {
+    dockRoad = dd <= 0.75 ? 1 : 1 - (dd - 0.75) / 0.6;
+  }
+
+  const dcdx = x - NortheastHarborDocks.x;
+  const dcdz = z - NortheastHarborDocks.z;
+  const dcr = Math.hypot(dcdx, dcdz);
+  let docksPad = 0;
+  if (dcr < 4.4) {
+    docksPad = dcr < 2.4 ? 0.9 : 0.9 * (1 - (dcr - 2.4) / 2.0);
+  }
+
+  return Math.max(branch, pad, marketRoad, marketPad, homeRoad, homesPad, dockRoad, docksPad);
 }

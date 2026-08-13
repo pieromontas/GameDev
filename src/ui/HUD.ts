@@ -8,6 +8,7 @@ import {
   NortheastCityGate,
   NortheastMarketDistrict,
   NortheastResidentialStreet,
+  NortheastHarborDocks,
 } from '../render/stylized';
 import { CHEST_SPOTS } from '../world/TreasureChests';
 import { SPRING_SPOT } from '../world/HealingSprings';
@@ -29,6 +30,7 @@ import {
 } from '../world/MarketStreetVendor';
 import { GATE_GUARD_NPC } from '../world/GateGuard';
 import { RESIDENTIAL_CHAPEL_SPOT } from '../world/ResidentialStreet';
+import { HARBOR_CATCH_SIGN } from '../world/HarborDocks';
 
 /** World half-extent projected onto the radar (covers clearings + town stubs). */
 const MINIMAP_EXTENT = 78;
@@ -60,6 +62,9 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
   { x: MARKET_NOTICE_BOARD_SPOT.x, z: MARKET_NOTICE_BOARD_SPOT.z, color: '#c4a06a', r: 2.3 },
   { x: NortheastResidentialStreet.x, z: NortheastResidentialStreet.z, color: '#b86b4a', r: 4.2 },
   { x: RESIDENTIAL_CHAPEL_SPOT.x, z: RESIDENTIAL_CHAPEL_SPOT.z, color: '#d4c078', r: 2.8 },
+  // Harbor / docks stub SE of market (distinct teal from south river ford).
+  { x: NortheastHarborDocks.x, z: NortheastHarborDocks.z, color: '#3a8a9a', r: 4.2 },
+  { x: HARBOR_CATCH_SIGN.x, z: HARBOR_CATCH_SIGN.z, color: '#6ab0a8', r: 2.2 },
   ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3 })),
   { x: SPRING_SPOT.x, z: SPRING_SPOT.z, color: '#5ed4ef', r: 3.2 },
   { x: COTTAGE_SPOT.x, z: COTTAGE_SPOT.z, color: '#c4784a', r: 3.2 },
@@ -218,6 +223,7 @@ export class HUD {
           <span><i class="lg gate"></i>Gate</span>
           <span><i class="lg market"></i>Market</span>
           <span><i class="lg homes"></i>Homes</span>
+          <span><i class="lg docks"></i>Docks</span>
           <span><i class="lg chapel"></i>Chapel</span>
           <span><i class="lg cottage"></i>Shop</span>
         </div>
@@ -231,12 +237,12 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / chests / spring / gate guard / market / vendor / notice board / inn / alley / home door / chapel / cottage merchant<br/>
+        <kbd>E</kbd> — shrine / chests / spring / gate guard / market / vendor / notice board / inn / alley / docks crate / home door / chapel / cottage merchant<br/>
         Follow the dirt path west to the misty grove<br/>
         Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>
-        Follow the stone road northeast to the city gate, market &amp; homes<br/>
-        City gate — talk to the guard · Market stall — street vendor · Plaza board — notices · NW cottage — merchant<br/>
+        Follow the stone road northeast to the city gate, market, homes &amp; docks<br/>
+        City gate — talk to the guard · Market stall — street vendor · Plaza board — notices · SE pier — docks · NW cottage — merchant<br/>
         RMB drag — rotate camera<br/>
         Scroll / pinch — zoom · <kbd>-</kbd><kbd>=</kbd> or <kbd>[</kbd><kbd>]</kbd>
       </div>
@@ -565,6 +571,12 @@ export class HUD {
         NortheastResidentialStreet.x,
         NortheastResidentialStreet.z,
       ],
+      [
+        NortheastMarketDistrict.x,
+        NortheastMarketDistrict.z,
+        NortheastHarborDocks.x,
+        NortheastHarborDocks.z,
+      ],
     ];
     for (const [ax, az, bx, bz] of paths) {
       const a = toScreen(ax, az);
@@ -596,11 +608,13 @@ export class HUD {
       const isHomes =
         mark.x === NortheastResidentialStreet.x &&
         mark.z === NortheastResidentialStreet.z;
+      const isDocks =
+        mark.x === NortheastHarborDocks.x && mark.z === NortheastHarborDocks.z;
       ctx.fillStyle = mark.color;
       ctx.strokeStyle = 'rgba(31, 42, 36, 0.45)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      if (isGate || isMarket || isHomes) {
+      if (isGate || isMarket || isHomes || isDocks) {
         // Town icons — small squares so they read apart from clearing dots
         const s = mark.r;
         ctx.rect(p.sx - s * 0.7, p.sy - s * 0.7, s * 1.4, s * 1.4);
