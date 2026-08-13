@@ -37,7 +37,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **W A S D** / arrows | Move relative to camera (hold walks; a tap still steps) |
 | **Shift** | Dodge roll — short burst + brief i-frames (~1.55s cooldown) |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
-| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / talk to the city gate guard / read market sign / talk to blacksmith / trade with market street vendor / browse the produce stall / read the town notice board / rest at market inn / peek the market alley / read the docks catch crate / try a residential door / bless at the town chapel / talk to cottage merchant (when near) |
+| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / pick west grove herb / talk to the city gate guard / read market sign / talk to blacksmith / trade with market street vendor / browse the produce stall / read the town notice board / rest at market inn / peek the market alley / read the docks catch crate / try a residential door / bless at the town chapel / talk to cottage merchant (when near) |
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt / Stab) |
 | **2** | Skill 2 (Quake / Frost Nova / Fan of Knives) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
@@ -46,7 +46,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **Mouse wheel** / trackpad pinch | Zoom camera in / out (clamped) |
 | **-** / **=** or **[** / **]** | Zoom out / in (alternate) |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / gate guard / market / street vendor / produce stall / notice board / inn / alley / docks crate / home door / chapel / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market, homes & docks** roads, the **city gate guard**, the **market street vendor**, the **produce stall**, the **plaza notice board**, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, gate guard accent, **Market** (fountain), street vendor stall, notice board, **Homes**, chapel, **Docks**, blacksmith, inn, chests, the healing spring, the cottage shop, and nearby enemies. Hover a landmark pin to read its name beside the radar (e.g. Gate vs Ford vs Market).
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / grove herb / gate guard / market / street vendor / produce stall / notice board / inn / alley / docks crate / home door / chapel / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path (glowing herb), the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market, homes & docks** roads, the **city gate guard**, the **market street vendor**, the **produce stall**, the **plaza notice board**, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, gate guard accent, **Market** (fountain), street vendor stall, notice board, **Homes**, chapel, **Docks**, blacksmith, inn, chests, the healing spring, the west grove herb, the cottage shop, and nearby enemies. Hover a landmark pin to read its name beside the radar (e.g. Gate vs Ford vs Market).
 
 ## Treasure chests
 
@@ -66,7 +66,7 @@ A simple spend-gold shop at the **NW cottage** (rim landmark near the well). Wal
 - **Damage Charm** — **11 gold**, **+35% damage** for **45s** (HUD buff chip)
 - **Feedback** — can’t-afford toast, purchase toast, top-right **Gold** counter updates
 - **Close** — **E**, **Esc**, or the panel ✕; shop also closes if you walk away
-- **E-priority** — chest → spring → shrine → gate guard → blacksmith → street vendor → produce stall → market sign → notice board → inn → alley → harbor catch crate → residential door → town chapel → merchant (merchant never blocks closer interactables)
+- **E-priority** — chest → spring → grove herb → shrine → gate guard → blacksmith → street vendor → produce stall → market sign → notice board → inn → alley → harbor catch crate → residential door → town chapel → merchant (merchant never blocks closer interactables)
 
 Works for Warrior, Mage, and Rogue. Prices are reachable after opening a couple of chests. Distinct from the **market street vendor** (cheaper snack stall in the plaza).
 
@@ -126,11 +126,20 @@ A stylized **healing spring / fountain** sits in the ruins courtyard. Walk up an
 - **Heal** — full HP restore (Warrior, Mage, and Rogue)
 - **Feedback** — rising sparkle / glow burst + HUD toast with HP gained
 - **Cooldown** — **60s** rest; prompt shows `Healing Spring cooling… Xs` while unavailable; basin glow stays muted until ready
-- Clear of the east shrine and treasure chests; E-priority is chest → spring → shrine → merchant if prompts ever overlap
+- Clear of the east shrine and treasure chests; E-priority is chest → spring → grove herb → shrine → merchant if prompts ever overlap
 
 ## West misty grove
 
 Follow the dirt path **west** from the main meadow to a second reachable clearing. Landmark: a **fallen giant tree**, **fairy-ring mushrooms**, and soft mist volumes (distinct from the east shrine tower). **2 blobs + 2 spitters + 1 Armored Brute** patrol the grove. Play-area clamp includes the west corridor + clearing — fully walkable. No new objective this cycle; explore and fight.
+
+### Grove herb
+
+A small **glowing herb cluster** sits on the north rim of the misty grove (free world pickup — not the north spring or market heals). Walk up and press **E** (“Press E — Pick Grove Herb”):
+
+- **Heal** — modest **+26 HP** (weak misty sip; not a full inn rest / spring restore)
+- **Feedback** — plant disappears with a sparkle burst + HUD toast; prompt while depleted: `Grove herb regrowing… Xs`
+- **Respawn** — **35s** cooldown, then the plant returns for another pickup
+- Clear of the fairy ring, fallen trunk, and grove chest; E-priority sits after the healing spring and before the east shrine
 
 ## Armored Brute
 
@@ -184,7 +193,7 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 
 - Living meadow: expanded play ring (~30% more reach), vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, **KayKit Forest** trees / rocks / bushes + **KayKit Medieval** cottage / windmill / well / church (toon-remapped GLTF; procedural fallback), pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** + **north ruins** + **south river ford** clearings, **NE city gate + market district** (plaza fountain, blacksmith forge, market inn, street vendor stall, produce stall, notice board, curtain walls, side alley) + **residential street** (homes + town chapel), plus small outer-ring standing stones / wayside cairn
 - **North ruins**: dirt path north → crumbled gate + broken columns + rubble courtyard; blobs/spitters/**Armored Brute**; play clamp extended
-- **West misty grove**: dirt path west → fallen giant tree + fairy ring + mist; blobs/spitters/**Armored Brute**; play clamp extended
+- **West misty grove**: dirt path west → fallen giant tree + fairy ring + mist; glowing herb pickup (E, modest heal + respawn); blobs/spitters/**Armored Brute**; play clamp extended
 - **East shrine mini-objective**: interact (E) → defend 3 waves → temporary damage/speed blessing + loot; crystal activates with cooldown; static **Armored Brute** also patrols the clearing
 - KayKit Knight / Mage / **Rogue** (GLTF) with Idle / Walk / Run + skill clips via three.js `AnimationMixer`
 - Expressive blob mobs with hop locomotion, attack wind-up + lunge, hit react, stun daze, frost slow, death squash
@@ -272,8 +281,9 @@ src/
   world/HarborDocks.ts       Harbor pier catch-crate flavor interact (E)
   world/TreasureChests.ts Treasure chest interact + rewards
   world/HealingSprings.ts Healing spring interact
+  world/GroveHerbs.ts     West grove herb pickup interact
   world/ShrineObjective.ts East shrine defend objective
-  entities/               Player, PlayerVisual, Mob, Spitter, ArmoredBrute, SpitProjectile, Loot, Entity
+  entities/               Player, PlayerVisual, Mob, Spitter, ArmoredBrute, GroveHerb, SpitProjectile, Loot, Entity
   combat/                 Skills, CombatSystem, damage numbers
   render/stylized.ts      Toon materials, sky, palette, ground helpers
   ui/                     HUD + billboard health bars
