@@ -52,8 +52,8 @@ export const RESIDENTIAL_CHAPEL_SPOT = {
   yaw: Math.atan2(67 - 77.0, 67 - 69.0),
 } as const;
 
-/** Door / porch pad in front of the chapel (E interact) — outside church footprint. */
-export const RESIDENTIAL_CHAPEL_DOOR = { x: 73.3, z: 68.3 } as const;
+/** Door / porch pad in front of the chapel (E interact) — outside church pack radius (~4.1). */
+export const RESIDENTIAL_CHAPEL_DOOR = { x: 72.3, z: 68.1 } as const;
 
 /** Shared well accent south of the chapel apron (pack-swapped; clear of door pad). */
 export const RESIDENTIAL_WELL_SPOT = { x: 72.5, z: 64.8 } as const;
