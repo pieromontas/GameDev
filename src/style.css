@@ -159,6 +159,10 @@ body,
   border-radius: 2px;
 }
 
+.hud-minimap .minimap-legend i.vendor {
+  background: #e85858;
+}
+
 @media (max-width: 720px) {
   .hud-minimap {
     top: auto;
@@ -672,6 +676,10 @@ kbd {
 
 .shop-panel[hidden] {
   display: none;
+}
+
+.vendor-panel .shop-title {
+  color: #b8423a;
 }
 
 .shop-head {

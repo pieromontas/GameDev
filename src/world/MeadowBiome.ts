@@ -25,6 +25,10 @@ import {
   MARKET_SIGN_SPOT,
 } from './MarketDistrict';
 import {
+  MARKET_VENDOR_NPC,
+  MARKET_VENDOR_STALL,
+} from './MarketStreetVendor';
+import {
   RESIDENTIAL_CHAPEL_DOOR,
   RESIDENTIAL_CHAPEL_SPOT,
   RESIDENTIAL_DOOR_SPOT,
@@ -1319,9 +1323,23 @@ export class MeadowBiome {
 
     // Stylized stall awnings + crates (dense but not a capital).
     // Crates sit off the fountain footprint so the plaza center stays readable.
-    this.addMarketStall(48.0, 54.0, Math.PI * 0.7, Palette.roofTile);
+    // NW stall hosts the street vendor NPC (E shop — see MarketStreetVendor).
+    this.addMarketStall(
+      MARKET_VENDOR_STALL.x,
+      MARKET_VENDOR_STALL.z,
+      Math.PI * 0.7,
+      Palette.roofTile,
+    );
     this.addMarketStall(54.2, 47.8, -Math.PI * 0.28, Palette.flowerYellow);
     this.addMarketStall(55.8, 52.4, -Math.PI * 0.9, Palette.flowerCyan);
+    this.addMarketStreetVendor(
+      MARKET_VENDOR_NPC.x,
+      MARKET_VENDOR_NPC.z,
+      Math.atan2(
+        MARKET_FOUNTAIN_SPOT.x - MARKET_VENDOR_NPC.x,
+        MARKET_FOUNTAIN_SPOT.z - MARKET_VENDOR_NPC.z,
+      ),
+    );
 
     this.addMarketCrates(47.2, 51.4, 0.2);
     this.addMarketCrates(54.0, 49.2, -0.35);
@@ -2152,6 +2170,89 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 1.6 });
+  }
+
+  /**
+   * Low-poly toon street vendor at the NW plaza stall — no civilian KayKit mesh in pack.
+   * Soft collision keeps the player from walking through; plaza lanes stay open.
+   */
+  private addMarketStreetVendor(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'MarketStreetVendor';
+
+    const skinMat = createToonMaterial(Palette.warriorSkin);
+    const tunicMat = createToonMaterial(0xc45a3a, {
+      emissive: 0xc45a3a,
+      emissiveIntensity: 0.06,
+    });
+    const apronMat = createToonMaterial(Palette.signBoard);
+    const hairMat = createToonMaterial(Palette.warriorHair);
+    const bootMat = createToonMaterial(Palette.warriorBoot);
+
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.38, 14),
+      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.28 }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.02;
+    group.add(shadow);
+
+    const boots = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.18, 0.36), bootMat);
+    boots.position.y = 0.1;
+    boots.castShadow = true;
+    group.add(boots);
+
+    const legs = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.55, 0.28), tunicMat);
+    legs.position.y = 0.45;
+    legs.castShadow = true;
+    group.add(legs);
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.62, 0.34), tunicMat);
+    torso.position.y = 1.02;
+    torso.castShadow = true;
+    group.add(torso);
+
+    const apron = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.5, 0.08), apronMat);
+    apron.position.set(0, 0.88, 0.2);
+    apron.castShadow = true;
+    group.add(apron);
+
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), skinMat);
+    armL.position.set(-0.38, 0.98, 0.05);
+    armL.rotation.z = 0.18;
+    armL.castShadow = true;
+    group.add(armL);
+
+    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), skinMat);
+    armR.position.set(0.38, 0.98, 0.05);
+    armR.rotation.z = -0.18;
+    armR.castShadow = true;
+    group.add(armR);
+
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.36, 0.34), skinMat);
+    head.position.y = 1.52;
+    head.castShadow = true;
+    group.add(head);
+
+    const hair = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.16, 0.38), hairMat);
+    hair.position.y = 1.72;
+    hair.castShadow = true;
+    group.add(hair);
+
+    // Tiny bread loaf silhouette so the stall reads as a snack vendor from iso.
+    const loaf = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.1, 0.12, 3, 6),
+      createToonMaterial(0xe8b060, { emissive: 0xe8b060, emissiveIntensity: 0.08 }),
+    );
+    loaf.position.set(0.22, 1.05, 0.28);
+    loaf.rotation.z = Math.PI / 2;
+    loaf.castShadow = true;
+    group.add(loaf);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.55 });
   }
 
   /** Stylized market stall with cloth awning — permanent (not pack-swapped). */

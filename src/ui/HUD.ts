@@ -17,6 +17,11 @@ import {
   HEALTH_POTION_COST,
 } from '../world/CottageMerchant';
 import { MARKET_BLACKSMITH_SPOT, MARKET_INN_SPOT } from '../world/MarketDistrict';
+import {
+  MARKET_VENDOR_STALL,
+  STREET_BREAD_COST,
+  STREET_NIBBLE_COST,
+} from '../world/MarketStreetVendor';
 import { RESIDENTIAL_CHAPEL_SPOT } from '../world/ResidentialStreet';
 
 /** World half-extent projected onto the radar (covers clearings + town stubs). */
@@ -41,6 +46,8 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
   { x: NortheastMarketDistrict.x, z: NortheastMarketDistrict.z, color: '#e07a3a', r: 4.6 },
   { x: MARKET_BLACKSMITH_SPOT.x, z: MARKET_BLACKSMITH_SPOT.z, color: '#c45a2e', r: 2.8 },
   { x: MARKET_INN_SPOT.x, z: MARKET_INN_SPOT.z, color: '#e8a04a', r: 2.8 },
+  // Tiny plaza stall mark — distinct from NW cottage shop color.
+  { x: MARKET_VENDOR_STALL.x, z: MARKET_VENDOR_STALL.z, color: '#e85858', r: 2.4 },
   { x: NortheastResidentialStreet.x, z: NortheastResidentialStreet.z, color: '#b86b4a', r: 4.2 },
   { x: RESIDENTIAL_CHAPEL_SPOT.x, z: RESIDENTIAL_CHAPEL_SPOT.z, color: '#d4c078', r: 2.8 },
   ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3 })),
@@ -95,6 +102,14 @@ export class HUD {
     onBuyCharm: () => void;
     onClose: () => void;
   } | null = null;
+  private readonly vendorPanel: HTMLElement;
+  private readonly vendorGold: HTMLElement;
+  private vendorOpen = false;
+  private vendorHandlers: {
+    onBuyBread: () => void;
+    onBuyNibble: () => void;
+    onClose: () => void;
+  } | null = null;
   private prevDodgeReady = true;
   private shownClass: PlayerClass | null = null;
   /** North-up radar canvas (world +Z = up). */
@@ -147,6 +162,25 @@ export class HUD {
         </button>
         <p class="shop-hint"><kbd>E</kbd> / <kbd>Esc</kbd> close</p>
       </div>
+      <div class="hud-panel shop-panel vendor-panel" id="vendor-panel" hidden>
+        <div class="shop-head">
+          <p class="shop-title">Street Vendor</p>
+          <button type="button" class="shop-close" id="vendor-close" aria-label="Close stall">✕</button>
+        </div>
+        <p class="shop-gold" id="vendor-gold">Gold: 0</p>
+        <p class="shop-blurb">Cheap snacks from the market stall.</p>
+        <button type="button" class="shop-item" id="vendor-buy-bread">
+          <span class="shop-item-name">Snack Bread</span>
+          <span class="shop-item-desc">Small heal · +25 HP</span>
+          <span class="shop-item-price">${STREET_BREAD_COST} gold</span>
+        </button>
+        <button type="button" class="shop-item" id="vendor-buy-nibble">
+          <span class="shop-item-name">Honey Nibble</span>
+          <span class="shop-item-desc">+12% move speed · 15s</span>
+          <span class="shop-item-price">${STREET_NIBBLE_COST} gold</span>
+        </button>
+        <p class="shop-hint"><kbd>E</kbd> / <kbd>Esc</kbd> close</p>
+      </div>
       <div class="hud-panel hud-minimap" id="minimap-panel" title="Minimap · north up">
         <div class="minimap-head">
           <span class="minimap-title">Map</span>
@@ -174,12 +208,12 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / chests / spring / market / inn / alley / home door / chapel / cottage merchant<br/>
+        <kbd>E</kbd> — shrine / chests / spring / market / vendor / inn / alley / home door / chapel / cottage merchant<br/>
         Follow the dirt path west to the misty grove<br/>
         Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>
         Follow the stone road northeast to the city gate, market &amp; homes<br/>
-        NW cottage — spend gold at the merchant<br/>
+        Market stall — street vendor snacks · NW cottage — merchant<br/>
         RMB drag — rotate camera<br/>
         Scroll / pinch — zoom · <kbd>-</kbd><kbd>=</kbd> or <kbd>[</kbd><kbd>]</kbd>
       </div>
@@ -205,6 +239,8 @@ export class HUD {
     this.buffChip = this.root.querySelector('#buff-chip')!;
     this.shopPanel = this.root.querySelector('#shop-panel')!;
     this.shopGold = this.root.querySelector('#shop-gold')!;
+    this.vendorPanel = this.root.querySelector('#vendor-panel')!;
+    this.vendorGold = this.root.querySelector('#vendor-gold')!;
 
     this.root.querySelector('#shop-close')!.addEventListener('click', () => {
       this.shopHandlers?.onClose();
@@ -214,6 +250,15 @@ export class HUD {
     });
     this.root.querySelector('#shop-buy-charm')!.addEventListener('click', () => {
       this.shopHandlers?.onBuyCharm();
+    });
+    this.root.querySelector('#vendor-close')!.addEventListener('click', () => {
+      this.vendorHandlers?.onClose();
+    });
+    this.root.querySelector('#vendor-buy-bread')!.addEventListener('click', () => {
+      this.vendorHandlers?.onBuyBread();
+    });
+    this.root.querySelector('#vendor-buy-nibble')!.addEventListener('click', () => {
+      this.vendorHandlers?.onBuyNibble();
     });
 
     const skillsHost = this.root.querySelector('#skills')!;
@@ -311,6 +356,9 @@ export class HUD {
     if (this.shopOpen) {
       this.shopGold.textContent = `Gold: ${lootCount}`;
     }
+    if (this.vendorOpen) {
+      this.vendorGold.textContent = `Gold: ${lootCount}`;
+    }
 
     this.syncSkill('basic', player);
     this.syncSkill('slam', player);
@@ -376,6 +424,22 @@ export class HUD {
     this.shopGold.textContent = `Gold: ${gold}`;
     if (open) this.shopPanel.removeAttribute('hidden');
     else this.shopPanel.setAttribute('hidden', '');
+  }
+
+  /** Wire street-vendor stall buy / close callbacks (market plaza). */
+  bindVendorHandlers(handlers: {
+    onBuyBread: () => void;
+    onBuyNibble: () => void;
+    onClose: () => void;
+  }): void {
+    this.vendorHandlers = handlers;
+  }
+
+  setVendorOpen(open: boolean, gold: number): void {
+    this.vendorOpen = open;
+    this.vendorGold.textContent = `Gold: ${gold}`;
+    if (open) this.vendorPanel.removeAttribute('hidden');
+    else this.vendorPanel.setAttribute('hidden', '');
   }
 
   /**

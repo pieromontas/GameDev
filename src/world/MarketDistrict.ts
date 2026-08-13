@@ -67,7 +67,7 @@ const SMITH_TOAST = 'Blacksmith  ·  forge warm · blades & plates later';
 /**
  * Lightweight town-slice interact — E at the market sign shows a flavor toast.
  * Mirrors chest / spring proximity prompts without opening a shop panel.
- * Hook point for a second merchant later.
+ * Street vendor shop lives in MarketStreetVendor (plaza stall).
  */
 export class MarketDistrictSign {
   private readonly spot = new THREE.Vector3(MARKET_SIGN_SPOT.x, 0, MARKET_SIGN_SPOT.z);

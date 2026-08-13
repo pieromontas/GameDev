@@ -14,6 +14,7 @@ import {
   MarketDistrictSign,
   MarketInn,
 } from '../world/MarketDistrict';
+import { MarketStreetVendor } from '../world/MarketStreetVendor';
 import { ResidentialChapel, ResidentialDoor } from '../world/ResidentialStreet';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
@@ -39,6 +40,7 @@ export class Game {
   private readonly merchant: CottageMerchant;
   private readonly marketSign: MarketDistrictSign;
   private readonly marketBlacksmith: MarketBlacksmith;
+  private readonly marketVendor: MarketStreetVendor;
   private readonly marketInn: MarketInn;
   private readonly marketAlley: MarketAlley;
   private readonly residentialDoor: ResidentialDoor;
@@ -194,6 +196,16 @@ export class Game {
     this.marketBlacksmith = new MarketBlacksmith({
       onToast: (message, duration) => this.hud.showToast(message, duration),
     });
+    this.marketVendor = new MarketStreetVendor({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+      getGold: () => this.lootCount,
+      trySpend: (amount) => {
+        if (this.lootCount < amount) return false;
+        this.lootCount -= amount;
+        return true;
+      },
+      onShopChanged: (open) => this.hud.setVendorOpen(open, this.lootCount),
+    });
     this.marketInn = new MarketInn({
       onToast: (message, duration) => this.hud.showToast(message, duration),
       getGold: () => this.lootCount,
@@ -216,6 +228,11 @@ export class Game {
       onBuyPotion: () => this.merchant.buyHealthPotion(this.player),
       onBuyCharm: () => this.merchant.buyDamageCharm(this.player),
       onClose: () => this.merchant.close(),
+    });
+    this.hud.bindVendorHandlers({
+      onBuyBread: () => this.marketVendor.buyBread(this.player),
+      onBuyNibble: () => this.marketVendor.buySpeedNibble(this.player),
+      onClose: () => this.marketVendor.close(),
     });
 
     this.loop = new GameLoop({
@@ -396,8 +413,10 @@ export class Game {
     this.marketInn.update(dt);
     this.residentialChapel.update(dt);
     this.merchant.update(this.player);
-    if (this.input.wasPressed('Escape') && this.merchant.isOpen) {
-      this.merchant.close();
+    this.marketVendor.update(this.player);
+    if (this.input.wasPressed('Escape')) {
+      if (this.merchant.isOpen) this.merchant.close();
+      if (this.marketVendor.isOpen) this.marketVendor.close();
     }
     this.syncInteractHud();
 
@@ -553,8 +572,8 @@ export class Game {
 
   /**
    * E key: closed chests → healing spring → east shrine → market sign → blacksmith →
-   * inn → alley → residential door → town chapel → cottage merchant.
-   * Open shop always closes on E first so it never blocks other interactables.
+   * street vendor → inn → alley → residential door → town chapel → cottage merchant.
+   * Open shop / stall always closes on E first so it never blocks other interactables.
    */
   private handleInteract(): void {
     if (!this.input.wasPressed('KeyE')) return;
@@ -562,11 +581,16 @@ export class Game {
       this.merchant.close();
       return;
     }
+    if (this.marketVendor.isOpen) {
+      this.marketVendor.close();
+      return;
+    }
     if (this.chests.tryInteract(this.player)) return;
     if (this.springs.tryInteract(this.player)) return;
     if (this.shrine.tryInteract(this.player)) return;
     if (this.marketSign.tryInteract(this.player)) return;
     if (this.marketBlacksmith.tryInteract(this.player)) return;
+    if (this.marketVendor.tryInteract(this.player)) return;
     if (this.marketInn.tryInteract(this.player)) return;
     if (this.marketAlley.tryInteract(this.player)) return;
     if (this.residentialDoor.tryInteract(this.player)) return;
@@ -581,6 +605,7 @@ export class Game {
     const springPrompt = this.springs.getInteractPrompt(this.player);
     const marketPrompt = this.marketSign.getInteractPrompt(this.player);
     const smithPrompt = this.marketBlacksmith.getInteractPrompt(this.player);
+    const vendorPrompt = this.marketVendor.getInteractPrompt(this.player);
     const innPrompt = this.marketInn.getInteractPrompt(this.player);
     const alleyPrompt = this.marketAlley.getInteractPrompt(this.player);
     const homeDoorPrompt = this.residentialDoor.getInteractPrompt(this.player);
@@ -611,6 +636,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: smithPrompt.text,
+      });
+    } else if (vendorPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: vendorPrompt.text,
       });
     } else if (innPrompt.visible) {
       this.hud.setShrineHud({

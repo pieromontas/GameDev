@@ -36,6 +36,7 @@ export const DAMAGE_CHARM_MULT = 1.35;
 
 /**
  * NW cottage spend-gold shop — E at the door opens a lightweight HUD panel.
+ * Distinct from the market plaza street vendor (cheaper snack stall).
  * Mirrors chest / spring proximity prompts without a shared Interactable base.
  */
 export class CottageMerchant {
