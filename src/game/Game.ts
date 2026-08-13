@@ -15,6 +15,7 @@ import {
   MarketInn,
 } from '../world/MarketDistrict';
 import { MarketStreetVendor } from '../world/MarketStreetVendor';
+import { GateGuard } from '../world/GateGuard';
 import { ResidentialChapel, ResidentialDoor } from '../world/ResidentialStreet';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
@@ -43,6 +44,7 @@ export class Game {
   private readonly marketVendor: MarketStreetVendor;
   private readonly marketInn: MarketInn;
   private readonly marketAlley: MarketAlley;
+  private readonly gateGuard: GateGuard;
   private readonly residentialDoor: ResidentialDoor;
   private readonly residentialChapel: ResidentialChapel;
   /** Public for DevTools playtests via `window.__game`. */
@@ -217,6 +219,10 @@ export class Game {
     });
     this.marketAlley = new MarketAlley({
       onToast: (message, duration) => this.hud.showToast(message, duration),
+    });
+    this.gateGuard = new GateGuard({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+      getKills: () => this.kills,
     });
     this.residentialDoor = new ResidentialDoor({
       onToast: (message, duration) => this.hud.showToast(message, duration),
@@ -410,6 +416,7 @@ export class Game {
     this.chests.update(dt);
     this.springs.update(dt);
     this.meadow.updateMarketAmbience(dt);
+    this.meadow.updateGateGuard(dt, this.player.position);
     this.marketInn.update(dt);
     this.residentialChapel.update(dt);
     this.merchant.update(this.player);
@@ -571,8 +578,9 @@ export class Game {
   }
 
   /**
-   * E key: closed chests → healing spring → east shrine → market sign → blacksmith →
-   * street vendor → inn → alley → residential door → town chapel → cottage merchant.
+   * E key: closed chests → healing spring → east shrine → gate guard → market sign →
+   * blacksmith → street vendor → inn → alley → residential door → town chapel →
+   * cottage merchant.
    * Open shop / stall always closes on E first so it never blocks other interactables.
    */
   private handleInteract(): void {
@@ -588,6 +596,7 @@ export class Game {
     if (this.chests.tryInteract(this.player)) return;
     if (this.springs.tryInteract(this.player)) return;
     if (this.shrine.tryInteract(this.player)) return;
+    if (this.gateGuard.tryInteract(this.player)) return;
     if (this.marketSign.tryInteract(this.player)) return;
     if (this.marketBlacksmith.tryInteract(this.player)) return;
     if (this.marketVendor.tryInteract(this.player)) return;
@@ -603,6 +612,7 @@ export class Game {
     const shrineHud = this.shrine.getHudState(this.player);
     const chestPrompt = this.chests.getInteractPrompt(this.player);
     const springPrompt = this.springs.getInteractPrompt(this.player);
+    const gateGuardPrompt = this.gateGuard.getInteractPrompt(this.player);
     const marketPrompt = this.marketSign.getInteractPrompt(this.player);
     const smithPrompt = this.marketBlacksmith.getInteractPrompt(this.player);
     const vendorPrompt = this.marketVendor.getInteractPrompt(this.player);
@@ -625,6 +635,12 @@ export class Game {
       });
     } else if (shrineHud.promptVisible) {
       this.hud.setShrineHud(shrineHud);
+    } else if (gateGuardPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: gateGuardPrompt.text,
+      });
     } else if (marketPrompt.visible) {
       this.hud.setShrineHud({
         ...shrineHud,

@@ -22,6 +22,7 @@ import {
   STREET_BREAD_COST,
   STREET_NIBBLE_COST,
 } from '../world/MarketStreetVendor';
+import { GATE_GUARD_NPC } from '../world/GateGuard';
 import { RESIDENTIAL_CHAPEL_SPOT } from '../world/ResidentialStreet';
 
 /** World half-extent projected onto the radar (covers clearings + town stubs). */
@@ -42,6 +43,8 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
   { x: NorthRuinsClearing.x, z: NorthRuinsClearing.z, color: '#c4a574', r: 4.5 },
   { x: SouthRiverFordClearing.x, z: SouthRiverFordClearing.z, color: '#4aa8e8', r: 4.5 },
   { x: NortheastCityGate.x, z: NortheastCityGate.z, color: '#d4a04a', r: 4.8 },
+  // Tiny sentry mark beside the gate arch (distinct from Gate square + vendor).
+  { x: GATE_GUARD_NPC.x, z: GATE_GUARD_NPC.z, color: '#5a8a8e', r: 2.2 },
   // Market square also marks the central plaza fountain.
   { x: NortheastMarketDistrict.x, z: NortheastMarketDistrict.z, color: '#e07a3a', r: 4.6 },
   { x: MARKET_BLACKSMITH_SPOT.x, z: MARKET_BLACKSMITH_SPOT.z, color: '#c45a2e', r: 2.8 },
@@ -208,12 +211,12 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / chests / spring / market / vendor / inn / alley / home door / chapel / cottage merchant<br/>
+        <kbd>E</kbd> — shrine / chests / spring / gate guard / market / vendor / inn / alley / home door / chapel / cottage merchant<br/>
         Follow the dirt path west to the misty grove<br/>
         Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>
         Follow the stone road northeast to the city gate, market &amp; homes<br/>
-        Market stall — street vendor snacks · NW cottage — merchant<br/>
+        City gate — talk to the guard · Market stall — street vendor snacks · NW cottage — merchant<br/>
         RMB drag — rotate camera<br/>
         Scroll / pinch — zoom · <kbd>-</kbd><kbd>=</kbd> or <kbd>[</kbd><kbd>]</kbd>
       </div>

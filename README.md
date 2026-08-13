@@ -37,7 +37,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **W A S D** / arrows | Move relative to camera |
 | **Shift** | Dodge roll — short burst + brief i-frames (~1.55s cooldown) |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
-| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / read market sign / talk to blacksmith / trade with market street vendor / rest at market inn / peek the market alley / try a residential door / bless at the town chapel / talk to cottage merchant (when near) |
+| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / talk to the city gate guard / read market sign / talk to blacksmith / trade with market street vendor / rest at market inn / peek the market alley / try a residential door / bless at the town chapel / talk to cottage merchant (when near) |
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt / Stab) |
 | **2** | Skill 2 (Quake / Frost Nova / Fan of Knives) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
@@ -46,7 +46,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **Mouse wheel** / trackpad pinch | Zoom camera in / out (clamped) |
 | **-** / **=** or **[** / **]** | Zoom out / in (alternate) |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / market / street vendor / inn / alley / home door / chapel / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market & homes** road, the **market street vendor**, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, **Market** (fountain), street vendor stall, **Homes**, chapel, blacksmith, inn, chests, the healing spring, the cottage shop, and nearby enemies.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / gate guard / market / street vendor / inn / alley / home door / chapel / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market & homes** road, the **city gate guard**, the **market street vendor**, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, gate guard accent, **Market** (fountain), street vendor stall, **Homes**, chapel, blacksmith, inn, chests, the healing spring, the cottage shop, and nearby enemies.
 
 ## Treasure chests
 
@@ -66,7 +66,7 @@ A simple spend-gold shop at the **NW cottage** (rim landmark near the well). Wal
 - **Damage Charm** — **11 gold**, **+35% damage** for **45s** (HUD buff chip)
 - **Feedback** — can’t-afford toast, purchase toast, top-right **Gold** counter updates
 - **Close** — **E**, **Esc**, or the panel ✕; shop also closes if you walk away
-- **E-priority** — chest → spring → shrine → market sign → blacksmith → street vendor → inn → alley → residential door → town chapel → merchant (merchant never blocks closer interactables)
+- **E-priority** — chest → spring → shrine → gate guard → market sign → blacksmith → street vendor → inn → alley → residential door → town chapel → merchant (merchant never blocks closer interactables)
 
 Works for Warrior, Mage, and Rogue. Prices are reachable after opening a couple of chests. Distinct from the **market street vendor** (cheaper snack stall in the plaza).
 
@@ -85,7 +85,7 @@ Works for Warrior, Mage, and Rogue. Prices are reachable after one chest.
 
 ## Northeast city gate
 
-Follow the **dirt/stone road northeast** from the main meadow to a readable **city gate** archway into the first town slice. Landmark: an intact **stone gate** with banners and low flanking walls, plus a small stone plaza that continues into the market street. Light roadside posts on the approach. Play-area clamp includes the NE corridor + gate plaza — walk the full road and stand under the gate. Minimap marks **Gate**; a signpost and discovery toast cue the Market District beyond the arch.
+Follow the **dirt/stone road northeast** from the main meadow to a readable **city gate** archway into the first town slice. Landmark: an intact **stone gate** with banners and low flanking walls, plus a small stone plaza that continues into the market street. Light roadside posts on the approach. A **gate guard** NPC (toon townsfolk sentry with spear & shield — steel/teal kit, distinct from the plaza street vendor) stands beside the arch; soft collision keeps the walk-through open into market. Press **E** for a welcome / keep-the-peace toast (optional tiny “clear meadow blobs” progress if you’ve been fighting). Idle stance with a slight head-track when you’re close. Play-area clamp includes the NE corridor + gate plaza — walk the full road and stand under the gate. Minimap marks **Gate** plus a small teal guard accent; a signpost and discovery toast cue the Market District beyond the arch.
 
 ## City market district
 
@@ -250,6 +250,8 @@ src/
   world/WorldPropLibrary.ts  KayKit prop GLTF loader + toon remap
   world/CottageMerchant.ts   NW cottage spend-gold shop (E interact)
   world/MarketDistrict.ts    NE market sign + blacksmith + inn + alley interacts (E)
+  world/MarketStreetVendor.ts Market plaza street-vendor snack shop (E)
+  world/GateGuard.ts         NE city gate sentry flavor dialogue (E)
   world/ResidentialStreet.ts Homes door + town chapel interacts (E)
   world/TreasureChests.ts Treasure chest interact + rewards
   world/HealingSprings.ts Healing spring interact

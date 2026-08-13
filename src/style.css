@@ -163,6 +163,10 @@ body,
   background: #e85858;
 }
 
+.hud-minimap .minimap-legend i.guard {
+  background: #5a8a8e;
+}
+
 @media (max-width: 720px) {
   .hud-minimap {
     top: auto;
