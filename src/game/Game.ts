@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GameLoop } from './loop';
 import { InputManager } from '../input/InputManager';
 import { FollowCamera } from '../camera/FollowCamera';
+import { FoliageOcclusion } from '../camera/FoliageOcclusion';
 import { MeadowBiome } from '../world/MeadowBiome';
 import { WorldPropLibrary } from '../world/WorldPropLibrary';
 import { ShrineObjective } from '../world/ShrineObjective';
@@ -40,6 +41,8 @@ export class Game {
   private readonly scene = new THREE.Scene();
   private readonly renderer: THREE.WebGLRenderer;
   private readonly cameraRig: FollowCamera;
+  private readonly foliageOcclusion = new FoliageOcclusion();
+  private readonly foliageLookAt = new THREE.Vector3();
   private readonly input: InputManager;
   private readonly loop: GameLoop;
   private readonly meadow: MeadowBiome;
@@ -514,6 +517,13 @@ export class Game {
     this.player.update(dt);
     this.combat.update(dt, this.player, this.mobs);
     this.cameraRig.update(this.player.position, dt);
+    // Soft-fade KayKit crowns that sit between the iso camera and the knight.
+    this.cameraRig.getLookAt(this.foliageLookAt);
+    this.foliageOcclusion.update(
+      this.cameraRig.camera,
+      this.foliageLookAt,
+      this.meadow.getFoliageOccluders(),
+    );
     // Keep the sun shadow frustum centered on the player (cheap soft shadows).
     this.sun.target.position.copy(this.player.position);
     this.sun.position.set(

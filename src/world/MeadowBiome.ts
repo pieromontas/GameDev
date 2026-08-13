@@ -120,6 +120,11 @@ export class MeadowBiome {
   );
   /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
+  /**
+   * Tree / bush roots tagged for camera→hero foliage fade (not buildings / ground).
+   * Populated by procedural trees, then rebuilt when the KayKit pack swaps in.
+   */
+  private readonly foliageOccluders: THREE.Object3D[] = [];
 
   /** Interact radius for the east shrine crystal (player proximity). */
   readonly shrineInteractRadius = 5.8;
@@ -4706,6 +4711,8 @@ export class MeadowBiome {
     group.scale.setScalar(scale);
     group.rotation.y = hash2(x, z) * Math.PI * 2;
     group.userData.proceduralProp = true;
+    // Camera occlusion fade (pack swap rebuilds this list with KayKit crowns).
+    group.userData.foliageOccluder = true;
 
     const fat = hash2(z, x) > 0.55;
     const trunk = new THREE.Mesh(fat ? this.trunkFatGeo : this.trunkGeo, this.trunkMat);
@@ -4725,19 +4732,23 @@ export class MeadowBiome {
     const low = new THREE.Mesh(this.canopyLowGeo, leafMat);
     low.position.y = 1.55;
     low.castShadow = true;
+    low.userData.foliageOccluder = true;
     group.add(low);
 
     const mid = new THREE.Mesh(this.canopyMidGeo, hash2(x + 1, z) > 0.5 ? leafMat : this.leafDark);
     mid.position.y = 2.45;
     mid.castShadow = true;
+    mid.userData.foliageOccluder = true;
     group.add(mid);
 
     const top = new THREE.Mesh(this.canopyTopGeo, leafMat);
     top.position.y = 3.25;
     top.castShadow = true;
+    top.userData.foliageOccluder = true;
     group.add(top);
 
     this.root.add(group);
+    this.foliageOccluders.push(group);
     // Trunk-only from birth — procedural leftovers must not keep a crown cylinder
     // when pack swap is skipped / partial. Crowns stay walk-under dressing.
     this.obstacles.push({ x, z, radius: TREE_TRUNK_RADIUS * scale });
@@ -4995,6 +5006,8 @@ export class MeadowBiome {
       if (child.userData.proceduralProp) remove.push(child);
     }
     for (const obj of remove) this.root.remove(obj);
+    // Procedural tree groups are gone — rebuild the occlusion list with pack crowns.
+    this.foliageOccluders.length = 0;
 
     let placed = 0;
     for (let i = 0; i < this.treePlacements.length; i++) {
@@ -5002,6 +5015,7 @@ export class MeadowBiome {
       const mesh = library.createTree(p.x, p.z, p.scale, hash2(p.x, p.z) * 1000 + i);
       if (mesh) {
         this.root.add(mesh);
+        this.foliageOccluders.push(mesh);
         placed += 1;
       }
     }
@@ -5277,8 +5291,16 @@ export class MeadowBiome {
         continue;
       }
       const bush = library.createBush(x, z, s, hash2(x, z) * 500 + i);
-      if (bush) this.root.add(bush);
+      if (bush) {
+        this.root.add(bush);
+        this.foliageOccluders.push(bush);
+      }
     }
+  }
+
+  /** KayKit / procedural tree & bush roots for camera foliage occlusion. */
+  getFoliageOccluders(): readonly THREE.Object3D[] {
+    return this.foliageOccluders;
   }
 
   /** True if inside main meadow, any corridor, clearing, NE gate, market, homes, or docks. */

@@ -111,4 +111,9 @@ export class FollowCamera {
     this.lookAt.set(target.x, target.y + this.lookHeight, target.z);
     this.camera.lookAt(this.lookAt);
   }
+
+  /** Current look target (hero chest/helmet height) — used by foliage occlusion. */
+  getLookAt(out: THREE.Vector3): THREE.Vector3 {
+    return out.copy(this.lookAt);
+  }
 }
