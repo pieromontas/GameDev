@@ -11,6 +11,7 @@ import {
   nextClassInCycle,
 } from '../combat/Skills';
 import { createToonMaterial } from '../render/stylized';
+import { PLAYER_SPAWN } from '../world/spawnSafe';
 import { MAGE_VISUAL, PlayerVisual, ROGUE_VISUAL, WARRIOR_VISUAL } from './PlayerVisual';
 
 export type PlayerAnim = 'idle' | 'move' | 'slash' | 'quake' | 'bash' | 'burst' | 'dodge';
@@ -120,7 +121,7 @@ export class Player extends Entity {
     this.mageVisual.setActive(false);
     this.rogueVisual.setActive(false);
     this.skills = createSkillsForClass('warrior');
-    this.position.set(0, 0, 6);
+    this.position.copy(PLAYER_SPAWN);
     this.mesh.rotation.y = this.yaw;
     this.syncMesh();
   }
@@ -599,7 +600,7 @@ export class Player extends Entity {
   respawn(): void {
     this.alive = true;
     this.hp = this.maxHp;
-    this.position.set(0, 0, 6);
+    this.position.copy(PLAYER_SPAWN);
     this.velocity.set(0, 0, 0);
     this.mesh.visible = true;
     this.invuln = 1.6;
