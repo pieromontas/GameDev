@@ -1,11 +1,15 @@
 import * as THREE from 'three';
 
 /** Soft see-through when a crown sits between the camera and the knight. */
-const FADE_OPACITY = 0.22;
+const FADE_OPACITY = 0.16;
+/** Even softer when the camera is inside a crown volume. */
+const FADE_OPACITY_INSIDE = 0.12;
 /** Only test foliage near the hero — meadow-wide casts are unnecessary. */
 const NEAR_XZ = 18;
 /** Expand bounds a little so sphere crowns still register when the cam clips them. */
-const BOUNDS_PAD = 1.15;
+const BOUNDS_PAD = 1.2;
+/** Fade neighboring crowns so overlapping KayKit spheres don't stay solid. */
+const NEIGHBOR_XZ = 5.5;
 
 type FoliageBase = {
   transparent: boolean;
@@ -35,8 +39,8 @@ export class FoliageOcclusion {
   private readonly closest = new THREE.Vector3();
   private readonly nearList: THREE.Object3D[] = [];
   /** Groups currently faded this frame (restored when the ray is clear). */
-  private readonly faded = new Set<THREE.Object3D>();
-  private readonly nextFaded = new Set<THREE.Object3D>();
+  private readonly faded = new Map<THREE.Object3D, number>();
+  private readonly nextFaded = new Map<THREE.Object3D, number>();
 
   /**
    * @param lookAt World point near the hero helmet (FollowCamera look target).
@@ -65,8 +69,9 @@ export class FoliageOcclusion {
       const dx = root.position.x - lookAt.x;
       const dz = root.position.z - lookAt.z;
       if (dx * dx + dz * dz > NEAR_XZ * NEAR_XZ) continue;
-      if (this.occluderBlocks(root, camera.position, lookAt)) {
-        this.nextFaded.add(root);
+      const inside = this.occluderContains(root, camera.position, lookAt);
+      if (inside || this.occluderBlocks(root, camera.position, lookAt)) {
+        this.markFade(root, inside ? FADE_OPACITY_INSIDE : FADE_OPACITY);
       }
     }
 
@@ -86,14 +91,35 @@ export class FoliageOcclusion {
     this.sampleOrigin.copy(this.origin).addScaledVector(this.camUp, lateral * 0.7);
     this.castSample(this.sampleOrigin, this.direction, span, nearList);
 
-    for (const group of this.nextFaded) {
-      if (!this.faded.has(group)) this.fadeGroup(group, true);
+    // 3) Soft-fade neighbors of any blocked crown (overlapping KayKit spheres).
+    if (this.nextFaded.size > 0) {
+      for (const root of nearList) {
+        if (this.nextFaded.has(root)) continue;
+        for (const blocked of this.nextFaded.keys()) {
+          const dx = root.position.x - blocked.position.x;
+          const dz = root.position.z - blocked.position.z;
+          if (dx * dx + dz * dz <= NEIGHBOR_XZ * NEIGHBOR_XZ) {
+            this.markFade(root, FADE_OPACITY);
+            break;
+          }
+        }
+      }
     }
-    for (const group of this.faded) {
-      if (!this.nextFaded.has(group)) this.fadeGroup(group, false);
+
+    for (const [group, opacity] of this.nextFaded) {
+      const prev = this.faded.get(group);
+      if (prev === undefined || prev !== opacity) this.fadeGroup(group, opacity);
+    }
+    for (const group of this.faded.keys()) {
+      if (!this.nextFaded.has(group)) this.fadeGroup(group, null);
     }
     this.faded.clear();
-    for (const group of this.nextFaded) this.faded.add(group);
+    for (const [group, opacity] of this.nextFaded) this.faded.set(group, opacity);
+  }
+
+  private markFade(root: THREE.Object3D, opacity: number): void {
+    const prev = this.nextFaded.get(root);
+    if (prev === undefined || opacity < prev) this.nextFaded.set(root, opacity);
   }
 
   private collectNear(
@@ -109,23 +135,32 @@ export class FoliageOcclusion {
     return this.nearList;
   }
 
-  /** True if this crown contains the camera / look point or the segment clips its bounds. */
-  private occluderBlocks(
-    root: THREE.Object3D,
-    cameraPos: THREE.Vector3,
-    lookAt: THREE.Vector3,
-  ): boolean {
+  private refreshBounds(root: THREE.Object3D): boolean {
     root.updateWorldMatrix(true, false);
     this.bounds.setFromObject(root);
     if (this.bounds.isEmpty()) return false;
     this.bounds.expandByScalar(0.35);
     this.bounds.getBoundingSphere(this.sphere);
     this.sphere.radius *= BOUNDS_PAD;
+    return true;
+  }
 
-    if (this.sphere.containsPoint(cameraPos) || this.sphere.containsPoint(lookAt)) {
-      return true;
-    }
-    // Segment camera → lookAt vs sphere (cheap; avoids missing thick crowns).
+  private occluderContains(
+    root: THREE.Object3D,
+    cameraPos: THREE.Vector3,
+    lookAt: THREE.Vector3,
+  ): boolean {
+    if (!this.refreshBounds(root)) return false;
+    return this.sphere.containsPoint(cameraPos) || this.sphere.containsPoint(lookAt);
+  }
+
+  /** True if the camera→hero segment clips this crown's bounds. */
+  private occluderBlocks(
+    root: THREE.Object3D,
+    cameraPos: THREE.Vector3,
+    lookAt: THREE.Vector3,
+  ): boolean {
+    if (!this.refreshBounds(root)) return false;
     return this.segmentHitsSphere(cameraPos, lookAt, this.sphere);
   }
 
@@ -158,16 +193,17 @@ export class FoliageOcclusion {
     for (const hit of hits) {
       if (hit.distance > maxDist) continue;
       const root = findFoliageRoot(hit.object);
-      if (root) this.nextFaded.add(root);
+      if (root) this.markFade(root, FADE_OPACITY);
     }
   }
 
   private restoreCleared(): void {
-    for (const group of this.faded) this.fadeGroup(group, false);
+    for (const group of this.faded.keys()) this.fadeGroup(group, null);
     this.faded.clear();
   }
 
-  private fadeGroup(root: THREE.Object3D, fade: boolean): void {
+  /** `opacity` null restores the mesh to its original solid look. */
+  private fadeGroup(root: THREE.Object3D, opacity: number | null): void {
     root.traverse((obj) => {
       if (!(obj instanceof THREE.Mesh)) return;
       if (!obj.userData.foliageOccluder && !root.userData.foliageOccluder) return;
@@ -181,9 +217,9 @@ export class FoliageOcclusion {
           side: mat.side,
         };
         if (!mat.userData.foliageBase) mat.userData.foliageBase = base;
-        if (fade) {
+        if (opacity != null) {
           mat.transparent = true;
-          mat.opacity = FADE_OPACITY;
+          mat.opacity = opacity;
           mat.depthWrite = false;
           // DoubleSide keeps the soft crown readable when the camera is inside.
           mat.side = THREE.DoubleSide;
