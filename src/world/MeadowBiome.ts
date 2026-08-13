@@ -25,6 +25,8 @@ import {
   MARKET_SIGN_SPOT,
 } from './MarketDistrict';
 import {
+  RESIDENTIAL_CHAPEL_DOOR,
+  RESIDENTIAL_CHAPEL_SPOT,
   RESIDENTIAL_DOOR_SPOT,
   RESIDENTIAL_GARDEN_SPOT,
   RESIDENTIAL_HOME_SPOTS,
@@ -116,6 +118,8 @@ export class MeadowBiome {
   private marketWellPlacement: { x: number; z: number } | null = null;
   /** Residential street KayKit cottage homes (pack-swapped). */
   private readonly homePlacements: ShopPlacement[] = [];
+  /** Residential town chapel / KayKit church (pack-swapped; porch props stay procedural). */
+  private chapelPlacement: ShopPlacement | null = null;
   private residentialWellPlacement: { x: number; z: number } | null = null;
   private packApplied = false;
 
@@ -1363,7 +1367,8 @@ export class MeadowBiome {
 
   /**
    * Compact residential street stub past the market’s open far-NE exit.
-   * 3 KayKit cottage homes + fences / lanterns / garden / well; clear street lane.
+   * 3 KayKit cottage homes + town chapel landmark + fences / lanterns / garden / well;
+   * clear street lane market → homes.
    */
   private buildNortheastResidentialStreet(): void {
     const { x: cx, z: cz, radius } = this.northeastHomes;
@@ -1377,10 +1382,24 @@ export class MeadowBiome {
     // Soft door marker — E flavor via ResidentialDoor (no collision on the pad).
     this.addResidentialDoorMarker(RESIDENTIAL_DOOR_SPOT.x, RESIDENTIAL_DOOR_SPOT.z);
 
+    // Town chapel landmark on the east rim — KayKit church + soft porch (E bless).
+    this.addResidentialChapel(
+      RESIDENTIAL_CHAPEL_SPOT.x,
+      RESIDENTIAL_CHAPEL_SPOT.z,
+      RESIDENTIAL_CHAPEL_SPOT.scale,
+      RESIDENTIAL_CHAPEL_SPOT.yaw,
+    );
+    this.addResidentialChapelYard(
+      RESIDENTIAL_CHAPEL_SPOT.x,
+      RESIDENTIAL_CHAPEL_SPOT.z,
+    );
+    this.addResidentialDoorMarker(RESIDENTIAL_CHAPEL_DOOR.x, RESIDENTIAL_CHAPEL_DOOR.z);
+
     this.addResidentialFence(63.5, 70.2, -Math.PI * 0.25, 2.4);
     this.addResidentialFence(70.2, 63.5, Math.PI * 0.75, 2.3);
     this.addResidentialLantern(63.0, 66.5);
     this.addResidentialLantern(70.5, 66.0);
+    this.addResidentialLantern(74.8, 67.2);
     this.addResidentialGarden(RESIDENTIAL_GARDEN_SPOT.x, RESIDENTIAL_GARDEN_SPOT.z);
 
     this.residentialWellPlacement = {
@@ -1410,6 +1429,11 @@ export class MeadowBiome {
       }
       if (nearHome) continue;
       if (Math.hypot(tx - RESIDENTIAL_WELL_SPOT.x, tz - RESIDENTIAL_WELL_SPOT.z) < 3.5) {
+        continue;
+      }
+      if (
+        Math.hypot(tx - RESIDENTIAL_CHAPEL_SPOT.x, tz - RESIDENTIAL_CHAPEL_SPOT.z) < 5.5
+      ) {
         continue;
       }
       this.addTree(tx, tz, 0.84 + (i % 3) * 0.05);
@@ -1523,6 +1547,142 @@ export class MeadowBiome {
     const mat = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.04, 0.35), this.woodMat);
     mat.position.y = 0.12;
     group.add(mat);
+
+    this.root.add(group);
+  }
+
+  /**
+   * Procedural town-chapel stand-in (nave + steeple) — pack-swapped for KayKit church.
+   * Distinct silhouette from cottages and from the east meadow ruin shrine.
+   */
+  private addResidentialChapel(x: number, z: number, scale: number, yaw: number): void {
+    this.chapelPlacement = { x, z, scale, yaw };
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.scale.setScalar(scale);
+    group.userData.proceduralProp = true;
+    group.name = 'ResidentialChapelStandIn';
+
+    const nave = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.9, 3.1), this.rockLightMat);
+    nave.position.y = 0.95;
+    nave.castShadow = true;
+    nave.receiveShadow = true;
+    group.add(nave);
+
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(2.15, 1.15, 4), this.roofMat);
+    roof.position.set(0, 2.35, -0.15);
+    roof.rotation.y = Math.PI / 4;
+    roof.scale.set(1, 1, 1.15);
+    roof.castShadow = true;
+    group.add(roof);
+
+    // Steeple / tower — readable landmark vs cottage peaks and market fountain.
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(1.05, 2.4, 1.05), this.rockMat);
+    tower.position.set(0, 2.0, -1.15);
+    tower.castShadow = true;
+    group.add(tower);
+
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(0.85, 1.55, 4), this.roofMat);
+    spire.position.set(0, 3.9, -1.15);
+    spire.rotation.y = Math.PI / 4;
+    spire.castShadow = true;
+    group.add(spire);
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.05, 0.12), this.woodDarkMat);
+    door.position.set(0, 0.55, 1.58);
+    group.add(door);
+
+    const rose = new THREE.Mesh(
+      new THREE.CircleGeometry(0.28, 8),
+      createToonMaterial(Palette.flowerCyan, {
+        emissive: Palette.flowerCyan,
+        emissiveIntensity: 0.35,
+      }),
+    );
+    rose.position.set(0, 1.55, 1.56);
+    group.add(rose);
+
+    // Soft gold trim band — chapel accent (not fountain gold spout / cyan crystal).
+    const trim = new THREE.Mesh(
+      new THREE.BoxGeometry(2.65, 0.12, 3.15),
+      createToonMaterial(0xc9a24a, {
+        emissive: 0xc9a24a,
+        emissiveIntensity: 0.12,
+      }),
+    );
+    trim.position.y = 1.7;
+    group.add(trim);
+
+    this.root.add(group);
+    // Slightly tighter than cottage so the east-rim pack radius clears the lane.
+    this.obstacles.push({ x, z, radius: 1.55 });
+  }
+
+  /**
+   * Small chapel apron — cobble pad, benches, lantern toward the street.
+   * Soft collisions leave the door lane open; E interact uses RESIDENTIAL_CHAPEL_DOOR.
+   */
+  private addResidentialChapelYard(chapelX: number, chapelZ: number): void {
+    // Apron sits toward the homes plaza / door pad (west-southwest of the church).
+    const x = chapelX - 2.6;
+    const z = chapelZ - 0.6;
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'ResidentialChapelYard';
+
+    const apron = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.85, 1.95, 0.08, 12),
+      createToonMaterial(Palette.rock),
+    );
+    apron.position.y = 0.04;
+    apron.receiveShadow = true;
+    group.add(apron);
+
+    // Two simple benches flanking the approach
+    for (const [bx, bz] of [
+      [-0.95, 0.55],
+      [0.85, -0.35],
+    ] as const) {
+      const bench = new THREE.Group();
+      bench.position.set(bx, 0, bz);
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.1, 0.32), this.woodMat);
+      seat.position.y = 0.38;
+      seat.castShadow = true;
+      bench.add(seat);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.35, 0.08), this.woodDarkMat);
+      back.position.set(0, 0.58, -0.14);
+      bench.add(back);
+      for (const lx of [-0.38, 0.38]) {
+        const leg = new THREE.Mesh(
+          new THREE.BoxGeometry(0.08, 0.36, 0.08),
+          this.woodDarkMat,
+        );
+        leg.position.set(lx, 0.18, 0.08);
+        bench.add(leg);
+      }
+      group.add(bench);
+      this.obstacles.push({ x: x + bx, z: z + bz, radius: 0.42 });
+    }
+
+    // Soft candle glow on a low plinth (not the meadow shrine crystal)
+    const plinth = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.22, 0.28, 0.35, 6),
+      this.rockLightMat,
+    );
+    plinth.position.set(0.15, 0.18, -0.85);
+    plinth.castShadow = true;
+    group.add(plinth);
+    const candleMat = createToonMaterial(Palette.flowerYellow, {
+      emissive: 0xffcc66,
+      emissiveIntensity: 0.85,
+    });
+    const flame = new THREE.Mesh(new THREE.SphereGeometry(0.1, 5, 4), candleMat);
+    flame.position.set(0.15, 0.48, -0.85);
+    group.add(flame);
+    const light = new THREE.PointLight(0xffc070, 0.35, 4.2, 2);
+    light.position.set(0.15, 0.55, -0.85);
+    group.add(light);
 
     this.root.add(group);
   }
@@ -4088,6 +4248,23 @@ export class MeadowBiome {
       }
     }
 
+    // Residential town chapel — KayKit church (porch / benches stay procedural).
+    if (this.chapelPlacement) {
+      const chapel = library.createChurch(
+        this.chapelPlacement.x,
+        this.chapelPlacement.z,
+        {
+          scale: this.chapelPlacement.scale,
+          yaw: this.chapelPlacement.yaw,
+        },
+      );
+      if (chapel) {
+        chapel.name = 'ResidentialChapel';
+        this.root.add(chapel);
+        placed += 1;
+      }
+    }
+
     if (this.residentialWellPlacement) {
       const well = library.createWell(
         this.residentialWellPlacement.x,
@@ -4153,6 +4330,13 @@ export class MeadowBiome {
     }
     for (const home of this.homePlacements) {
       bump(home.x, home.z, PROP_COLLISION_SCALE.cottage);
+    }
+    if (this.chapelPlacement) {
+      bump(
+        this.chapelPlacement.x,
+        this.chapelPlacement.z,
+        PROP_COLLISION_SCALE.church,
+      );
     }
     if (this.residentialWellPlacement) {
       bump(

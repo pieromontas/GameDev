@@ -8,6 +8,7 @@
 - `building_home_A_green.gltf` — rim cottage
 - `building_windmill_green.gltf` — rim windmill
 - `building_well_green.gltf` — cottage-side well accent
+- `building_church_green.gltf` — residential town chapel
 - Shared `hexagons_medieval.png` atlas
 
 See `LICENSE.txt` in this folder for the pack’s included license text.

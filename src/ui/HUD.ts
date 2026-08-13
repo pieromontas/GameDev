@@ -17,6 +17,7 @@ import {
   HEALTH_POTION_COST,
 } from '../world/CottageMerchant';
 import { MARKET_BLACKSMITH_SPOT, MARKET_INN_SPOT } from '../world/MarketDistrict';
+import { RESIDENTIAL_CHAPEL_SPOT } from '../world/ResidentialStreet';
 
 /** World half-extent projected onto the radar (covers clearings + town stubs). */
 const MINIMAP_EXTENT = 78;
@@ -41,6 +42,7 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
   { x: MARKET_BLACKSMITH_SPOT.x, z: MARKET_BLACKSMITH_SPOT.z, color: '#c45a2e', r: 2.8 },
   { x: MARKET_INN_SPOT.x, z: MARKET_INN_SPOT.z, color: '#e8a04a', r: 2.8 },
   { x: NortheastResidentialStreet.x, z: NortheastResidentialStreet.z, color: '#b86b4a', r: 4.2 },
+  { x: RESIDENTIAL_CHAPEL_SPOT.x, z: RESIDENTIAL_CHAPEL_SPOT.z, color: '#d4c078', r: 2.8 },
   ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3 })),
   { x: SPRING_SPOT.x, z: SPRING_SPOT.z, color: '#5ed4ef', r: 3.2 },
   { x: COTTAGE_SPOT.x, z: COTTAGE_SPOT.z, color: '#c4784a', r: 3.2 },
@@ -159,6 +161,7 @@ export class HUD {
           <span><i class="lg gate"></i>Gate</span>
           <span><i class="lg market"></i>Market</span>
           <span><i class="lg homes"></i>Homes</span>
+          <span><i class="lg chapel"></i>Chapel</span>
           <span><i class="lg cottage"></i>Shop</span>
         </div>
       </div>
@@ -171,7 +174,7 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / chests / spring / market / inn / alley / home door / cottage merchant<br/>
+        <kbd>E</kbd> — shrine / chests / spring / market / inn / alley / home door / chapel / cottage merchant<br/>
         Follow the dirt path west to the misty grove<br/>
         Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>

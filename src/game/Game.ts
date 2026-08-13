@@ -14,7 +14,7 @@ import {
   MarketDistrictSign,
   MarketInn,
 } from '../world/MarketDistrict';
-import { ResidentialDoor } from '../world/ResidentialStreet';
+import { ResidentialChapel, ResidentialDoor } from '../world/ResidentialStreet';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
@@ -42,6 +42,7 @@ export class Game {
   private readonly marketInn: MarketInn;
   private readonly marketAlley: MarketAlley;
   private readonly residentialDoor: ResidentialDoor;
+  private readonly residentialChapel: ResidentialChapel;
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
   private readonly mobs: Enemy[];
@@ -206,6 +207,9 @@ export class Game {
       onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.residentialDoor = new ResidentialDoor({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+    });
+    this.residentialChapel = new ResidentialChapel({
       onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.hud.bindShopHandlers({
@@ -390,6 +394,7 @@ export class Game {
     this.springs.update(dt);
     this.meadow.updateMarketAmbience(dt);
     this.marketInn.update(dt);
+    this.residentialChapel.update(dt);
     this.merchant.update(this.player);
     if (this.input.wasPressed('Escape') && this.merchant.isOpen) {
       this.merchant.close();
@@ -548,7 +553,7 @@ export class Game {
 
   /**
    * E key: closed chests → healing spring → east shrine → market sign → blacksmith →
-   * inn → alley → residential door → cottage merchant.
+   * inn → alley → residential door → town chapel → cottage merchant.
    * Open shop always closes on E first so it never blocks other interactables.
    */
   private handleInteract(): void {
@@ -565,6 +570,7 @@ export class Game {
     if (this.marketInn.tryInteract(this.player)) return;
     if (this.marketAlley.tryInteract(this.player)) return;
     if (this.residentialDoor.tryInteract(this.player)) return;
+    if (this.residentialChapel.tryInteract(this.player)) return;
     this.merchant.tryInteract(this.player);
   }
 
@@ -578,6 +584,7 @@ export class Game {
     const innPrompt = this.marketInn.getInteractPrompt(this.player);
     const alleyPrompt = this.marketAlley.getInteractPrompt(this.player);
     const homeDoorPrompt = this.residentialDoor.getInteractPrompt(this.player);
+    const chapelPrompt = this.residentialChapel.getInteractPrompt(this.player);
     const merchantPrompt = this.merchant.getInteractPrompt(this.player);
     if (chestPrompt.visible) {
       this.hud.setShrineHud({
@@ -622,6 +629,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: homeDoorPrompt.text,
+      });
+    } else if (chapelPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: chapelPrompt.text,
       });
     } else if (merchantPrompt.visible) {
       this.hud.setShrineHud({

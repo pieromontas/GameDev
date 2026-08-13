@@ -154,6 +154,11 @@ body,
   border-radius: 2px;
 }
 
+.hud-minimap .minimap-legend i.chapel {
+  background: #d4c078;
+  border-radius: 2px;
+}
+
 @media (max-width: 720px) {
   .hud-minimap {
     top: auto;

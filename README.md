@@ -37,7 +37,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **W A S D** / arrows | Move relative to camera |
 | **Shift** | Dodge roll — short burst + brief i-frames (~1.55s cooldown) |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
-| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / read market sign / talk to blacksmith / rest at market inn / peek the market alley / try a residential door / talk to cottage merchant (when near) |
+| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / read market sign / talk to blacksmith / rest at market inn / peek the market alley / try a residential door / bless at the town chapel / talk to cottage merchant (when near) |
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt / Stab) |
 | **2** | Skill 2 (Quake / Frost Nova / Fan of Knives) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
@@ -46,7 +46,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **Mouse wheel** / trackpad pinch | Zoom camera in / out (clamped) |
 | **-** / **=** or **[** / **]** | Zoom out / in (alternate) |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / market / inn / alley / home door / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market & homes** road, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, **Market** (fountain), **Homes**, blacksmith, inn, chests, the healing spring, the cottage shop, and nearby enemies.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / market / inn / alley / home door / chapel / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market & homes** road, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, **Market** (fountain), **Homes**, chapel, blacksmith, inn, chests, the healing spring, the cottage shop, and nearby enemies.
 
 ## Treasure chests
 
@@ -66,7 +66,7 @@ A simple spend-gold shop at the **NW cottage** (rim landmark near the well). Wal
 - **Damage Charm** — **11 gold**, **+35% damage** for **45s** (HUD buff chip)
 - **Feedback** — can’t-afford toast, purchase toast, top-right **Gold** counter updates
 - **Close** — **E**, **Esc**, or the panel ✕; shop also closes if you walk away
-- **E-priority** — chest → spring → shrine → market sign → blacksmith → inn → alley → residential door → merchant (merchant never blocks closer interactables)
+- **E-priority** — chest → spring → shrine → market sign → blacksmith → inn → alley → residential door → town chapel → merchant (merchant never blocks closer interactables)
 
 Works for Warrior, Mage, and Rogue. Prices are reachable after opening a couple of chests.
 
@@ -80,7 +80,7 @@ Through the gate, a compact **market district** stub fills the first town pocket
 
 ## Residential street
 
-Past the market’s open **far-NE exit**, a short **residential street** stub continues the town diagonal: a cobble lane, **3 KayKit cottage homes** (street-facing, soft house footprints), a couple **fences** and **lanterns**, a small **garden patch**, and a **well** accent. The street lane stays clear for walking market → homes. Press **E** at one cottage door for a flavor toast (`Locked — townsfolk later`) — no NPC system. No new enemies. Play clamp includes the market→homes corridor + residential pocket. Minimap marks **Homes**.
+Past the market’s open **far-NE exit**, a short **residential street** stub continues the town diagonal: a cobble lane, **3 KayKit cottage homes** (street-facing, soft house footprints), a **town chapel** landmark on the east rim (**KayKit church** with steeple — distinct from the east meadow shrine and market fountain), a couple **fences** and **lanterns**, a small **garden patch**, and a **well** accent. Soft collisions on house / chapel / fence footprints keep the street walkable — market → homes path stays clear. Press **E** at one cottage door for a flavor toast (`Locked — townsfolk later`). At the chapel door, press **E** for a free **town blessing** (**+22 HP**, brief mild damage favor, **40s** cooldown) — not the meadow shrine wave defend. Optional benches / lantern on the chapel apron. No new enemies. Play clamp includes the market→homes corridor + residential pocket. Minimap marks **Homes** plus a small chapel accent.
 
 ## South river ford
 
@@ -153,7 +153,7 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 
 ## What’s in the slice
 
-- Living meadow: expanded play ring (~30% more reach), vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, **KayKit Forest** trees / rocks / bushes + **KayKit Medieval** cottage / windmill / well (toon-remapped GLTF; procedural fallback), pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** + **north ruins** + **south river ford** clearings, **NE city gate + market district** (plaza fountain, blacksmith forge, market inn, curtain walls, side alley), plus small outer-ring standing stones / wayside cairn
+- Living meadow: expanded play ring (~30% more reach), vertex-colored / lightly displaced ground, winding dirt path, instanced grass tufts, flower clusters, **KayKit Forest** trees / rocks / bushes + **KayKit Medieval** cottage / windmill / well / church (toon-remapped GLTF; procedural fallback), pond / sign / ruin / rim landmarks, **east shrine** + **west misty grove** + **north ruins** + **south river ford** clearings, **NE city gate + market district** (plaza fountain, blacksmith forge, market inn, curtain walls, side alley) + **residential street** (homes + town chapel), plus small outer-ring standing stones / wayside cairn
 - **North ruins**: dirt path north → crumbled gate + broken columns + rubble courtyard; blobs/spitters/**Armored Brute**; play clamp extended
 - **West misty grove**: dirt path west → fallen giant tree + fairy ring + mist; blobs/spitters/**Armored Brute**; play clamp extended
 - **East shrine mini-objective**: interact (E) → defend 3 waves → temporary damage/speed blessing + loot; crystal activates with cooldown; static **Armored Brute** also patrols the clearing
@@ -175,8 +175,8 @@ On **level-up**: a clear toast + brief gold/green FX, permanent **+12 max HP** a
 | **Pack** | [KayKit – Forest Nature Pack](https://kaylousberg.itch.io/kaykit-forest) | [KayKit – Medieval Hexagon Pack](https://kaylousberg.itch.io/kaykit-medieval-hexagon) |
 | **Author** | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)) | same |
 | **License** | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | same |
-| **Files** | `public/models/kaykit-forest/` — curated `Tree_*` / `Rock_*` / `Bush_*` GLTF + `forest_texture.png` (+ `LICENSE.txt`, `ATTRIBUTION.md`) | `public/models/kaykit-medieval/` — `building_home_A_green`, `building_windmill_green`, `building_well_green` + `hexagons_medieval.png` (+ license/attribution) |
-| **Integration** | `WorldPropLibrary.ts` → `MeadowBiome.applyPropPack()` (trees / rocks / bushes) | same (`createCottage` / `createWindmill` / `createWell`); market shops + blacksmith + inn reuse cottage + well |
+| **Files** | `public/models/kaykit-forest/` — curated `Tree_*` / `Rock_*` / `Bush_*` GLTF + `forest_texture.png` (+ `LICENSE.txt`, `ATTRIBUTION.md`) | `public/models/kaykit-medieval/` — `building_home_A_green`, `building_windmill_green`, `building_well_green`, `building_church_green` + `hexagons_medieval.png` (+ license/attribution) |
+| **Integration** | `WorldPropLibrary.ts` → `MeadowBiome.applyPropPack()` (trees / rocks / bushes) | same (`createCottage` / `createWindmill` / `createWell` / `createChurch`); market shops + blacksmith + inn reuse cottage + well; residential chapel uses church |
 
 Only the assets actually placed in the meadow are vendored (not the full packs). Materials are remapped to `MeshToonMaterial` (shared KayKit atlas + cel `gradientMap`) so they stay readable under the slice’s stylized lighting. Soft XZ obstacle radii are unchanged — shrine / chest interacts, paths, and play clamp are preserved. If prop GLTFs fail to load, procedural trees / rocks / cottage / windmill remain.
 
@@ -223,7 +223,7 @@ public/models/kaykit-knight/   KayKit Knight.glb + license/attribution
 public/models/kaykit-mage/     KayKit Mage.glb + license/attribution
 public/models/kaykit-rogue/    KayKit Rogue.glb + license/attribution
 public/models/kaykit-forest/   KayKit Forest Nature trees/rocks/bushes (curated) + license
-public/models/kaykit-medieval/ KayKit Medieval cottage/windmill/well (curated) + license
+public/models/kaykit-medieval/ KayKit Medieval cottage/windmill/well/church (curated) + license
 src/
   main.ts                 Entry — boots Game (awaits prop + hero loads)
   style.css               HUD + loading overlay styles
@@ -233,10 +233,11 @@ src/
     loop.ts               rAF loop with fixed 60 Hz update
   input/InputManager.ts   Keyboard + pointer
   camera/FollowCamera.ts  Angled follow cam + yaw + smooth zoom
-  world/MeadowBiome.ts    Ground + props, play-area clamp, gate + market stub
+  world/MeadowBiome.ts    Ground + props, play-area clamp, gate + market + homes
   world/WorldPropLibrary.ts  KayKit prop GLTF loader + toon remap
   world/CottageMerchant.ts   NW cottage spend-gold shop (E interact)
   world/MarketDistrict.ts    NE market sign + blacksmith + inn + alley interacts (E)
+  world/ResidentialStreet.ts Homes door + town chapel interacts (E)
   world/TreasureChests.ts Treasure chest interact + rewards
   world/HealingSprings.ts Healing spring interact
   world/ShrineObjective.ts East shrine defend objective
