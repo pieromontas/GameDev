@@ -8,6 +8,7 @@ import { WorldPropLibrary } from '../world/WorldPropLibrary';
 import { ShrineObjective } from '../world/ShrineObjective';
 import { TreasureChests } from '../world/TreasureChests';
 import { HealingSprings } from '../world/HealingSprings';
+import { GroveHerbs } from '../world/GroveHerbs';
 import { CottageMerchant } from '../world/CottageMerchant';
 import {
   MarketAlley,
@@ -49,6 +50,7 @@ export class Game {
   private readonly shrine: ShrineObjective;
   private readonly chests: TreasureChests;
   private readonly springs: HealingSprings;
+  private readonly groveHerbs: GroveHerbs;
   private readonly merchant: CottageMerchant;
   private readonly marketSign: MarketDistrictSign;
   private readonly marketBlacksmith: MarketBlacksmith;
@@ -203,6 +205,10 @@ export class Game {
     });
 
     this.springs = new HealingSprings(this.meadow, {
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+    });
+
+    this.groveHerbs = new GroveHerbs(this.meadow, {
       onToast: (message, duration) => this.hud.showToast(message, duration),
     });
 
@@ -481,6 +487,7 @@ export class Game {
     this.shrine.update(dt, this.player);
     this.chests.update(dt);
     this.springs.update(dt);
+    this.groveHerbs.update(dt);
     this.meadow.updateMarketAmbience(dt);
     this.meadow.updateGateBanners(dt);
     this.meadow.updateGateGuard(dt, this.player.position);
@@ -704,10 +711,10 @@ export class Game {
   }
 
   /**
-   * E key: closed chests → healing spring → east shrine → gate guard →
-   * blacksmith → street vendor → produce stall → market sign → notice board →
-   * inn → alley → harbor catch crate → residential door → town chapel →
-   * cottage merchant.
+   * E key: closed chests → healing spring → west grove herb → east shrine →
+   * gate guard → blacksmith → street vendor → produce stall → market sign →
+   * notice board → inn → alley → harbor catch crate → residential door →
+   * town chapel → cottage merchant.
    * Produce stall is before the market sign so the west-rim pad wins on overlap;
    * street vendor stays ahead so the snack shop still wins if those pads overlap.
    * Open shop / stall / notice panel always closes on E first so it never blocks
@@ -730,6 +737,7 @@ export class Game {
     }
     if (this.chests.tryInteract(this.player)) return;
     if (this.springs.tryInteract(this.player)) return;
+    if (this.groveHerbs.tryInteract(this.player)) return;
     if (this.shrine.tryInteract(this.player)) return;
     if (this.gateGuard.tryInteract(this.player)) return;
     if (this.marketBlacksmith.tryInteract(this.player)) return;
@@ -745,7 +753,7 @@ export class Game {
     this.merchant.tryInteract(this.player);
   }
 
-  /** Merge shrine objective HUD with chest / spring / shrine / market / homes / merchant prompts. */
+  /** Merge shrine objective HUD with chest / spring / herb / shrine / market / homes / merchant prompts. */
   private syncInteractHud(): void {
     const shrineHud = this.shrine.getHudState(this.player);
     // Bounty progress banner when shrine defense isn't already using the slot.
@@ -756,6 +764,7 @@ export class Game {
     }
     const chestPrompt = this.chests.getInteractPrompt(this.player);
     const springPrompt = this.springs.getInteractPrompt(this.player);
+    const herbPrompt = this.groveHerbs.getInteractPrompt(this.player);
     const gateGuardPrompt = this.gateGuard.getInteractPrompt(this.player);
     const marketPrompt = this.marketSign.getInteractPrompt(this.player);
     const smithPrompt = this.marketBlacksmith.getInteractPrompt(this.player);
@@ -779,6 +788,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: springPrompt.text,
+      });
+    } else if (herbPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: herbPrompt.text,
       });
     } else if (shrineHud.promptVisible) {
       this.hud.setShrineHud(shrineHud);

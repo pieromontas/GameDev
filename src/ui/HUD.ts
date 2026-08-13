@@ -12,6 +12,7 @@ import {
 } from '../render/stylized';
 import { CHEST_SPOTS } from '../world/TreasureChests';
 import { SPRING_SPOT } from '../world/HealingSprings';
+import { GROVE_HERB_SPOT } from '../world/GroveHerbs';
 import {
   COTTAGE_SPOT,
   DAMAGE_CHARM_COST,
@@ -111,6 +112,8 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
   { x: HARBOR_CATCH_SIGN.x, z: HARBOR_CATCH_SIGN.z, color: '#6ab0a8', r: 2.2, name: 'Catch' },
   ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3, name: 'Chest' })),
   { x: SPRING_SPOT.x, z: SPRING_SPOT.z, color: '#5ed4ef', r: 3.2, name: 'Spring' },
+  // Tiny misty-grove herb accent — distinct soft green from the Grove pocket pin.
+  { x: GROVE_HERB_SPOT.x, z: GROVE_HERB_SPOT.z, color: '#7dff9a', r: 2.4, name: 'Herb' },
   { x: COTTAGE_SPOT.x, z: COTTAGE_SPOT.z, color: '#c4784a', r: 3.2, name: 'Shop' },
 ];
 
@@ -288,8 +291,8 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / chests / spring / gate guard / market / vendor / produce stall / notice board / inn / alley / docks crate / home door / chapel / cottage merchant<br/>
-        Follow the dirt path west to the misty grove<br/>
+        <kbd>E</kbd> — shrine / chests / spring / grove herb / gate guard / market / vendor / produce stall / notice board / inn / alley / docks crate / home door / chapel / cottage merchant<br/>
+        Follow the dirt path west to the misty grove (glowing herb)<br/>
         Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>
         Follow the stone road northeast to the city gate, market, homes &amp; docks<br/>
