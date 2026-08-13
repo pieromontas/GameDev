@@ -1,16 +1,23 @@
 import * as THREE from 'three';
 import { clamp } from '../utils/math';
 
-/** Default orbit distance — pulled back so spawn meadow hill doesn’t swallow the hero. */
-const DEFAULT_DISTANCE = 21;
+/**
+ * Default orbit distance — near max so the SE KayKit canopy on the old π/4 ray
+ * cannot fill the boot frame. Zoom still clamps to [MIN, MAX].
+ */
+const DEFAULT_DISTANCE = 24;
 const MIN_DISTANCE = 7.5;
 const MAX_DISTANCE = 26;
 
 export class FollowCamera {
   readonly camera: THREE.PerspectiveCamera;
-  private yaw = Math.PI * 0.25;
-  /** Slightly steeper + higher than street-combat framing so boot spawn stays readable. */
-  private readonly pitch = 0.92;
+  /**
+   * South-of-camp (yaw 0). Old NE π/4 looked through the KayKit canopy at (6, 12),
+   * which read as a green hill dome swallowing the knight at boot.
+   */
+  private yaw = 0;
+  /** Steeper iso pitch — clears nearby canopy crests without going top-down/FPS. */
+  private readonly pitch = 1.12;
   /** Smoothed orbit radius (lerps toward `distanceTarget`). */
   private distance = DEFAULT_DISTANCE;
   private distanceTarget = DEFAULT_DISTANCE;
@@ -24,8 +31,8 @@ export class FollowCamera {
   constructor(aspect: number) {
     // Slightly wider FOV keeps the iso-ish frame without going FPS.
     this.camera = new THREE.PerspectiveCamera(48, aspect, 0.1, 280);
-    // Initial pose matches snap defaults (distance 21 / pitch 0.92 / yaw π/4).
-    this.camera.position.set(9, 17, 9);
+    // Initial pose matches snap defaults (distance 24 / pitch 1.12 / yaw 0 @ spawn z=6).
+    this.camera.position.set(0, 21.6, 16.5);
   }
 
   /** Subtle forward nudge on heavy impacts (Quake). Keep tiny. */

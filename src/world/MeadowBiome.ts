@@ -783,9 +783,11 @@ export class MeadowBiome {
       [-8, -6, 1.05],
       [10, -4, 1.15],
       [-12, 8, 0.95],
-      [6, 12, 1.1],
-      // Was (−3, 16) — nudged west so the north path branch stays open
-      [-8, 18, 1],
+      // Was (6, 12) — sat on the old NE spawn-camera ray (read as a green hill dome).
+      // Parked farther NE so boot framing clears the canopy from south/SW/SE.
+      [12, 20, 1.1],
+      // Was (−8, 18) / (−3, 16) — kept west of the north path, off the south spawn cam.
+      [-14, 22, 1],
       // Was (14, 6) — moved north so the east path branch stays open
       [14, 12, 1.05],
       // Was (−16, −2) — nudged south so the west path branch stays open
