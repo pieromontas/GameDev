@@ -16,7 +16,12 @@ import {
   DAMAGE_CHARM_COST,
   HEALTH_POTION_COST,
 } from '../world/CottageMerchant';
-import { MARKET_BLACKSMITH_SPOT, MARKET_INN_SPOT } from '../world/MarketDistrict';
+import {
+  MARKET_BLACKSMITH_SPOT,
+  MARKET_INN_SPOT,
+  MARKET_NOTICE_BOARD_SPOT,
+  type NoticeBoardLine,
+} from '../world/MarketDistrict';
 import {
   MARKET_VENDOR_STALL,
   STREET_BREAD_COST,
@@ -51,6 +56,8 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
   { x: MARKET_INN_SPOT.x, z: MARKET_INN_SPOT.z, color: '#e8a04a', r: 2.8 },
   // Tiny plaza stall mark — distinct from NW cottage shop color.
   { x: MARKET_VENDOR_STALL.x, z: MARKET_VENDOR_STALL.z, color: '#e85858', r: 2.4 },
+  // East-rim notice / bounty board accent.
+  { x: MARKET_NOTICE_BOARD_SPOT.x, z: MARKET_NOTICE_BOARD_SPOT.z, color: '#c4a06a', r: 2.3 },
   { x: NortheastResidentialStreet.x, z: NortheastResidentialStreet.z, color: '#b86b4a', r: 4.2 },
   { x: RESIDENTIAL_CHAPEL_SPOT.x, z: RESIDENTIAL_CHAPEL_SPOT.z, color: '#d4c078', r: 2.8 },
   ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3 })),
@@ -113,6 +120,9 @@ export class HUD {
     onBuyNibble: () => void;
     onClose: () => void;
   } | null = null;
+  private readonly noticePanel: HTMLElement;
+  private readonly noticeList: HTMLElement;
+  private noticeCloseHandler: (() => void) | null = null;
   private prevDodgeReady = true;
   private shownClass: PlayerClass | null = null;
   /** North-up radar canvas (world +Z = up). */
@@ -184,6 +194,15 @@ export class HUD {
         </button>
         <p class="shop-hint"><kbd>E</kbd> / <kbd>Esc</kbd> close</p>
       </div>
+      <div class="hud-panel shop-panel notice-panel" id="notice-panel" hidden>
+        <div class="shop-head">
+          <p class="shop-title">Town Notice Board</p>
+          <button type="button" class="shop-close" id="notice-close" aria-label="Close notices">✕</button>
+        </div>
+        <p class="shop-blurb">Pinned bounties &amp; town chatter.</p>
+        <div class="notice-list" id="notice-list"></div>
+        <p class="shop-hint"><kbd>E</kbd> / <kbd>Esc</kbd> close</p>
+      </div>
       <div class="hud-panel hud-minimap" id="minimap-panel" title="Minimap · north up">
         <div class="minimap-head">
           <span class="minimap-title">Map</span>
@@ -211,12 +230,12 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / chests / spring / gate guard / market / vendor / inn / alley / home door / chapel / cottage merchant<br/>
+        <kbd>E</kbd> — shrine / chests / spring / gate guard / market / vendor / notice board / inn / alley / home door / chapel / cottage merchant<br/>
         Follow the dirt path west to the misty grove<br/>
         Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>
         Follow the stone road northeast to the city gate, market &amp; homes<br/>
-        City gate — talk to the guard · Market stall — street vendor snacks · NW cottage — merchant<br/>
+        City gate — talk to the guard · Market stall — street vendor · Plaza board — notices · NW cottage — merchant<br/>
         RMB drag — rotate camera<br/>
         Scroll / pinch — zoom · <kbd>-</kbd><kbd>=</kbd> or <kbd>[</kbd><kbd>]</kbd>
       </div>
@@ -244,6 +263,8 @@ export class HUD {
     this.shopGold = this.root.querySelector('#shop-gold')!;
     this.vendorPanel = this.root.querySelector('#vendor-panel')!;
     this.vendorGold = this.root.querySelector('#vendor-gold')!;
+    this.noticePanel = this.root.querySelector('#notice-panel')!;
+    this.noticeList = this.root.querySelector('#notice-list')!;
 
     this.root.querySelector('#shop-close')!.addEventListener('click', () => {
       this.shopHandlers?.onClose();
@@ -262,6 +283,9 @@ export class HUD {
     });
     this.root.querySelector('#vendor-buy-nibble')!.addEventListener('click', () => {
       this.vendorHandlers?.onBuyNibble();
+    });
+    this.root.querySelector('#notice-close')!.addEventListener('click', () => {
+      this.noticeCloseHandler?.();
     });
 
     const skillsHost = this.root.querySelector('#skills')!;
@@ -443,6 +467,30 @@ export class HUD {
     this.vendorGold.textContent = `Gold: ${gold}`;
     if (open) this.vendorPanel.removeAttribute('hidden');
     else this.vendorPanel.setAttribute('hidden', '');
+  }
+
+  /** Wire notice-board close callback (market plaza bounty board). */
+  bindNoticeHandlers(handlers: { onClose: () => void }): void {
+    this.noticeCloseHandler = handlers.onClose;
+  }
+
+  /** Open / refresh the read-only town notice panel (live bounty lines). */
+  setNoticeOpen(open: boolean, lines: NoticeBoardLine[] = []): void {
+    if (!open) {
+      this.noticePanel.setAttribute('hidden', '');
+      this.noticeList.innerHTML = '';
+      return;
+    }
+    this.noticeList.innerHTML = lines
+      .map(
+        (line) => `
+      <div class="notice-item">
+        <p class="notice-item-title">${line.title}</p>
+        <p class="notice-item-body">${line.body}</p>
+      </div>`,
+      )
+      .join('');
+    this.noticePanel.removeAttribute('hidden');
   }
 
   /**
