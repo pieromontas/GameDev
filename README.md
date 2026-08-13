@@ -2,7 +2,7 @@
 
 A local single-player browser vertical slice inspired by [SpiritVale](https://store.steampowered.com/app/2683580/SpiritVale/) — class-based action RPG vibes, colorful low-poly meadows, angled follow camera, and readable real-time combat.
 
-**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine**, **west misty grove**, **north ruins**, **south river ford** clearings, a **northeast city-gate** road spur, and a compact **market district** town stub behind the gate, blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
+**Scope:** Warrior + Mage + **Rogue** starter classes (C/Tab cycle), one meadow biome with **east shrine**, **west misty grove**, **north ruins**, **south river ford** clearings, a **northeast city-gate** road spur, a compact **market district** town stub behind the gate, and a short **residential street** beyond the market, blob + **Spitter** + **Armored Brute** mobs, loot pickups, **XP / leveling**, and a minimal HUD. No networking / MMO backend.
 
 ## Quick start
 
@@ -37,7 +37,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **W A S D** / arrows | Move relative to camera |
 | **Shift** | Dodge roll — short burst + brief i-frames (~1.55s cooldown) |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
-| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / read market sign / talk to blacksmith / rest at market inn / peek the market alley / talk to cottage merchant (when near) |
+| **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / read market sign / talk to blacksmith / rest at market inn / peek the market alley / try a residential door / talk to cottage merchant (when near) |
 | **LMB** or **1** | Skill 1 (Slash / Arcane Bolt / Stab) |
 | **2** | Skill 2 (Quake / Frost Nova / Fan of Knives) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
@@ -46,7 +46,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **Mouse wheel** / trackpad pinch | Zoom camera in / out (clamped) |
 | **-** / **=** or **[** / **]** | Zoom out / in (alternate) |
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / market sign / blacksmith / inn / alley / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate & market** road, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, **Market** (fountain), blacksmith, inn, chests, the healing spring, the cottage shop, and nearby enemies.
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / market / inn / alley / home door / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path, the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market & homes** road, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, **Market** (fountain), **Homes**, blacksmith, inn, chests, the healing spring, the cottage shop, and nearby enemies.
 
 ## Treasure chests
 
@@ -66,7 +66,7 @@ A simple spend-gold shop at the **NW cottage** (rim landmark near the well). Wal
 - **Damage Charm** — **11 gold**, **+35% damage** for **45s** (HUD buff chip)
 - **Feedback** — can’t-afford toast, purchase toast, top-right **Gold** counter updates
 - **Close** — **E**, **Esc**, or the panel ✕; shop also closes if you walk away
-- **E-priority** — chest → spring → shrine → market sign → blacksmith → inn → alley → merchant (merchant never blocks closer interactables)
+- **E-priority** — chest → spring → shrine → market sign → blacksmith → inn → alley → residential door → merchant (merchant never blocks closer interactables)
 
 Works for Warrior, Mage, and Rogue. Prices are reachable after opening a couple of chests.
 
@@ -76,7 +76,11 @@ Follow the **dirt/stone road northeast** from the main meadow to a readable **ci
 
 ## City market district
 
-Through the gate, a compact **market district** stub fills the first town pocket: a short **cobble/stone street** and plaza, **3 KayKit cottage shops** (street-facing facades at knight-correct scale), a **central toon fountain**, a **blacksmith workshop** (KayKit cottage + forge/anvil yard with light smoke/ember VFX), a **market inn / tavern** on the south rim (KayKit cottage + warm windows, hanging sign, outdoor tables/barrels, evening lanterns), **stylized stall awnings**, crates, banners, and a well accent. **Low curtain walls + corner towers** (gate-matching stone, optional wall banners) wrap parts of the market rim so the district feels enclosed and tied to the city gate — the **SW gate approach** and **far NE street exits** stay open (not a full box). A short **west-rim side alley** (narrow cobble lane with crates/barrels) branches off the plaza; press **E** at the alley board for a flavor toast (`Back alley`). Soft collisions on building / stall / fountain / forge / inn / wall / alley footprints keep the street walkable — gate→market path and fountain lanes stay clear. Press **E** at the market sign or forge for flavor toasts (`Market District` / `Blacksmith`). At the inn door, press **E** for a **paid short rest** (**3 gold**, **+40 HP**, **45s** cooldown). No new combat or full smith shop UI here — ambient town densification only; later districts (residential / harbor) can extend further NE. Play clamp includes the gate→market corridor + market plaza. Minimap marks **Market** (plaza fountain) plus small blacksmith and inn accents (in addition to Gate).
+Through the gate, a compact **market district** stub fills the first town pocket: a short **cobble/stone street** and plaza, **3 KayKit cottage shops** (street-facing facades at knight-correct scale), a **central toon fountain**, a **blacksmith workshop** (KayKit cottage + forge/anvil yard with light smoke/ember VFX), a **market inn / tavern** on the south rim (KayKit cottage + warm windows, hanging sign, outdoor tables/barrels, evening lanterns), **stylized stall awnings**, crates, banners, and a well accent. **Low curtain walls + corner towers** (gate-matching stone, optional wall banners) wrap parts of the market rim so the district feels enclosed and tied to the city gate — the **SW gate approach** and **far NE street exits** stay open (not a full box). A short **west-rim side alley** (narrow cobble lane with crates/barrels) branches off the plaza; press **E** at the alley board for a flavor toast (`Back alley`). Soft collisions on building / stall / fountain / forge / inn / wall / alley footprints keep the street walkable — gate→market path and fountain lanes stay clear. Press **E** at the market sign or forge for flavor toasts (`Market District` / `Blacksmith`). At the inn door, press **E** for a **paid short rest** (**3 gold**, **+40 HP**, **45s** cooldown). No new combat or full smith shop UI here — ambient town densification only. Play clamp includes the gate→market corridor + market plaza. Minimap marks **Market** (plaza fountain) plus small blacksmith and inn accents (in addition to Gate).
+
+## Residential street
+
+Past the market’s open **far-NE exit**, a short **residential street** stub continues the town diagonal: a cobble lane, **3 KayKit cottage homes** (street-facing, soft house footprints), a couple **fences** and **lanterns**, a small **garden patch**, and a **well** accent. The street lane stays clear for walking market → homes. Press **E** at one cottage door for a flavor toast (`Locked — townsfolk later`) — no NPC system. No new enemies. Play clamp includes the market→homes corridor + residential pocket. Minimap marks **Homes**.
 
 ## South river ford
 

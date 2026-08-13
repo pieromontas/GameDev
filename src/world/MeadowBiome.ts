@@ -11,6 +11,7 @@ import {
   SouthRiverFordClearing,
   NortheastCityGate,
   NortheastMarketDistrict,
+  NortheastResidentialStreet,
   hash2,
 } from '../render/stylized';
 import type { WorldPropLibrary } from './WorldPropLibrary';
@@ -23,6 +24,12 @@ import {
   MARKET_INN_SPOT,
   MARKET_SIGN_SPOT,
 } from './MarketDistrict';
+import {
+  RESIDENTIAL_DOOR_SPOT,
+  RESIDENTIAL_GARDEN_SPOT,
+  RESIDENTIAL_HOME_SPOTS,
+  RESIDENTIAL_WELL_SPOT,
+} from './ResidentialStreet';
 
 export type Obstacle = { x: number; z: number; radius: number };
 
@@ -36,8 +43,8 @@ type SignFacing = 'east' | 'west' | 'north' | 'south' | 'northeast';
 /** Shared stylized meadow: living ground, tiered trees, rocks, landmarks. */
 export class MeadowBiome {
   readonly root = new THREE.Group();
-  /** Larger disk so east/west/north/south clearings + NE gate sit on painted ground. */
-  readonly groundSize = 145;
+  /** Larger disk so clearings + NE gate / market / homes sit on painted ground. */
+  readonly groundSize = 160;
   readonly playRadius = 44;
   /** Second playable pocket — ancient shrine clearing east of the main ring. */
   readonly eastClearing = EastShrineClearing;
@@ -63,6 +70,10 @@ export class MeadowBiome {
   readonly northeastMarket = NortheastMarketDistrict;
   /** Soft corridor half-width connecting gate plaza → market district. */
   readonly marketCorridorHalfWidth = 6.0;
+  /** Eighth playable stub — residential street past the market’s open NE exit. */
+  readonly northeastHomes = NortheastResidentialStreet;
+  /** Soft corridor half-width connecting market plaza → residential street. */
+  readonly residentialCorridorHalfWidth = 5.5;
   /** World XZ of the city gate arch (for minimap / discovery cues). */
   readonly cityGatePosition = new THREE.Vector3(NortheastCityGate.x, 0, NortheastCityGate.z);
   /** World XZ of the market plaza center (for minimap / discovery cues). */
@@ -70,6 +81,12 @@ export class MeadowBiome {
     NortheastMarketDistrict.x,
     0,
     NortheastMarketDistrict.z,
+  );
+  /** World XZ of the residential street pocket (for minimap / discovery cues). */
+  readonly residentialPosition = new THREE.Vector3(
+    NortheastResidentialStreet.x,
+    0,
+    NortheastResidentialStreet.z,
   );
   /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
@@ -97,6 +114,9 @@ export class MeadowBiome {
   /** Market inn / tavern KayKit cottage (pack-swapped; porch props stay procedural). */
   private innPlacement: ShopPlacement | null = null;
   private marketWellPlacement: { x: number; z: number } | null = null;
+  /** Residential street KayKit cottage homes (pack-swapped). */
+  private readonly homePlacements: ShopPlacement[] = [];
+  private residentialWellPlacement: { x: number; z: number } | null = null;
   private packApplied = false;
 
   /** Idle fountain / forge VFX driven by `updateMarketAmbience`. */
@@ -188,6 +208,7 @@ export class MeadowBiome {
     this.buildSouthRiverFordClearing();
     this.buildNortheastCityGate();
     this.buildNortheastMarketDistrict();
+    this.buildNortheastResidentialStreet();
     this.buildEdgeLedges();
   }
 
@@ -298,6 +319,16 @@ export class MeadowBiome {
     marketPad.position.set(this.northeastMarket.x, 0.025, this.northeastMarket.z);
     marketPad.receiveShadow = true;
     this.root.add(marketPad);
+
+    // Soft grass RING under the residential street — leave center open for cobble lane.
+    const homesPad = new THREE.Mesh(
+      new THREE.RingGeometry(3.4, this.northeastHomes.radius + 1.4, 32),
+      createToonMaterial(0x62965a),
+    );
+    homesPad.rotation.x = -Math.PI / 2;
+    homesPad.position.set(this.northeastHomes.x, 0.025, this.northeastHomes.z);
+    homesPad.receiveShadow = true;
+    this.root.add(homesPad);
 
     this.buildEastPathRibbon();
     this.buildWestPathRibbon();
@@ -1236,8 +1267,8 @@ export class MeadowBiome {
 
   /**
    * Compact market district stub behind the NE gate — first town slice.
-   * KayKit cottage shops + stylized stalls/awning props; leave hooks for later
-   * residential / harbor districts further out.
+   * KayKit cottage shops + stylized stalls/awning props; residential street
+   * continues through the open far-NE exit (see `buildNortheastResidentialStreet`).
    */
   private buildNortheastMarketDistrict(): void {
     const { x: cx, z: cz, radius } = this.northeastMarket;
@@ -1298,12 +1329,12 @@ export class MeadowBiome {
     this.addMarketWellStandIn(this.marketWellPlacement.x, this.marketWellPlacement.z);
 
     // Low curtain walls + corner posts — enclose parts of the rim, link to the gate.
-    // Leave SW (gate approach) and far NE (future districts / street exits) open.
+    // Leave SW (gate approach) and far NE (residential street exit) open.
     this.buildMarketPerimeterWalls();
     // Short west-rim alley off the plaza (walkable crate lane + E flavor).
     this.buildMarketSideAlley();
 
-    // Sparse rim trees — leave SW open toward the gate, far NE for future districts.
+    // Sparse rim trees — leave SW open toward the gate, far NE for the homes street.
     // Skip blacksmith + inn pads so foliage doesn't swallow the landmark silhouettes.
     const rimTrees = 6;
     for (let i = 0; i < rimTrees; i++) {
@@ -1328,6 +1359,321 @@ export class MeadowBiome {
       }
       this.addTree(tx, tz, 0.86 + (i % 3) * 0.06);
     }
+  }
+
+  /**
+   * Compact residential street stub past the market’s open far-NE exit.
+   * 3 KayKit cottage homes + fences / lanterns / garden / well; clear street lane.
+   */
+  private buildNortheastResidentialStreet(): void {
+    const { x: cx, z: cz, radius } = this.northeastHomes;
+
+    this.buildResidentialStreetRibbon();
+
+    for (const home of RESIDENTIAL_HOME_SPOTS) {
+      this.addResidentialHome(home.x, home.z, home.scale, home.yaw);
+    }
+
+    // Soft door marker — E flavor via ResidentialDoor (no collision on the pad).
+    this.addResidentialDoorMarker(RESIDENTIAL_DOOR_SPOT.x, RESIDENTIAL_DOOR_SPOT.z);
+
+    this.addResidentialFence(63.5, 70.2, -Math.PI * 0.25, 2.4);
+    this.addResidentialFence(70.2, 63.5, Math.PI * 0.75, 2.3);
+    this.addResidentialLantern(63.0, 66.5);
+    this.addResidentialLantern(70.5, 66.0);
+    this.addResidentialGarden(RESIDENTIAL_GARDEN_SPOT.x, RESIDENTIAL_GARDEN_SPOT.z);
+
+    this.residentialWellPlacement = {
+      x: RESIDENTIAL_WELL_SPOT.x,
+      z: RESIDENTIAL_WELL_SPOT.z,
+    };
+    this.addResidentialWellStandIn(
+      this.residentialWellPlacement.x,
+      this.residentialWellPlacement.z,
+    );
+
+    // Sparse rim trees — leave SW open toward the market street.
+    const rimTrees = 5;
+    for (let i = 0; i < rimTrees; i++) {
+      const a = (i / rimTrees) * Math.PI * 2 + 0.4;
+      if (Math.cos(a) + Math.sin(a) < -0.65) continue;
+      const r = radius + 0.25 + (i % 2) * 0.35;
+      const tx = cx + Math.cos(a) * r;
+      const tz = cz + Math.sin(a) * r;
+      if (meadowPathInfluence(tx, tz) > 0.45) continue;
+      let nearHome = false;
+      for (const home of RESIDENTIAL_HOME_SPOTS) {
+        if (Math.hypot(tx - home.x, tz - home.z) < 5.2) {
+          nearHome = true;
+          break;
+        }
+      }
+      if (nearHome) continue;
+      if (Math.hypot(tx - RESIDENTIAL_WELL_SPOT.x, tz - RESIDENTIAL_WELL_SPOT.z) < 3.5) {
+        continue;
+      }
+      this.addTree(tx, tz, 0.84 + (i % 3) * 0.05);
+    }
+  }
+
+  /** Cobble ribbon from the market’s far-NE exit into the residential pocket. */
+  private buildResidentialStreetRibbon(): void {
+    const pathMat = createToonMaterial(Palette.pathDark);
+    const edgeMat = createToonMaterial(Palette.rockLight);
+    const cobbleMat = createToonMaterial(Palette.rock);
+    const ax = this.northeastMarket.x + 5.0;
+    const az = this.northeastMarket.z + 5.0;
+    const bx = this.northeastHomes.x;
+    const bz = this.northeastHomes.z;
+    const segments = 7;
+    for (let i = 0; i < segments; i++) {
+      const t0 = i / segments;
+      const t1 = (i + 1) / segments;
+      const x0 = ax + (bx - ax) * t0;
+      const z0 = az + (bz - az) * t0;
+      const x1 = ax + (bx - ax) * t1;
+      const z1 = az + (bz - az) * t1;
+      const mx = (x0 + x1) * 0.5;
+      const mz = (z0 + z1) * 0.5;
+      const dx = x1 - x0;
+      const dz = z1 - z0;
+      const len = Math.hypot(dx, dz);
+      const ang = Math.atan2(dx, dz);
+      const width = 3.6 + Math.sin(t0 * Math.PI) * 0.35;
+
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(width, 0.05, len + 0.12), pathMat);
+      plank.position.set(mx, 0.048, mz);
+      plank.rotation.y = ang;
+      plank.receiveShadow = true;
+      this.root.add(plank);
+
+      const edge = new THREE.Mesh(
+        new THREE.BoxGeometry(width + 0.55, 0.028, len + 0.16),
+        edgeMat,
+      );
+      edge.position.set(mx, 0.032, mz);
+      edge.rotation.y = ang;
+      edge.receiveShadow = true;
+      this.root.add(edge);
+
+      if (i % 2 === 0) {
+        const cobble = new THREE.Mesh(
+          new THREE.BoxGeometry(width * 0.58, 0.03, Math.min(len * 0.7, 1.05)),
+          cobbleMat,
+        );
+        cobble.position.set(mx, 0.056, mz);
+        cobble.rotation.y = ang + 0.04;
+        cobble.receiveShadow = true;
+        this.root.add(cobble);
+      }
+    }
+
+    const plaza = new THREE.Mesh(new THREE.CircleGeometry(3.6, 22), cobbleMat);
+    plaza.rotation.x = -Math.PI / 2;
+    plaza.position.set(this.northeastHomes.x, 0.04, this.northeastHomes.z);
+    plaza.receiveShadow = true;
+    this.root.add(plaza);
+  }
+
+  /** Procedural KayKit-cottage stand-in for a residential home (pack-swapped later). */
+  private addResidentialHome(x: number, z: number, scale: number, yaw: number): void {
+    this.homePlacements.push({ x, z, scale, yaw });
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.scale.setScalar(scale);
+    group.userData.proceduralProp = true;
+    group.name = 'ResidentialHomeStandIn';
+
+    const walls = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 2.1), this.rockLightMat);
+    walls.position.y = 0.8;
+    walls.castShadow = true;
+    walls.receiveShadow = true;
+    group.add(walls);
+
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(1.95, 1.2, 4), this.roofMat);
+    roof.position.y = 2.15;
+    roof.rotation.y = Math.PI / 4;
+    roof.castShadow = true;
+    group.add(roof);
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.82, 0.1), this.woodDarkMat);
+    door.position.set(0, 0.42, 1.08);
+    group.add(door);
+
+    const window = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.36, 0.08), this.pondMat);
+    window.position.set(-0.65, 1.0, 1.06);
+    group.add(window);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.6 });
+  }
+
+  /** Tiny door stoop marker — no soft collision (walk-up E interact). */
+  private addResidentialDoorMarker(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'ResidentialDoorMarker';
+
+    const step = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.1, 0.55), this.rockLightMat);
+    step.position.y = 0.06;
+    step.receiveShadow = true;
+    group.add(step);
+
+    const mat = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.04, 0.35), this.woodMat);
+    mat.position.y = 0.12;
+    group.add(mat);
+
+    this.root.add(group);
+  }
+
+  /** Low wooden fence segment beside the street lane. */
+  private addResidentialFence(x: number, z: number, yaw: number, length: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'ResidentialFence';
+
+    const rail = new THREE.Mesh(
+      new THREE.BoxGeometry(length, 0.1, 0.1),
+      this.woodMat,
+    );
+    rail.position.y = 0.55;
+    rail.castShadow = true;
+    group.add(rail);
+
+    const railLow = new THREE.Mesh(
+      new THREE.BoxGeometry(length * 0.95, 0.08, 0.08),
+      this.woodDarkMat,
+    );
+    railLow.position.y = 0.28;
+    group.add(railLow);
+
+    for (const ox of [-length * 0.4, 0, length * 0.4]) {
+      const post = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.85, 0.12),
+        this.woodDarkMat,
+      );
+      post.position.set(ox, 0.42, 0);
+      post.castShadow = true;
+      group.add(post);
+    }
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: Math.min(0.85, 0.35 + length * 0.12) });
+  }
+
+  /** Warm street lantern post — light dressing along the homes lane. */
+  private addResidentialLantern(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'ResidentialLantern';
+
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.07, 0.09, 2.1, 5),
+      this.woodDarkMat,
+    );
+    post.position.y = 1.05;
+    post.castShadow = true;
+    group.add(post);
+
+    const lanternMat = createToonMaterial(Palette.flowerYellow, {
+      emissive: 0xffaa44,
+      emissiveIntensity: 0.9,
+    });
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), lanternMat);
+    lamp.position.y = 2.15;
+    group.add(lamp);
+
+    const light = new THREE.PointLight(0xffb060, 0.45, 5.0, 2);
+    light.position.y = 2.2;
+    group.add(light);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.32 });
+  }
+
+  /** Small garden / veggie patch between homes — soft blocker, reads from iso. */
+  private addResidentialGarden(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'ResidentialGarden';
+
+    const soil = new THREE.Mesh(
+      new THREE.BoxGeometry(1.8, 0.12, 1.35),
+      createToonMaterial(Palette.pathDark),
+    );
+    soil.position.y = 0.06;
+    soil.receiveShadow = true;
+    group.add(soil);
+
+    const bedMat = createToonMaterial(Palette.leafA, {
+      emissive: Palette.leafA,
+      emissiveIntensity: 0.08,
+    });
+    for (let i = 0; i < 5; i++) {
+      const row = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.14, 0.16), bedMat);
+      row.position.set(0, 0.16, -0.45 + i * 0.22);
+      group.add(row);
+    }
+
+    const flowerColors = [Palette.flowerPink, Palette.flowerYellow, Palette.flowerCyan];
+    for (let i = 0; i < 4; i++) {
+      const bloom = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 5, 5),
+        createToonMaterial(flowerColors[i % flowerColors.length]!, {
+          emissive: flowerColors[i % flowerColors.length]!,
+          emissiveIntensity: 0.15,
+        }),
+      );
+      bloom.position.set(-0.45 + i * 0.3, 0.32, (i % 2 === 0 ? -0.2 : 0.25));
+      group.add(bloom);
+    }
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.85 });
+  }
+
+  /** Procedural well stand-in for the residential accent (KayKit pack-swapped). */
+  private addResidentialWellStandIn(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.userData.proceduralProp = true;
+    group.name = 'ResidentialWellStandIn';
+
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55, 0.65, 0.55, 8),
+      this.rockMat,
+    );
+    base.position.y = 0.28;
+    base.castShadow = true;
+    base.receiveShadow = true;
+    group.add(base);
+
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.48, 0.08, 6, 12),
+      this.rockLightMat,
+    );
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.55;
+    group.add(rim);
+
+    const postL = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.06, 1.1, 5),
+      this.woodDarkMat,
+    );
+    postL.position.set(-0.4, 1.05, 0);
+    group.add(postL);
+    const postR = postL.clone();
+    postR.position.x = 0.4;
+    group.add(postR);
+
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.1, 0.1), this.woodMat);
+    beam.position.y = 1.55;
+    group.add(beam);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.55 });
   }
 
   /** Intact stylized city gate — knight-scale archway (taller/wider than the
@@ -1793,7 +2139,7 @@ export class MeadowBiome {
     this.addMarketWallSegment(60.2, 44.6, 2.05, 2.3);
     this.addMarketWallTower(61.6, 47.2, false);
 
-    // Light east accent only — leave the far NE approach open for later districts.
+    // Light east accent only — leave the far NE approach open for the homes street.
     this.addMarketWallSegment(62.4, 50.6, 2.35, 2.2);
   }
 
@@ -3729,6 +4075,31 @@ export class MeadowBiome {
       }
     }
 
+    // Residential street homes — KayKit cottages facing the lane.
+    for (const home of this.homePlacements) {
+      const mesh = library.createCottage(home.x, home.z, {
+        scale: home.scale,
+        yaw: home.yaw,
+      });
+      if (mesh) {
+        mesh.name = 'ResidentialHome';
+        this.root.add(mesh);
+        placed += 1;
+      }
+    }
+
+    if (this.residentialWellPlacement) {
+      const well = library.createWell(
+        this.residentialWellPlacement.x,
+        this.residentialWellPlacement.z,
+      );
+      if (well) {
+        well.name = 'ResidentialWell';
+        this.root.add(well);
+        placed += 1;
+      }
+    }
+
     this.retunePackObstacles();
     this.scatterPackBushes(library);
     return placed > 0;
@@ -3780,6 +4151,16 @@ export class MeadowBiome {
         PROP_COLLISION_SCALE.well,
       );
     }
+    for (const home of this.homePlacements) {
+      bump(home.x, home.z, PROP_COLLISION_SCALE.cottage);
+    }
+    if (this.residentialWellPlacement) {
+      bump(
+        this.residentialWellPlacement.x,
+        this.residentialWellPlacement.z,
+        PROP_COLLISION_SCALE.well,
+      );
+    }
   }
 
   /** Soft bush dressing near trees / meadow rim — no collision (walk-through foliage). */
@@ -3823,12 +4204,17 @@ export class MeadowBiome {
       ) {
         continue;
       }
+      if (
+        Math.hypot(x - NortheastResidentialStreet.x, z - NortheastResidentialStreet.z) < 8
+      ) {
+        continue;
+      }
       const bush = library.createBush(x, z, s, hash2(x, z) * 500 + i);
       if (bush) this.root.add(bush);
     }
   }
 
-  /** True if inside main meadow, any corridor, clearing, NE gate, or market district. */
+  /** True if inside main meadow, any corridor, clearing, NE gate, market, or homes. */
   isInPlayArea(x: number, z: number): boolean {
     if (x * x + z * z <= this.playRadius * this.playRadius) return true;
     const cdx = x - this.eastClearing.x;
@@ -3863,15 +4249,23 @@ export class MeadowBiome {
     ) {
       return true;
     }
+    const hdx = x - this.northeastHomes.x;
+    const hdz = z - this.northeastHomes.z;
+    if (
+      hdx * hdx + hdz * hdz <= this.northeastHomes.radius * this.northeastHomes.radius
+    ) {
+      return true;
+    }
     if (this.distToEastCorridor(x, z) <= this.eastCorridorHalfWidth) return true;
     if (this.distToWestCorridor(x, z) <= this.westCorridorHalfWidth) return true;
     if (this.distToNorthCorridor(x, z) <= this.northCorridorHalfWidth) return true;
     if (this.distToSouthCorridor(x, z) <= this.southCorridorHalfWidth) return true;
     if (this.distToNortheastCorridor(x, z) <= this.northeastCorridorHalfWidth) return true;
-    return this.distToMarketCorridor(x, z) <= this.marketCorridorHalfWidth;
+    if (this.distToMarketCorridor(x, z) <= this.marketCorridorHalfWidth) return true;
+    return this.distToResidentialCorridor(x, z) <= this.residentialCorridorHalfWidth;
   }
 
-  /** Keep entities inside meadow ∪ corridors ∪ clearings ∪ NE gate ∪ market. */
+  /** Keep entities inside meadow ∪ corridors ∪ clearings ∪ NE gate ∪ market ∪ homes. */
   clampToPlayArea(position: THREE.Vector3): void {
     if (this.isInPlayArea(position.x, position.z)) return;
     const nearest = this.nearestPlayPoint(position.x, position.z);
@@ -3894,6 +4288,14 @@ export class MeadowBiome {
     const dz = position.z - this.northeastMarket.z;
     if (dx * dx + dz * dz <= 9 * 9) return true;
     return this.distToMarketCorridor(position.x, position.z) <= 4.2;
+  }
+
+  /** True when the player is on the residential street stub (discovery toast). */
+  isNearResidentialStreet(position: THREE.Vector3): boolean {
+    const dx = position.x - this.northeastHomes.x;
+    const dz = position.z - this.northeastHomes.z;
+    if (dx * dx + dz * dz <= 7.5 * 7.5) return true;
+    return this.distToResidentialCorridor(position.x, position.z) <= 3.8;
   }
 
   /** Corridor + path samples used to keep props from blocking the branch. */
@@ -3932,7 +4334,7 @@ export class MeadowBiome {
     return meadowPathInfluence(x, z) > 0.35 && z < -15;
   }
 
-  /** Keep props off the northeast dirt/stone road into the city gate + market. */
+  /** Keep props off the northeast dirt/stone road into the city gate + market + homes. */
   private isOnNortheastBranchApproach(x: number, z: number): boolean {
     if (x < 10 || z < 10) return false;
     // Wide cone along +X/+Z so the tree ring does not choke the NE exit / market street.
@@ -3941,6 +4343,11 @@ export class MeadowBiome {
       return true;
     }
     if (this.distToMarketCorridor(x, z) < this.marketCorridorHalfWidth + 1.4) {
+      return true;
+    }
+    if (
+      this.distToResidentialCorridor(x, z) < this.residentialCorridorHalfWidth + 1.3
+    ) {
       return true;
     }
     return meadowPathInfluence(x, z) > 0.35 && x > 14 && z > 14;
@@ -3999,6 +4406,15 @@ export class MeadowBiome {
     const az = this.northeastGate.z + 2.0;
     const bx = this.northeastMarket.x - 1.5;
     const bz = this.northeastMarket.z - 1.5;
+    return this.distToSegment(x, z, ax, az, bx, bz);
+  }
+
+  /** Distance from point to the residential corridor segment (market → homes). */
+  private distToResidentialCorridor(x: number, z: number): number {
+    const ax = this.northeastMarket.x + 4.0;
+    const az = this.northeastMarket.z + 4.0;
+    const bx = this.northeastHomes.x - 1.5;
+    const bz = this.northeastHomes.z - 1.5;
     return this.distToSegment(x, z, ax, az, bx, bz);
   }
 
@@ -4108,6 +4524,17 @@ export class MeadowBiome {
       );
     }
 
+    // Residential street rim
+    {
+      const dx = x - this.northeastHomes.x;
+      const dz = z - this.northeastHomes.z;
+      const d = Math.hypot(dx, dz) || 1;
+      consider(
+        this.northeastHomes.x + (dx / d) * this.northeastHomes.radius,
+        this.northeastHomes.z + (dz / d) * this.northeastHomes.radius,
+      );
+    }
+
     // East corridor capsule surface
     this.considerCorridorSurface(
       x,
@@ -4177,6 +4604,18 @@ export class MeadowBiome {
       this.northeastMarket.x - 1.5,
       this.northeastMarket.z - 1.5,
       this.marketCorridorHalfWidth,
+      consider,
+    );
+
+    // Market → residential corridor capsule surface
+    this.considerCorridorSurface(
+      x,
+      z,
+      this.northeastMarket.x + 4.0,
+      this.northeastMarket.z + 4.0,
+      this.northeastHomes.x - 1.5,
+      this.northeastHomes.z - 1.5,
+      this.residentialCorridorHalfWidth,
       consider,
     );
 

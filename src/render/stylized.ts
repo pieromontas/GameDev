@@ -268,7 +268,7 @@ export const NortheastCityGate = {
 
 /**
  * First town slice behind the NE city gate — compact market district stub.
- * Further NE along the same diagonal; leave room for later residential / harbor districts.
+ * Further NE along the same diagonal; residential street continues past the open exit.
  */
 export const NortheastMarketDistrict = {
   x: 51,
@@ -276,7 +276,17 @@ export const NortheastMarketDistrict = {
   radius: 11,
 } as const;
 
-/** Smooth 0–1 influence of dirt paths (main S-curve + E/W/N/S + NE city-gate / market branches). */
+/**
+ * Compact residential street stub past the market’s open far-NE exit.
+ * Short pocket along the same diagonal — homes, not a full district.
+ */
+export const NortheastResidentialStreet = {
+  x: 67,
+  z: 67,
+  radius: 11,
+} as const;
+
+/** Smooth 0–1 influence of dirt paths (main S-curve + E/W/N/S + NE city-gate / market / homes branches). */
 export function meadowPathInfluence(x: number, z: number): number {
   return Math.max(
     mainMeadowPathInfluence(x, z),
@@ -444,7 +454,8 @@ function southBranchPathInfluence(x: number, z: number): number {
 
 /**
  * Dirt/stone road spur from the main meadow northeast through the city gate
- * into the market district stub. Soft arrival pads at the gate and market plaza.
+ * into the market district stub and a short residential street beyond.
+ * Soft arrival pads at the gate, market plaza, and homes pocket.
  */
 function northeastBranchPathInfluence(x: number, z: number): number {
   // Branch leaves the main path near (+12, +12) and runs to the gate plaza.
@@ -505,5 +516,35 @@ function northeastBranchPathInfluence(x: number, z: number): number {
     marketPad = mcr < 3.0 ? 0.95 : 0.95 * (1 - (mcr - 3.0) / 2.6);
   }
 
-  return Math.max(branch, pad, marketRoad, marketPad);
+  // Short residential street market → homes stub (same NE diagonal).
+  const rx0 = NortheastMarketDistrict.x + 4.5;
+  const rz0 = NortheastMarketDistrict.z + 4.5;
+  const rx1 = NortheastResidentialStreet.x;
+  const rz1 = NortheastResidentialStreet.z;
+  const rdx = rx1 - rx0;
+  const rdz = rz1 - rz0;
+  const rLen2 = rdx * rdx + rdz * rdz;
+  const rt =
+    rLen2 > 1e-8
+      ? THREE.MathUtils.clamp(((x - rx0) * rdx + (z - rz0) * rdz) / rLen2, 0, 1)
+      : 0;
+  const rpx = rx0 + rdx * rt;
+  const rpz = rz0 + rdz * rt;
+  const rDist = Math.hypot(x - rpx, z - rpz);
+  const rHalfW = 2.55 + Math.sin(rt * Math.PI) * 0.3;
+  let homeRoad = 0;
+  const rd = rDist / rHalfW;
+  if (rd < 1.35) {
+    homeRoad = rd <= 0.75 ? 1 : 1 - (rd - 0.75) / 0.6;
+  }
+
+  const hcdx = x - NortheastResidentialStreet.x;
+  const hcdz = z - NortheastResidentialStreet.z;
+  const hcr = Math.hypot(hcdx, hcdz);
+  let homesPad = 0;
+  if (hcr < 4.8) {
+    homesPad = hcr < 2.6 ? 0.92 : 0.92 * (1 - (hcr - 2.6) / 2.2);
+  }
+
+  return Math.max(branch, pad, marketRoad, marketPad, homeRoad, homesPad);
 }

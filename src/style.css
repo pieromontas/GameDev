@@ -149,6 +149,11 @@ body,
   border-radius: 2px;
 }
 
+.hud-minimap .minimap-legend i.homes {
+  background: #b86b4a;
+  border-radius: 2px;
+}
+
 @media (max-width: 720px) {
   .hud-minimap {
     top: auto;
