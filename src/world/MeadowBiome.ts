@@ -155,6 +155,9 @@ export class MeadowBiome {
   private gateGuardHead: THREE.Object3D | null = null;
   private gateGuardBaseYaw = 0;
   private gateGuardIdleT = 0;
+  /** City-gate cloth pivots — wind sine in `updateGateBanners` (no collision). */
+  private readonly gateBannerPivots: THREE.Group[] = [];
+  private gateBannerT = 0;
 
   private readonly canopyLowGeo = new THREE.ConeGeometry(1.15, 1.55, 7);
   private readonly canopyMidGeo = new THREE.ConeGeometry(0.88, 1.35, 7);
@@ -2377,7 +2380,7 @@ export class MeadowBiome {
       group.add(brace);
     }
 
-    // Banner poles on outer faces
+    // Banner poles on outer faces — cloth hangs from a top pivot (wind sway).
     for (const side of [-1, 1]) {
       const pole = new THREE.Mesh(
         new THREE.CylinderGeometry(0.07, 0.08, 3.2, 5),
@@ -2386,19 +2389,64 @@ export class MeadowBiome {
       pole.position.set(side * 3.45, 4.2, 0.15);
       pole.castShadow = true;
       group.add(pole);
+
+      const pivot = new THREE.Group();
+      pivot.position.set(side * 3.45, 4.25, 0.55);
+      pivot.userData.phase = side * 0.7;
+      pivot.userData.amp = 0.11;
       const banner = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.85, 1.6),
+        new THREE.PlaneGeometry(0.95, 1.75),
         this.bannerMat,
       );
-      banner.position.set(side * 3.45, 3.5, 0.55);
+      banner.position.set(0, -0.88, 0);
       banner.castShadow = true;
-      group.add(banner);
+      pivot.add(banner);
       const stripe = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.55, 0.14),
+        new THREE.PlaneGeometry(0.6, 0.14),
         this.bannerTrimMat,
       );
-      stripe.position.set(side * 3.45, 3.85, 0.56);
-      group.add(stripe);
+      stripe.position.set(0, -0.45, 0.01);
+      pivot.add(stripe);
+      group.add(pivot);
+      this.gateBannerPivots.push(pivot);
+    }
+
+    // Large readable cloth on the approach face of the lintel — hangs above the
+    // walk lane (no soft collision; cloth must not shove the player).
+    {
+      const hang = new THREE.Group();
+      hang.name = 'CityGateArchBanner';
+      hang.position.set(0, 5.0, -0.82);
+      hang.userData.phase = 0.2;
+      hang.userData.amp = 0.14;
+      const rod = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.05, 2.55, 5),
+        this.woodDarkMat,
+      );
+      rod.rotation.z = Math.PI / 2;
+      rod.castShadow = true;
+      hang.add(rod);
+      const cloth = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.35, 2.05),
+        this.bannerMat,
+      );
+      cloth.position.set(0, -1.05, 0);
+      cloth.castShadow = true;
+      hang.add(cloth);
+      const stripe = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.55, 0.18),
+        this.bannerTrimMat,
+      );
+      stripe.position.set(0, -0.55, 0.01);
+      hang.add(stripe);
+      const tip = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.55, 0.35),
+        this.bannerTrimMat,
+      );
+      tip.position.set(0, -1.95, 0.01);
+      hang.add(tip);
+      group.add(hang);
+      this.gateBannerPivots.push(hang);
     }
 
     // Low flanking walls — light dressing, not a district
@@ -3776,6 +3824,24 @@ export class MeadowBiome {
 
     if (this.marketForgeLight) {
       this.marketForgeLight.intensity = 0.7 + 0.35 * (0.5 + 0.5 * Math.sin(t * 9.5));
+    }
+  }
+
+  /**
+   * Cheap wind sine on city-gate cloth pivots (arch face + flank banners).
+   * Call once per frame from the game loop; no cloth sim / no collision.
+   */
+  updateGateBanners(dt: number): void {
+    if (this.gateBannerPivots.length === 0) return;
+    this.gateBannerT += dt;
+    const t = this.gateBannerT;
+    for (let i = 0; i < this.gateBannerPivots.length; i++) {
+      const pivot = this.gateBannerPivots[i]!;
+      const phase = (pivot.userData.phase as number) ?? i * 0.85;
+      const amp = (pivot.userData.amp as number) ?? 0.12;
+      // Gust along local X (out from arch) + soft lateral flutter.
+      pivot.rotation.x = Math.sin(t * 1.55 + phase) * amp;
+      pivot.rotation.z = Math.sin(t * 2.1 + phase * 1.3) * amp * 0.35;
     }
   }
 

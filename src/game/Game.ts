@@ -479,6 +479,7 @@ export class Game {
     this.chests.update(dt);
     this.springs.update(dt);
     this.meadow.updateMarketAmbience(dt);
+    this.meadow.updateGateBanners(dt);
     this.meadow.updateGateGuard(dt, this.player.position);
     this.marketInn.update(dt);
     this.residentialChapel.update(dt);
