@@ -91,6 +91,36 @@ body,
   height: 152px;
   border-radius: 12px;
   box-shadow: inset 0 0 0 1px rgba(31, 42, 36, 0.12);
+  /* HUD root is pointer-events:none — canvas must opt in for landmark hover. */
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.hud-minimap canvas.pin-hot {
+  cursor: pointer;
+}
+
+.hud-minimap .minimap-hover-label {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 36px;
+  max-width: 110px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 2px solid rgba(47, 143, 91, 0.4);
+  background: rgba(255, 252, 245, 0.96);
+  box-shadow: 0 4px 12px rgba(28, 48, 36, 0.16);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--hud-ink);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.hud-minimap .minimap-hover-label[hidden] {
+  display: none;
 }
 
 .hud-minimap .minimap-legend {
@@ -184,6 +214,13 @@ body,
   .hud-minimap canvas {
     width: 116px;
     height: 116px;
+  }
+
+  .hud-minimap .minimap-hover-label {
+    top: 28px;
+    max-width: 96px;
+    font-size: 11px;
+    padding: 3px 7px;
   }
 
   .hud-minimap .minimap-legend {

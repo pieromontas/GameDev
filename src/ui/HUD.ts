@@ -42,33 +42,80 @@ type MinimapLandmark = {
   color: string;
   /** Drawn radius in CSS pixels. */
   r: number;
+  /** Hover label shown beside the radar (not drawn on the map itself). */
+  name: string;
 };
 
 const MINIMAP_LANDMARKS: MinimapLandmark[] = [
-  { x: EastShrineClearing.x, z: EastShrineClearing.z, color: '#7b5cff', r: 4.5 },
-  { x: WestMistyGrove.x, z: WestMistyGrove.z, color: '#3ecf9a', r: 4.5 },
-  { x: NorthRuinsClearing.x, z: NorthRuinsClearing.z, color: '#c4a574', r: 4.5 },
-  { x: SouthRiverFordClearing.x, z: SouthRiverFordClearing.z, color: '#4aa8e8', r: 4.5 },
-  { x: NortheastCityGate.x, z: NortheastCityGate.z, color: '#d4a04a', r: 4.8 },
+  { x: EastShrineClearing.x, z: EastShrineClearing.z, color: '#7b5cff', r: 4.5, name: 'Shrine' },
+  { x: WestMistyGrove.x, z: WestMistyGrove.z, color: '#3ecf9a', r: 4.5, name: 'Grove' },
+  { x: NorthRuinsClearing.x, z: NorthRuinsClearing.z, color: '#c4a574', r: 4.5, name: 'Ruins' },
+  { x: SouthRiverFordClearing.x, z: SouthRiverFordClearing.z, color: '#4aa8e8', r: 4.5, name: 'Ford' },
+  { x: NortheastCityGate.x, z: NortheastCityGate.z, color: '#d4a04a', r: 4.8, name: 'Gate' },
   // Tiny sentry mark beside the gate arch (distinct from Gate square + vendor).
-  { x: GATE_GUARD_NPC.x, z: GATE_GUARD_NPC.z, color: '#5a8a8e', r: 2.2 },
+  { x: GATE_GUARD_NPC.x, z: GATE_GUARD_NPC.z, color: '#5a8a8e', r: 2.2, name: 'Guard' },
   // Market square also marks the central plaza fountain.
-  { x: NortheastMarketDistrict.x, z: NortheastMarketDistrict.z, color: '#e07a3a', r: 4.6 },
-  { x: MARKET_BLACKSMITH_SPOT.x, z: MARKET_BLACKSMITH_SPOT.z, color: '#c45a2e', r: 2.8 },
-  { x: MARKET_INN_SPOT.x, z: MARKET_INN_SPOT.z, color: '#e8a04a', r: 2.8 },
+  {
+    x: NortheastMarketDistrict.x,
+    z: NortheastMarketDistrict.z,
+    color: '#e07a3a',
+    r: 4.6,
+    name: 'Market',
+  },
+  {
+    x: MARKET_BLACKSMITH_SPOT.x,
+    z: MARKET_BLACKSMITH_SPOT.z,
+    color: '#c45a2e',
+    r: 2.8,
+    name: 'Blacksmith',
+  },
+  { x: MARKET_INN_SPOT.x, z: MARKET_INN_SPOT.z, color: '#e8a04a', r: 2.8, name: 'Inn' },
   // Tiny plaza stall mark — distinct from NW cottage shop color.
-  { x: MARKET_VENDOR_STALL.x, z: MARKET_VENDOR_STALL.z, color: '#e85858', r: 2.4 },
+  {
+    x: MARKET_VENDOR_STALL.x,
+    z: MARKET_VENDOR_STALL.z,
+    color: '#e85858',
+    r: 2.4,
+    name: 'Vendor',
+  },
   // East-rim notice / bounty board accent.
-  { x: MARKET_NOTICE_BOARD_SPOT.x, z: MARKET_NOTICE_BOARD_SPOT.z, color: '#c4a06a', r: 2.3 },
-  { x: NortheastResidentialStreet.x, z: NortheastResidentialStreet.z, color: '#b86b4a', r: 4.2 },
-  { x: RESIDENTIAL_CHAPEL_SPOT.x, z: RESIDENTIAL_CHAPEL_SPOT.z, color: '#d4c078', r: 2.8 },
+  {
+    x: MARKET_NOTICE_BOARD_SPOT.x,
+    z: MARKET_NOTICE_BOARD_SPOT.z,
+    color: '#c4a06a',
+    r: 2.3,
+    name: 'Notices',
+  },
+  {
+    x: NortheastResidentialStreet.x,
+    z: NortheastResidentialStreet.z,
+    color: '#b86b4a',
+    r: 4.2,
+    name: 'Homes',
+  },
+  {
+    x: RESIDENTIAL_CHAPEL_SPOT.x,
+    z: RESIDENTIAL_CHAPEL_SPOT.z,
+    color: '#d4c078',
+    r: 2.8,
+    name: 'Chapel',
+  },
   // Harbor / docks stub SE of market (distinct teal from south river ford).
-  { x: NortheastHarborDocks.x, z: NortheastHarborDocks.z, color: '#3a8a9a', r: 4.2 },
-  { x: HARBOR_CATCH_SIGN.x, z: HARBOR_CATCH_SIGN.z, color: '#6ab0a8', r: 2.2 },
-  ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3 })),
-  { x: SPRING_SPOT.x, z: SPRING_SPOT.z, color: '#5ed4ef', r: 3.2 },
-  { x: COTTAGE_SPOT.x, z: COTTAGE_SPOT.z, color: '#c4784a', r: 3.2 },
+  {
+    x: NortheastHarborDocks.x,
+    z: NortheastHarborDocks.z,
+    color: '#3a8a9a',
+    r: 4.2,
+    name: 'Docks',
+  },
+  { x: HARBOR_CATCH_SIGN.x, z: HARBOR_CATCH_SIGN.z, color: '#6ab0a8', r: 2.2, name: 'Catch' },
+  ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3, name: 'Chest' })),
+  { x: SPRING_SPOT.x, z: SPRING_SPOT.z, color: '#5ed4ef', r: 3.2, name: 'Spring' },
+  { x: COTTAGE_SPOT.x, z: COTTAGE_SPOT.z, color: '#c4784a', r: 3.2, name: 'Shop' },
 ];
+
+/** Extra padding beyond drawn radius for comfortable pointer hit-tests. */
+const MINIMAP_HOVER_PAD = 5;
 
 export class HUD {
   private readonly root: HTMLElement;
@@ -134,6 +181,9 @@ export class HUD {
   /** North-up radar canvas (world +Z = up). */
   private readonly minimapCanvas: HTMLCanvasElement;
   private readonly minimapCtx: CanvasRenderingContext2D;
+  /** Hover-only landmark name shown beside the radar. */
+  private readonly minimapHoverLabel: HTMLElement;
+  private minimapHoverName: string | null = null;
 
   constructor(host: HTMLElement) {
     this.root = host;
@@ -209,12 +259,13 @@ export class HUD {
         <div class="notice-list" id="notice-list"></div>
         <p class="shop-hint"><kbd>E</kbd> accept / claim · <kbd>E</kbd> / <kbd>Esc</kbd> close</p>
       </div>
-      <div class="hud-panel hud-minimap" id="minimap-panel" title="Minimap · north up">
+      <div class="hud-panel hud-minimap" id="minimap-panel" title="Minimap · north up · hover a pin for its name">
         <div class="minimap-head">
           <span class="minimap-title">Map</span>
           <span class="minimap-north">N</span>
         </div>
-        <canvas id="minimap" width="${MINIMAP_SIZE}" height="${MINIMAP_SIZE}"></canvas>
+        <canvas id="minimap" width="${MINIMAP_SIZE}" height="${MINIMAP_SIZE}" aria-label="Minimap radar"></canvas>
+        <div class="minimap-hover-label" id="minimap-hover-label" hidden></div>
         <div class="minimap-legend">
           <span><i class="lg shrine"></i>Shrine</span>
           <span><i class="lg grove"></i>Grove</span>
@@ -319,6 +370,9 @@ export class HUD {
 
     this.minimapCanvas = this.root.querySelector('#minimap') as HTMLCanvasElement;
     this.minimapCtx = this.minimapCanvas.getContext('2d')!;
+    this.minimapHoverLabel = this.root.querySelector('#minimap-hover-label') as HTMLElement;
+    this.minimapCanvas.addEventListener('pointermove', (ev) => this.onMinimapPointerMove(ev));
+    this.minimapCanvas.addEventListener('pointerleave', () => this.clearMinimapHover());
   }
 
   setLoading(active: boolean, message = 'Loading heroes…'): void {
@@ -514,6 +568,51 @@ export class HUD {
       });
     });
     this.noticePanel.removeAttribute('hidden');
+  }
+
+  /** Hit-test landmark pins under the cursor; show name beside the radar. */
+  private onMinimapPointerMove(ev: PointerEvent): void {
+    const rect = this.minimapCanvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      this.clearMinimapHover();
+      return;
+    }
+    // Canvas bitmap is MINIMAP_SIZE²; CSS may shrink it (mobile).
+    const mx = ((ev.clientX - rect.left) / rect.width) * MINIMAP_SIZE;
+    const my = ((ev.clientY - rect.top) / rect.height) * MINIMAP_SIZE;
+    const half = MINIMAP_SIZE * 0.5;
+    const scale = (half - 8) / MINIMAP_EXTENT;
+
+    let best: MinimapLandmark | null = null;
+    let bestDist = Infinity;
+    for (const mark of MINIMAP_LANDMARKS) {
+      const sx = half + mark.x * scale;
+      const sy = half - mark.z * scale;
+      const dist = Math.hypot(mx - sx, my - sy);
+      const hitR = mark.r + MINIMAP_HOVER_PAD;
+      if (dist <= hitR && dist < bestDist) {
+        bestDist = dist;
+        best = mark;
+      }
+    }
+
+    if (!best) {
+      this.clearMinimapHover();
+      return;
+    }
+    if (this.minimapHoverName === best.name) return;
+    this.minimapHoverName = best.name;
+    this.minimapHoverLabel.textContent = best.name;
+    this.minimapHoverLabel.hidden = false;
+    this.minimapCanvas.classList.add('pin-hot');
+  }
+
+  private clearMinimapHover(): void {
+    if (this.minimapHoverName === null && this.minimapHoverLabel.hidden) return;
+    this.minimapHoverName = null;
+    this.minimapHoverLabel.textContent = '';
+    this.minimapHoverLabel.hidden = true;
+    this.minimapCanvas.classList.remove('pin-hot');
   }
 
   /**
