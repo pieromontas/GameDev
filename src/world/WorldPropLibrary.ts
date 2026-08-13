@@ -61,6 +61,8 @@ const BASE_HEIGHT = {
   cottage: 2.55,
   windmill: 4.4,
   well: 1.35,
+  /** Nave + steeple procedural match — taller landmark than cottage eaves. */
+  church: 3.7,
 } as const;
 
 /**
@@ -72,6 +74,7 @@ const BASE_HEIGHT = {
  * - cottage peak ~8.1 → eaves clearly above head; door ~character-accessible
  * - well full ~3.0 → stone rim ~chest/upper-torso (not waist)
  * - windmill ~13 → landmark bulk
+ * - church steeple ~9.8 → readable town chapel above cottage roofs
  * - trees ~9.6 → clearly taller than the knight
  * - rocks / bushes scale with the larger forest dressing
  */
@@ -82,6 +85,7 @@ export const PROP_SCALE = {
   cottage: 2.75,
   windmill: 3.0,
   well: 2.25,
+  church: 2.65,
 } as const;
 
 /** World-space target heights after `PROP_SCALE` (fed into template `baseScale`). */
@@ -92,6 +96,7 @@ const TARGET = {
   cottage: BASE_HEIGHT.cottage * PROP_SCALE.cottage,
   windmill: BASE_HEIGHT.windmill * PROP_SCALE.windmill,
   well: BASE_HEIGHT.well * PROP_SCALE.well,
+  church: BASE_HEIGHT.church * PROP_SCALE.church,
 } as const;
 
 /** Soft-collision radius multipliers — same knobs as visuals (uniform scale). */
@@ -120,6 +125,7 @@ export class WorldPropLibrary {
   private cottage: Template | null = null;
   private windmill: Template | null = null;
   private well: Template | null = null;
+  private church: Template | null = null;
   private ready = false;
 
   get isReady(): boolean {
@@ -166,6 +172,11 @@ export class WorldPropLibrary {
       TARGET.well,
       'well',
     );
+    this.church = await this.loadTemplate(
+      `${medievalBase}/building_church_green.gltf`,
+      TARGET.church,
+      'church',
+    );
 
     this.ready =
       this.trees.length > 0 ||
@@ -177,7 +188,7 @@ export class WorldPropLibrary {
       console.error('[WorldPropLibrary] No world props loaded — meadow keeps procedural meshes.');
     } else {
       console.info(
-        `[WorldPropLibrary] Ready — trees ${this.trees.length}, rocks ${this.rocks.length}, bushes ${this.bushes.length}, cottage ${this.cottage ? 1 : 0}, windmill ${this.windmill ? 1 : 0}, well ${this.well ? 1 : 0}`,
+        `[WorldPropLibrary] Ready — trees ${this.trees.length}, rocks ${this.rocks.length}, bushes ${this.bushes.length}, cottage ${this.cottage ? 1 : 0}, windmill ${this.windmill ? 1 : 0}, well ${this.well ? 1 : 0}, church ${this.church ? 1 : 0}`,
       );
     }
   }
@@ -248,6 +259,18 @@ export class WorldPropLibrary {
   createWell(x: number, z: number): THREE.Group | null {
     if (!this.well) return null;
     return this.instantiate(this.well, x, z, 1, 1.1);
+  }
+
+  createChurch(
+    x: number,
+    z: number,
+    opts?: { scale?: number; yaw?: number },
+  ): THREE.Group | null {
+    if (!this.church) return null;
+    const scale = opts?.scale ?? 1;
+    const group = this.instantiate(this.church, x, z, scale, 0.42);
+    if (opts?.yaw !== undefined) group.rotation.y = opts.yaw;
+    return group;
   }
 
   private instantiate(

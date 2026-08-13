@@ -277,6 +277,17 @@ export class Player extends Entity {
     this.buffLabel = 'Damage Charm';
   }
 
+  /**
+   * Residential town-chapel blessing — mild short damage buff (all classes).
+   * Weaker / shorter than the east shrine wave reward; no move-speed spike.
+   */
+  applyTownBlessing(duration: number, damageMult = 1.15): void {
+    this.buffRemain = Math.max(this.buffRemain, duration);
+    this.damageBuffMult = damageMult;
+    this.moveBuffMult = 1;
+    this.buffLabel = 'Town Blessing';
+  }
+
   clearShrineBuff(): void {
     this.buffRemain = 0;
     this.damageBuffMult = 1;
