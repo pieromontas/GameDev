@@ -242,7 +242,7 @@ export class HUD {
         Follow the dirt path north to the ruins (healing spring)<br/>
         Follow the dirt path south to the river ford<br/>
         Follow the stone road northeast to the city gate, market, homes &amp; docks<br/>
-        City gate — banners in the wind · talk to the guard · Market stall — street vendor · West rim — produce stall · Plaza board — notices · SE pier — docks · NW cottage — merchant<br/>
+        City gate — banners in the wind · talk to the guard · Market plaza — lanterns · Market stall — street vendor · West rim — produce stall · Plaza board — notices · SE pier — docks · NW cottage — merchant<br/>
         RMB drag — rotate camera<br/>
         Scroll / pinch — zoom · <kbd>-</kbd><kbd>=</kbd> or <kbd>[</kbd><kbd>]</kbd>
       </div>
