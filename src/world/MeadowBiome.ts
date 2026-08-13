@@ -20,6 +20,8 @@ import { PROP_COLLISION_SCALE, WELL_OFFSET } from './WorldPropLibrary';
 import {
   MARKET_ALLEY_SPOT,
   MARKET_BLACKSMITH_SPOT,
+  MARKET_EXTRA_STALL,
+  MARKET_EXTRA_STALL_YAW,
   MARKET_FORGE_SPOT,
   MARKET_FOUNTAIN_SPOT,
   MARKET_INN_SPOT,
@@ -1362,6 +1364,7 @@ export class MeadowBiome {
     // Stylized stall awnings + crates (dense but not a capital).
     // Crates sit off the fountain footprint so the plaza center stays readable.
     // NW stall hosts the street vendor NPC (E shop — see MarketStreetVendor).
+    // SE + E stalls flank the east-rim notice board; west-rim extra stall is toast-only.
     this.addMarketStall(
       MARKET_VENDOR_STALL.x,
       MARKET_VENDOR_STALL.z,
@@ -1370,6 +1373,12 @@ export class MeadowBiome {
     );
     this.addMarketStall(54.2, 47.8, -Math.PI * 0.28, Palette.flowerYellow);
     this.addMarketStall(55.8, 52.4, -Math.PI * 0.9, Palette.flowerCyan);
+    this.addMarketStall(
+      MARKET_EXTRA_STALL.x,
+      MARKET_EXTRA_STALL.z,
+      MARKET_EXTRA_STALL_YAW,
+      Palette.flowerPink,
+    );
     this.addMarketStreetVendor(
       MARKET_VENDOR_NPC.x,
       MARKET_VENDOR_NPC.z,
@@ -1424,6 +1433,10 @@ export class MeadowBiome {
       }
       // Keep the west-rim alley + curtain-wall walk ring readable.
       if (Math.hypot(tx - MARKET_ALLEY_SPOT.x, tz - MARKET_ALLEY_SPOT.z) < 5.0) {
+        continue;
+      }
+      // Keep the west-rim produce stall silhouette clear.
+      if (Math.hypot(tx - MARKET_EXTRA_STALL.x, tz - MARKET_EXTRA_STALL.z) < 4.5) {
         continue;
       }
       // Keep the east-rim notice board silhouette clear.
