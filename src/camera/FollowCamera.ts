@@ -2,22 +2,25 @@ import * as THREE from 'three';
 import { clamp } from '../utils/math';
 
 /**
- * Default orbit distance — near max so the SE KayKit canopy on the old π/4 ray
- * cannot fill the boot frame. Zoom still clamps to [MIN, MAX].
+ * Orbit distance & pitch constraints.
  */
 const DEFAULT_DISTANCE = 24;
-const MIN_DISTANCE = 7.5;
-const MAX_DISTANCE = 26;
+const MIN_DISTANCE = 6.5;
+const MAX_DISTANCE = 32.0;
+
+const DEFAULT_PITCH = 1.12;
+const MIN_PITCH = 0.28;
+const MAX_PITCH = 1.48;
 
 export class FollowCamera {
   readonly camera: THREE.PerspectiveCamera;
   /**
-   * South-of-camp (yaw 0). Old NE π/4 looked through the KayKit canopy at (6, 12),
-   * which read as a green hill dome swallowing the knight at boot.
+   * South-of-camp (yaw 0). Orbit yaw in radians.
    */
   private yaw = 0;
-  /** Steeper iso pitch — clears nearby canopy crests without going top-down/FPS. */
-  private readonly pitch = 1.12;
+  /** Pitch angle in radians (steep iso default ~1.12 rad ≈ 64°). */
+  private pitch = DEFAULT_PITCH;
+  private pitchTarget = DEFAULT_PITCH;
   /** Smoothed orbit radius (lerps toward `distanceTarget`). */
   private distance = DEFAULT_DISTANCE;
   private distanceTarget = DEFAULT_DISTANCE;
@@ -49,13 +52,22 @@ export class FollowCamera {
     this.yaw += delta;
   }
 
+  addPitch(delta: number): void {
+    this.pitchTarget = clamp(this.pitchTarget + delta, MIN_PITCH, MAX_PITCH);
+  }
+
   /**
    * Zoom by changing orbit distance. Positive delta zooms out, negative zooms in.
-   * Clamped so the camera never clips the hero or flies into outer space.
    */
   addZoom(delta: number): void {
     if (delta === 0) return;
     this.distanceTarget = clamp(this.distanceTarget + delta, MIN_DISTANCE, MAX_DISTANCE);
+  }
+
+  resetView(): void {
+    this.yaw = 0;
+    this.pitchTarget = DEFAULT_PITCH;
+    this.distanceTarget = DEFAULT_DISTANCE;
   }
 
   /** Camera-forward flattened onto XZ for WASD relative movement. */
@@ -73,9 +85,11 @@ export class FollowCamera {
     // Snappier follow for combat circles; still soft enough for city walks.
     this.follow.lerp(target, clamp(1 - Math.pow(0.00012, dt), 0, 1));
 
-    // Smooth zoom — exponential approach, not hard jumps.
+    // Smooth zoom & pitch — exponential approach, not hard jumps.
     this.distance +=
       (this.distanceTarget - this.distance) * clamp(1 - Math.pow(0.00002, dt), 0, 1);
+    this.pitch +=
+      (this.pitchTarget - this.pitch) * clamp(1 - Math.pow(0.00005, dt), 0, 1);
 
     if (this.impactPunch > 0) {
       this.impactPunch = Math.max(0, this.impactPunch - dt * 3.4);

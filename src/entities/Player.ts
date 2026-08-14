@@ -300,6 +300,16 @@ export class Player extends Entity {
     this.buffLabel = 'Honey Nibble';
   }
 
+  /**
+   * Royal Knight Captain's blessing — damage and move speed boost (all classes).
+   */
+  applyKnightValor(duration: number, damageMult = 1.25, moveMult = 1.1): void {
+    this.buffRemain = Math.max(this.buffRemain, duration);
+    this.damageBuffMult = damageMult;
+    this.moveBuffMult = moveMult;
+    this.buffLabel = "Knight's Valor";
+  }
+
   clearShrineBuff(): void {
     this.buffRemain = 0;
     this.damageBuffMult = 1;

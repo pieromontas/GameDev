@@ -57,6 +57,14 @@ export const Palette = {
   blobBelly: 0xffffff,
   blobMouth: 0x3a2030,
   lootGold: 0xffd24a,
+  // Castle & Royal District palette
+  royalBlue: 0x2b4e8c,
+  royalGold: 0xf5c342,
+  royalGoldGlow: 0xffe27a,
+  castleSlate: 0x545e6b,
+  castleSlateLight: 0x768291,
+  castleSlateDark: 0x39404a,
+  iron: 0x2a2e33,
 } as const;
 
 let sharedGradientMap: THREE.DataTexture | null = null;
@@ -296,7 +304,27 @@ export const NortheastHarborDocks = {
   radius: 9,
 } as const;
 
-/** Smooth 0–1 influence of dirt paths (main S-curve + E/W/N/S + NE city-gate / market / homes / docks branches). */
+/**
+ * Grand Castle Outer Gatehouse / Barbican past the upper residential street.
+ * Fortified stone gateway leading to the royal citadel.
+ */
+export const NortheastCastleGatehouse = {
+  x: 78,
+  z: 78,
+  radius: 8.5,
+} as const;
+
+/**
+ * Royal Castle Keep & Courtyard — the crowning fortress of the city.
+ * High battlements, citadel keep, training yard, and knight's quarters.
+ */
+export const NortheastCastleKeep = {
+  x: 89,
+  z: 89,
+  radius: 14.5,
+} as const;
+
+/** Smooth 0–1 influence of dirt paths (main S-curve + E/W/N/S + NE city-gate / market / homes / docks / castle branches). */
 export function meadowPathInfluence(x: number, z: number): number {
   return Math.max(
     mainMeadowPathInfluence(x, z),
@@ -305,6 +333,7 @@ export function meadowPathInfluence(x: number, z: number): number {
     northBranchPathInfluence(x, z),
     southBranchPathInfluence(x, z),
     northeastBranchPathInfluence(x, z),
+    castleBranchPathInfluence(x, z),
   );
 }
 
@@ -588,3 +617,68 @@ function northeastBranchPathInfluence(x: number, z: number): number {
 
   return Math.max(branch, pad, marketRoad, marketPad, homeRoad, homesPad, dockRoad, docksPad);
 }
+
+/**
+ * Paved royal cobblestone causeway from the upper residential street through the Castle Gatehouse
+ * and opening into the grand Castle Keep Courtyard.
+ */
+function castleBranchPathInfluence(x: number, z: number): number {
+  // Causeway: Residential Street (67, 67) -> Castle Gatehouse (78, 78)
+  const cx0 = NortheastResidentialStreet.x;
+  const cz0 = NortheastResidentialStreet.z;
+  const cx1 = NortheastCastleGatehouse.x;
+  const cz1 = NortheastCastleGatehouse.z;
+  const cdx = cx1 - cx0;
+  const cdz = cz1 - cz0;
+  const cLen2 = cdx * cdx + cdz * cdz;
+  const ct = cLen2 > 1e-8 ? THREE.MathUtils.clamp(((x - cx0) * cdx + (z - cz0) * cdz) / cLen2, 0, 1) : 0;
+  const cpx = cx0 + cdx * ct;
+  const cpz = cz0 + cdz * ct;
+  const cDist = Math.hypot(x - cpx, z - cpz);
+  const cHalfW = 3.2 + Math.sin(ct * Math.PI) * 0.4;
+  let causeway = 0;
+  const cd = cDist / cHalfW;
+  if (cd < 1.35) {
+    causeway = cd <= 0.75 ? 1 : 1 - (cd - 0.75) / 0.6;
+  }
+
+  // Gatehouse arrival pad
+  const gcdx = x - NortheastCastleGatehouse.x;
+  const gcdz = z - NortheastCastleGatehouse.z;
+  const gcr = Math.hypot(gcdx, gcdz);
+  let gatePad = 0;
+  if (gcr < 5.4) {
+    gatePad = gcr < 3.0 ? 0.95 : 0.95 * (1 - (gcr - 3.0) / 2.4);
+  }
+
+  // Gatehouse (78, 78) -> Castle Courtyard (89, 89)
+  const kx0 = NortheastCastleGatehouse.x;
+  const kz0 = NortheastCastleGatehouse.z;
+  const kx1 = NortheastCastleKeep.x;
+  const kz1 = NortheastCastleKeep.z;
+  const kdx = kx1 - kx0;
+  const kdz = kz1 - kz0;
+  const kLen2 = kdx * kdx + kdz * kdz;
+  const kt = kLen2 > 1e-8 ? THREE.MathUtils.clamp(((x - kx0) * kdx + (z - kz0) * kdz) / kLen2, 0, 1) : 0;
+  const kpx = kx0 + kdx * kt;
+  const kpz = kz0 + kdz * kt;
+  const kDist = Math.hypot(x - kpx, z - kpz);
+  const kHalfW = 3.6 + Math.sin(kt * Math.PI) * 0.5;
+  let keepApproach = 0;
+  const kd = kDist / kHalfW;
+  if (kd < 1.35) {
+    keepApproach = kd <= 0.75 ? 1 : 1 - (kd - 0.75) / 0.6;
+  }
+
+  // Grand Castle Courtyard cobblestone pad
+  const kcdx = x - NortheastCastleKeep.x;
+  const kcdz = z - NortheastCastleKeep.z;
+  const kcr = Math.hypot(kcdx, kcdz);
+  let courtyardPad = 0;
+  if (kcr < 8.5) {
+    courtyardPad = kcr < 5.2 ? 0.98 : 0.98 * (1 - (kcr - 5.2) / 3.3);
+  }
+
+  return Math.max(causeway, gatePad, keepApproach, courtyardPad);
+}
+

@@ -9,6 +9,8 @@ import {
   NortheastMarketDistrict,
   NortheastResidentialStreet,
   NortheastHarborDocks,
+  NortheastCastleGatehouse,
+  NortheastCastleKeep,
 } from '../render/stylized';
 import { CHEST_SPOTS } from '../world/TreasureChests';
 import { SPRING_SPOT } from '../world/HealingSprings';
@@ -32,9 +34,14 @@ import {
 import { GATE_GUARD_NPC } from '../world/GateGuard';
 import { RESIDENTIAL_CHAPEL_SPOT } from '../world/ResidentialStreet';
 import { HARBOR_CATCH_SIGN } from '../world/HarborDocks';
+import {
+  CASTLE_KNIGHT_CAPTAIN,
+  CASTLE_ARMORY_SPOT,
+  CASTLE_CHEST_SPOT,
+} from '../world/CastleDistrict';
 
-/** World half-extent projected onto the radar (covers clearings + town stubs). */
-const MINIMAP_EXTENT = 78;
+/** World half-extent projected onto the radar (covers clearings + town + castle). */
+const MINIMAP_EXTENT = 108;
 const MINIMAP_SIZE = 152;
 
 type MinimapLandmark = {
@@ -110,6 +117,42 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
     name: 'Docks',
   },
   { x: HARBOR_CATCH_SIGN.x, z: HARBOR_CATCH_SIGN.z, color: '#6ab0a8', r: 2.2, name: 'Catch' },
+  // Castle District landmarks (Barbican gatehouse, Citadel Keep, Knight Captain, Armory, Royal Chest)
+  {
+    x: NortheastCastleGatehouse.x,
+    z: NortheastCastleGatehouse.z,
+    color: '#415e78',
+    r: 4.5,
+    name: 'Gatehouse',
+  },
+  {
+    x: NortheastCastleKeep.x,
+    z: NortheastCastleKeep.z,
+    color: '#2b4c7e',
+    r: 5.2,
+    name: 'Castle Keep',
+  },
+  {
+    x: CASTLE_KNIGHT_CAPTAIN.x,
+    z: CASTLE_KNIGHT_CAPTAIN.z,
+    color: '#ffd700',
+    r: 2.6,
+    name: 'Knight Captain',
+  },
+  {
+    x: CASTLE_ARMORY_SPOT.x,
+    z: CASTLE_ARMORY_SPOT.z,
+    color: '#8e9aa8',
+    r: 2.4,
+    name: 'Armory',
+  },
+  {
+    x: CASTLE_CHEST_SPOT.x,
+    z: CASTLE_CHEST_SPOT.z,
+    color: '#f0c040',
+    r: 3.0,
+    name: 'Royal Chest',
+  },
   ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3, name: 'Chest' })),
   { x: SPRING_SPOT.x, z: SPRING_SPOT.z, color: '#5ed4ef', r: 3.2, name: 'Spring' },
   // Tiny misty-grove herb accent — distinct soft green from the Grove pocket pin.
@@ -278,6 +321,7 @@ export class HUD {
           <span><i class="lg market"></i>Market</span>
           <span><i class="lg homes"></i>Homes</span>
           <span><i class="lg docks"></i>Docks</span>
+          <span><i class="lg gatehouse"></i>Castle</span>
           <span><i class="lg chapel"></i>Chapel</span>
           <span><i class="lg cottage"></i>Shop</span>
         </div>
@@ -291,14 +335,12 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — shrine / chests / spring / grove herb / gate guard / market / vendor / produce stall / notice board / inn / alley / docks crate / home door / chapel / cottage merchant<br/>
-        Follow the dirt path west to the misty grove (glowing herb)<br/>
-        Follow the dirt path north to the ruins (healing spring)<br/>
-        Follow the dirt path south to the river ford<br/>
-        Follow the stone road northeast to the city gate, market, homes &amp; docks<br/>
-        City gate — banners in the wind · talk to the guard · Market plaza — lanterns · Homes — street lanterns &amp; fences · Market stall — street vendor · West rim — produce stall · Plaza board — notices · SE pier — docks · NW cottage — merchant<br/>
-        RMB drag — rotate camera<br/>
-        Scroll / pinch — zoom · <kbd>-</kbd><kbd>=</kbd> or <kbd>[</kbd><kbd>]</kbd>
+        <kbd>E</kbd> — interact (Knight Captain, shrine, chests, shops, etc.)<br/>
+        <strong>Camera Controls</strong><br/>
+        RMB / MMB drag (or <kbd>Alt</kbd>+LMB) — orbit &amp; tilt camera<br/>
+        <kbd>[</kbd><kbd>]</kbd> or <kbd>,</kbd><kbd>.</kbd> — rotate view<br/>
+        Scroll / pinch — zoom (<kbd>-</kbd><kbd>=</kbd> or <kbd>PgUp</kbd><kbd>PgDn</kbd>)<br/>
+        <kbd>Home</kbd> / <kbd>\`</kbd> — reset view
       </div>
       <div class="interact-prompt" id="interact-prompt" hidden></div>
       <div class="objective-banner" id="objective-banner" hidden></div>
@@ -679,6 +721,18 @@ export class HUD {
         NortheastHarborDocks.x,
         NortheastHarborDocks.z,
       ],
+      [
+        NortheastResidentialStreet.x,
+        NortheastResidentialStreet.z,
+        NortheastCastleGatehouse.x,
+        NortheastCastleGatehouse.z,
+      ],
+      [
+        NortheastCastleGatehouse.x,
+        NortheastCastleGatehouse.z,
+        NortheastCastleKeep.x,
+        NortheastCastleKeep.z,
+      ],
     ];
     for (const [ax, az, bx, bz] of paths) {
       const a = toScreen(ax, az);
@@ -712,12 +766,18 @@ export class HUD {
         mark.z === NortheastResidentialStreet.z;
       const isDocks =
         mark.x === NortheastHarborDocks.x && mark.z === NortheastHarborDocks.z;
+      const isGatehouse =
+        mark.x === NortheastCastleGatehouse.x &&
+        mark.z === NortheastCastleGatehouse.z;
+      const isCastle =
+        mark.x === NortheastCastleKeep.x &&
+        mark.z === NortheastCastleKeep.z;
       ctx.fillStyle = mark.color;
       ctx.strokeStyle = 'rgba(31, 42, 36, 0.45)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      if (isGate || isMarket || isHomes || isDocks) {
-        // Town icons — small squares so they read apart from clearing dots
+      if (isGate || isMarket || isHomes || isDocks || isGatehouse || isCastle) {
+        // Town & Castle icons — small squares so they read apart from clearing dots
         const s = mark.r;
         ctx.rect(p.sx - s * 0.7, p.sy - s * 0.7, s * 1.4, s * 1.4);
       } else {

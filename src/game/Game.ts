@@ -22,6 +22,7 @@ import { MarketStreetVendor } from '../world/MarketStreetVendor';
 import { GateGuard } from '../world/GateGuard';
 import { ResidentialChapel, ResidentialDoor } from '../world/ResidentialStreet';
 import { HarborCatchSign } from '../world/HarborDocks';
+import { CastleDistrict } from '../world/CastleDistrict';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
@@ -63,6 +64,7 @@ export class Game {
   private readonly residentialDoor: ResidentialDoor;
   private readonly residentialChapel: ResidentialChapel;
   private readonly harborCatchSign: HarborCatchSign;
+  private readonly castleDistrict = new CastleDistrict();
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
   private readonly mobs: Enemy[];
@@ -94,6 +96,8 @@ export class Game {
   private homesHintShown = false;
   /** One-shot toast when the player first enters the harbor docks. */
   private docksHintShown = false;
+  /** One-shot toast when the player first enters the castle keep. */
+  private castleHintShown = false;
 
   constructor(canvas: HTMLCanvasElement, hudHost: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -393,8 +397,7 @@ export class Game {
   private update(rawDt: number): void {
     // Hit-stop uses real time; simulation briefly slows on successful hits.
     const dt = this.combat.scaleDt(rawDt);
-    this.cameraRig.addYaw(this.input.consumeYawDelta());
-    this.applyCameraZoom(dt);
+    this.updateCameraControls(dt);
 
     this.player.tickSkills(dt);
     if (this.spawnAggroGrace > 0) {
@@ -491,6 +494,8 @@ export class Game {
     this.meadow.updateMarketAmbience(dt);
     this.meadow.updateGateBanners(dt);
     this.meadow.updateGateGuard(dt, this.player.position);
+    this.meadow.updateCastleAmbience(dt, this.player.position);
+    this.castleDistrict.update(dt);
     this.marketInn.update(dt);
     this.residentialChapel.update(dt);
     this.merchant.update(this.player);
@@ -546,13 +551,33 @@ export class Game {
     this.input.endFrame();
   }
 
-  /** Wheel / trackpad pinch + optional -/= and [/] zoom keys. */
-  private applyCameraZoom(dt: number): void {
+  /** Camera orbit yaw, pitch tilt, zoom, and reset controls. */
+  private updateCameraControls(dt: number): void {
+    if (this.input.consumeResetCamera()) {
+      this.cameraRig.resetView();
+      this.hud.showToast('Camera reset to default view', 1.2);
+    }
+
+    const mouseYaw = this.input.consumeYawDelta();
+    const mousePitch = this.input.consumePitchDelta();
+    if (mouseYaw !== 0) this.cameraRig.addYaw(mouseYaw);
+    if (mousePitch !== 0) this.cameraRig.addPitch(-mousePitch);
+
+    // Keyboard camera rotation ([ / ] or , / .)
+    const rotSpeed = 2.4 * dt;
+    if (this.input.isDown('BracketLeft') || this.input.isDown('Comma')) {
+      this.cameraRig.addYaw(-rotSpeed);
+    }
+    if (this.input.isDown('BracketRight') || this.input.isDown('Period')) {
+      this.cameraRig.addYaw(rotSpeed);
+    }
+
+    // Keyboard / wheel zoom
     let zoom = this.input.consumeZoomDelta();
-    const keyRate = 10 * dt;
-    if (this.input.isDown('Minus') || this.input.isDown('BracketLeft')) zoom += keyRate;
-    if (this.input.isDown('Equal') || this.input.isDown('BracketRight')) zoom -= keyRate;
-    this.cameraRig.addZoom(zoom);
+    const zoomRate = 14 * dt;
+    if (this.input.isDown('Minus') || this.input.isDown('PageDown')) zoom += zoomRate;
+    if (this.input.isDown('Equal') || this.input.isDown('PageUp')) zoom -= zoomRate;
+    if (zoom !== 0) this.cameraRig.addZoom(zoom);
   }
 
   private updatePlayerMovement(dt: number): void {
@@ -599,6 +624,10 @@ export class Game {
     if (!this.docksHintShown && this.meadow.isNearHarborDocks(this.player.position)) {
       this.docksHintShown = true;
       this.hud.showToast('Docks  ·  harbor pier stub', 2.0);
+    }
+    if (!this.castleHintShown && this.meadow.isNearCastleKeep(this.player.position)) {
+      this.castleHintShown = true;
+      this.hud.showToast('Castle Keep · seat of the realm · royal courtyard & battlements', 2.4);
     }
   }
 
@@ -750,6 +779,7 @@ export class Game {
     if (this.harborCatchSign.tryInteract(this.player)) return;
     if (this.residentialDoor.tryInteract(this.player)) return;
     if (this.residentialChapel.tryInteract(this.player)) return;
+    if (this.castleDistrict.interact(this.player, (text) => this.hud.showToast(text, 2.2))) return;
     this.merchant.tryInteract(this.player);
   }
 
@@ -776,6 +806,7 @@ export class Game {
     const harborPrompt = this.harborCatchSign.getInteractPrompt(this.player);
     const homeDoorPrompt = this.residentialDoor.getInteractPrompt(this.player);
     const chapelPrompt = this.residentialChapel.getInteractPrompt(this.player);
+    const castlePrompt = this.castleDistrict.getHudPrompt(this.player);
     const merchantPrompt = this.merchant.getInteractPrompt(this.player);
     if (chestPrompt.visible) {
       this.hud.setShrineHud({
@@ -862,6 +893,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: chapelPrompt.text,
+      });
+    } else if (castlePrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: castlePrompt.text,
       });
     } else if (merchantPrompt.visible) {
       this.hud.setShrineHud({

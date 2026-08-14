@@ -189,6 +189,11 @@ body,
   border-radius: 2px;
 }
 
+.hud-minimap .minimap-legend i.gatehouse {
+  background: #2b4e8c;
+  border-radius: 2px;
+}
+
 .hud-minimap .minimap-legend i.chapel {
   background: #d4c078;
   border-radius: 2px;

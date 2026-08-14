@@ -13,6 +13,8 @@ import {
   NortheastMarketDistrict,
   NortheastResidentialStreet,
   NortheastHarborDocks,
+  NortheastCastleGatehouse,
+  NortheastCastleKeep,
   hash2,
 } from '../render/stylized';
 import type { WorldPropLibrary } from './WorldPropLibrary';
@@ -50,6 +52,19 @@ import {
   RESIDENTIAL_WELL_SPOT,
 } from './ResidentialStreet';
 import { HARBOR_CATCH_SIGN } from './HarborDocks';
+import {
+  CASTLE_BANNER_POSTS,
+  CASTLE_BRAZIER_SPOTS,
+  CASTLE_CITADEL_GATE,
+  CASTLE_DUMMY_SPOT,
+  CASTLE_GATEHOUSE_CENTER,
+  CASTLE_KEEP_CENTER,
+  CASTLE_KNIGHT_CAPTAIN,
+  CASTLE_KNIGHT_CAPTAIN_YAW,
+  CASTLE_ARMORY_SPOT,
+  CASTLE_TARGET_SPOT,
+  CASTLE_CHEST_SPOT,
+} from './CastleDistrict';
 
 export type Obstacle = { x: number; z: number; radius: number };
 
@@ -63,8 +78,8 @@ type SignFacing = 'east' | 'west' | 'north' | 'south' | 'northeast';
 /** Shared stylized meadow: living ground, tiered trees, rocks, landmarks. */
 export class MeadowBiome {
   readonly root = new THREE.Group();
-  /** Larger disk so clearings + NE gate / market / homes / docks sit on painted ground. */
-  readonly groundSize = 160;
+  /** Larger disk so clearings + NE gate / market / homes / docks / castle sit on painted ground. */
+  readonly groundSize = 220;
   readonly playRadius = 44;
   /** Second playable pocket — ancient shrine clearing east of the main ring. */
   readonly eastClearing = EastShrineClearing;
@@ -98,6 +113,12 @@ export class MeadowBiome {
   readonly northeastDocks = NortheastHarborDocks;
   /** Soft corridor half-width connecting market plaza → harbor docks. */
   readonly docksCorridorHalfWidth = 5.5;
+  /** Tenth playable stub — outer barbican / castle gatehouse. */
+  readonly northeastCastleGatehouse = NortheastCastleGatehouse;
+  /** Eleventh playable district — royal castle keep and courtyard. */
+  readonly northeastCastle = NortheastCastleKeep;
+  /** Soft corridor half-width connecting residential street → castle gatehouse → castle keep. */
+  readonly castleCorridorHalfWidth = 6.0;
   /** World XZ of the city gate arch (for minimap / discovery cues). */
   readonly cityGatePosition = new THREE.Vector3(NortheastCityGate.x, 0, NortheastCityGate.z);
   /** World XZ of the market plaza center (for minimap / discovery cues). */
@@ -117,6 +138,18 @@ export class MeadowBiome {
     NortheastHarborDocks.x,
     0,
     NortheastHarborDocks.z,
+  );
+  /** World XZ of the castle gatehouse (for minimap / discovery cues). */
+  readonly castleGatehousePosition = new THREE.Vector3(
+    NortheastCastleGatehouse.x,
+    0,
+    NortheastCastleGatehouse.z,
+  );
+  /** World XZ of the castle keep center (for minimap / discovery cues). */
+  readonly castlePosition = new THREE.Vector3(
+    NortheastCastleKeep.x,
+    0,
+    NortheastCastleKeep.z,
   );
   /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
@@ -171,6 +204,15 @@ export class MeadowBiome {
   private readonly gateBannerPivots: THREE.Group[] = [];
   private gateBannerT = 0;
 
+  /** Castle banners, braziers, and Knight Captain state. */
+  private readonly castleBannerPivots: THREE.Group[] = [];
+  private readonly castleBrazierFlames: THREE.Mesh[] = [];
+  private knightCaptainGroup: THREE.Group | null = null;
+  private knightCaptainHead: THREE.Object3D | null = null;
+  private knightCaptainBaseYaw = 0;
+  private knightCaptainIdleT = 0;
+  private castleAnimT = 0;
+
   private readonly canopyLowGeo = new THREE.ConeGeometry(1.15, 1.55, 7);
   private readonly canopyMidGeo = new THREE.ConeGeometry(0.88, 1.35, 7);
   private readonly canopyTopGeo = new THREE.ConeGeometry(0.55, 1.1, 7);
@@ -201,6 +243,21 @@ export class MeadowBiome {
   private readonly woodMat = createToonMaterial(Palette.wood);
   private readonly woodDarkMat = createToonMaterial(Palette.woodDark);
   private readonly roofMat = createToonMaterial(Palette.roofTile);
+  private readonly royalBlueMat = createToonMaterial(Palette.royalBlue, {
+    side: THREE.DoubleSide,
+  });
+  private readonly royalGoldMat = createToonMaterial(Palette.royalGold, {
+    emissive: Palette.royalGold,
+    emissiveIntensity: 0.2,
+  });
+  private readonly castleSlateMat = createToonMaterial(Palette.castleSlate);
+  private readonly castleSlateLightMat = createToonMaterial(Palette.castleSlateLight);
+  private readonly castleSlateDarkMat = createToonMaterial(Palette.castleSlateDark);
+  private readonly ironMat = createToonMaterial(Palette.iron);
+  private readonly brazierFlameMat = createToonMaterial(0xff7722, {
+    emissive: 0xffaa33,
+    emissiveIntensity: 0.85,
+  });
   private readonly pondMat = createToonMaterial(Palette.pond, {
     transparent: true,
     opacity: 0.82,
@@ -255,6 +312,7 @@ export class MeadowBiome {
     this.buildNortheastMarketDistrict();
     this.buildNortheastResidentialStreet();
     this.buildNortheastHarborDocks();
+    this.buildNortheastCastleKeep();
     this.buildEdgeLedges();
   }
 
@@ -386,12 +444,37 @@ export class MeadowBiome {
     docksPad.receiveShadow = true;
     this.root.add(docksPad);
 
+    // Soft grass RING under the castle gatehouse — leave center open for paved causeway.
+    const gatehousePad = new THREE.Mesh(
+      new THREE.RingGeometry(3.0, this.northeastCastleGatehouse.radius + 1.4, 32),
+      createToonMaterial(0x546e5a),
+    );
+    gatehousePad.rotation.x = -Math.PI / 2;
+    gatehousePad.position.set(
+      this.northeastCastleGatehouse.x,
+      0.025,
+      this.northeastCastleGatehouse.z,
+    );
+    gatehousePad.receiveShadow = true;
+    this.root.add(gatehousePad);
+
+    // Soft grass RING under the castle keep & courtyard — grand fortified footprint.
+    const castlePad = new THREE.Mesh(
+      new THREE.RingGeometry(4.5, this.northeastCastle.radius + 1.8, 36),
+      createToonMaterial(0x4f6356),
+    );
+    castlePad.rotation.x = -Math.PI / 2;
+    castlePad.position.set(this.northeastCastle.x, 0.025, this.northeastCastle.z);
+    castlePad.receiveShadow = true;
+    this.root.add(castlePad);
+
     this.buildEastPathRibbon();
     this.buildWestPathRibbon();
     this.buildNorthPathRibbon();
     this.buildSouthPathRibbon();
     this.buildNortheastPathRibbon();
     this.buildMarketStreetRibbon();
+    this.buildCastlePathRibbon();
   }
 
   /** Explicit dirt ribbon so the east branch reads clearly at iso distance. */
@@ -709,6 +792,132 @@ export class MeadowBiome {
     plazaTop.position.set(this.northeastMarket.x, 0.055, this.northeastMarket.z);
     plazaTop.receiveShadow = true;
     this.root.add(plazaTop);
+  }
+
+  /** Paved stone causeway: Residential Street -> Castle Gatehouse -> Royal Courtyard. */
+  private buildCastlePathRibbon(): void {
+    const pathMat = createToonMaterial(Palette.castleSlateDark);
+    const edgeMat = createToonMaterial(Palette.castleSlateLight);
+    const cobbleMat = createToonMaterial(Palette.castleSlate);
+
+    // Segment 1: Homes (67, 67) -> Castle Gatehouse (78, 78)
+    const ax = this.northeastHomes.x;
+    const az = this.northeastHomes.z;
+    const bx = this.northeastCastleGatehouse.x;
+    const bz = this.northeastCastleGatehouse.z;
+    const segs1 = 8;
+    for (let i = 0; i < segs1; i++) {
+      const t0 = i / segs1;
+      const t1 = (i + 1) / segs1;
+      const x0 = ax + (bx - ax) * t0;
+      const z0 = az + (bz - az) * t0;
+      const x1 = ax + (bx - ax) * t1;
+      const z1 = az + (bz - az) * t1;
+      const mx = (x0 + x1) * 0.5;
+      const mz = (z0 + z1) * 0.5;
+      const dx = x1 - x0;
+      const dz = z1 - z0;
+      const len = Math.hypot(dx, dz);
+      const ang = Math.atan2(dx, dz);
+      const width = 4.6 + Math.sin(t0 * Math.PI) * 0.4;
+
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(width, 0.052, len + 0.15), pathMat);
+      plank.position.set(mx, 0.05, mz);
+      plank.rotation.y = ang;
+      plank.receiveShadow = true;
+      this.root.add(plank);
+
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(width + 0.7, 0.03, len + 0.2), edgeMat);
+      edge.position.set(mx, 0.035, mz);
+      edge.rotation.y = ang;
+      edge.receiveShadow = true;
+      this.root.add(edge);
+
+      if (i % 2 === 1) {
+        const stone = new THREE.Mesh(
+          new THREE.BoxGeometry(width * 0.7, 0.035, Math.min(len * 0.8, 1.3)),
+          cobbleMat,
+        );
+        stone.position.set(mx, 0.06, mz);
+        stone.rotation.y = ang + 0.04;
+        stone.receiveShadow = true;
+        this.root.add(stone);
+      }
+    }
+
+    // Gatehouse arrival stone apron
+    const gateApron = new THREE.Mesh(new THREE.CircleGeometry(4.6, 24), cobbleMat);
+    gateApron.rotation.x = -Math.PI / 2;
+    gateApron.position.set(this.northeastCastleGatehouse.x, 0.045, this.northeastCastleGatehouse.z);
+    gateApron.receiveShadow = true;
+    this.root.add(gateApron);
+
+    // Segment 2: Gatehouse (78, 78) -> Castle Keep (89, 89)
+    const kx0 = this.northeastCastleGatehouse.x;
+    const kz0 = this.northeastCastleGatehouse.z;
+    const kx1 = this.northeastCastle.x;
+    const kz1 = this.northeastCastle.z;
+    const segs2 = 8;
+    for (let i = 0; i < segs2; i++) {
+      const t0 = i / segs2;
+      const t1 = (i + 1) / segs2;
+      const x0 = kx0 + (kx1 - kx0) * t0;
+      const z0 = kz0 + (kz1 - kz0) * t0;
+      const x1 = kx0 + (kx1 - kx0) * t1;
+      const z1 = kz0 + (kz1 - kz0) * t1;
+      const mx = (x0 + x1) * 0.5;
+      const mz = (z0 + z1) * 0.5;
+      const dx = x1 - x0;
+      const dz = z1 - z0;
+      const len = Math.hypot(dx, dz);
+      const ang = Math.atan2(dx, dz);
+      const width = 5.2 + Math.sin(t0 * Math.PI) * 0.45;
+
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(width, 0.055, len + 0.15), pathMat);
+      plank.position.set(mx, 0.052, mz);
+      plank.rotation.y = ang;
+      plank.receiveShadow = true;
+      this.root.add(plank);
+
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(width + 0.8, 0.032, len + 0.2), edgeMat);
+      edge.position.set(mx, 0.038, mz);
+      edge.rotation.y = ang;
+      edge.receiveShadow = true;
+      this.root.add(edge);
+
+      if (i % 2 === 0) {
+        const stone = new THREE.Mesh(
+          new THREE.BoxGeometry(width * 0.72, 0.036, Math.min(len * 0.85, 1.4)),
+          cobbleMat,
+        );
+        stone.position.set(mx, 0.062, mz);
+        stone.rotation.y = ang + 0.03;
+        stone.receiveShadow = true;
+        this.root.add(stone);
+      }
+    }
+
+    // Grand Castle Courtyard cobblestone plaza
+    const courtyard = new THREE.Mesh(new THREE.CircleGeometry(7.8, 32), cobbleMat);
+    courtyard.rotation.x = -Math.PI / 2;
+    courtyard.position.set(this.northeastCastle.x, 0.045, this.northeastCastle.z);
+    courtyard.receiveShadow = true;
+    this.root.add(courtyard);
+
+    // Inner courtyard mosaic ring & crest
+    const innerRing = new THREE.Mesh(new THREE.RingGeometry(3.6, 6.2, 28), this.castleSlateLightMat);
+    innerRing.rotation.x = -Math.PI / 2;
+    innerRing.position.set(this.northeastCastle.x, 0.052, this.northeastCastle.z);
+    innerRing.receiveShadow = true;
+    this.root.add(innerRing);
+
+    // Royal gold crest star in courtyard center
+    const crestStar = new THREE.Mesh(new THREE.CircleGeometry(1.6, 8), this.royalGoldMat);
+    crestStar.rotation.x = -Math.PI / 2;
+    crestStar.rotation.z = Math.PI / 8;
+    crestStar.position.set(this.northeastCastle.x, 0.058, this.northeastCastle.z);
+    crestStar.receiveShadow = true;
+    this.root.add(crestStar);
   }
 
   private buildGrassInstances(): void {
@@ -1939,6 +2148,663 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 0.3 });
+  }
+
+  /**
+   * Grand Castle District past the upper residential street.
+   * Features: Outer Gatehouse / Barbican, Fortified Curtain Walls, Grand Citadel Keep with high spires,
+   * Royal Courtyard with crest mosaic, Knight Captain NPC, Training Yard, Royal Chest, Braziers, and Banners.
+   */
+  private buildNortheastCastleKeep(): void {
+    const { x: cx, z: cz } = this.northeastCastle;
+
+    // 1. Outer Gatehouse / Barbican at (78, 78) facing SW down the causeway approach
+    this.addCastleGatehouse(this.northeastCastleGatehouse.x, this.northeastCastleGatehouse.z, -Math.PI * 0.75);
+
+    // 2. Fortified stone curtain walls flanking the gatehouse and surrounding the courtyard
+    this.addCastleCurtainWall(73.5, 82.5, -Math.PI * 0.25, 8.5);
+    this.addCastleCurtainWall(82.5, 73.5, Math.PI * 0.75, 8.5);
+    this.addCastleCurtainWall(78.0, 95.0, -Math.PI * 0.25, 9.0);
+    this.addCastleCurtainWall(95.0, 78.0, Math.PI * 0.75, 9.0);
+
+    // 3. Grand Citadel Keep & Throne Hall facade at (94.5, 94.5)
+    this.addCastleCitadelKeep(94.5, 94.5, -Math.PI * 0.75);
+
+    // 4. Royal Knight Captain NPC standing guard in the courtyard
+    this.addCastleKnightCaptain(CASTLE_KNIGHT_CAPTAIN.x, CASTLE_KNIGHT_CAPTAIN.z, CASTLE_KNIGHT_CAPTAIN_YAW);
+
+    // 5. Royal Armory & Training Grounds in the western courtyard quadrant
+    this.addCastleTrainingYard(CASTLE_ARMORY_SPOT.x, CASTLE_ARMORY_SPOT.z, -Math.PI * 0.25);
+
+    // 6. Royal Treasury Gilded Chest
+    this.addCastleRoyalChest(CASTLE_CHEST_SPOT.x, CASTLE_CHEST_SPOT.z);
+
+    // 7. Stone braziers lighting the approach, gatehouse, and keep entrance
+    for (const b of CASTLE_BRAZIER_SPOTS) {
+      this.addCastleBrazier(b.x, b.z);
+    }
+
+    // 8. Heraldic royal banners
+    for (const p of CASTLE_BANNER_POSTS) {
+      this.addCastleBanner(p.x, p.z, p.yaw);
+    }
+  }
+
+  /**
+   * Fortified stone Barbican / Gatehouse archway with twin bastion towers and heavy portcullis.
+   */
+  private addCastleGatehouse(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'CastleGatehouse';
+
+    // Approach paving underneath
+    const paving = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.08, 6.0), this.castleSlateDarkMat);
+    paving.position.y = 0.04;
+    paving.receiveShadow = true;
+    group.add(paving);
+
+    // Twin flanking bastion towers
+    for (const side of [-2.6, 2.6]) {
+      const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.45, 6.2, 8), this.castleSlateMat);
+      tower.position.set(side, 3.1, 0);
+      tower.castShadow = true;
+      tower.receiveShadow = true;
+      group.add(tower);
+
+      const cornice = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.25, 0.45, 8), this.castleSlateLightMat);
+      cornice.position.set(side, 6.35, 0);
+      cornice.castShadow = true;
+      group.add(cornice);
+
+      // Crenellations
+      for (let i = 0; i < 4; i++) {
+        const merlon = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.65, 0.35), this.castleSlateMat);
+        const ang = (i / 4) * Math.PI * 2;
+        merlon.position.set(side + Math.cos(ang) * 1.15, 6.8, Math.sin(ang) * 1.15);
+        merlon.rotation.y = -ang;
+        merlon.castShadow = true;
+        group.add(merlon);
+      }
+
+      // Conical roof
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(1.35, 2.4, 8), this.royalBlueMat);
+      roof.position.set(side, 7.8, 0);
+      roof.castShadow = true;
+      group.add(roof);
+
+      // Golden spire top
+      const finial = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.65, 4), this.royalGoldMat);
+      finial.position.set(side, 9.2, 0);
+      group.add(finial);
+    }
+
+    // High bridge arch connecting the two towers
+    const archLintel = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.4, 1.8), this.castleSlateMat);
+    archLintel.position.set(0, 5.2, 0);
+    archLintel.castShadow = true;
+    archLintel.receiveShadow = true;
+    group.add(archLintel);
+
+    const parapet = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.75, 0.3), this.castleSlateLightMat);
+    parapet.position.set(0, 6.2, -0.85);
+    parapet.castShadow = true;
+    group.add(parapet);
+
+    // Royal heraldic shield on arch face
+    const shield = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.12), this.royalBlueMat);
+    shield.position.set(0, 5.2, -0.96);
+    group.add(shield);
+    const shieldTrim = new THREE.Mesh(new THREE.BoxGeometry(0.96, 1.26, 0.08), this.royalGoldMat);
+    shieldTrim.position.set(0, 5.2, -0.94);
+    group.add(shieldTrim);
+
+    // Portcullis iron bars hanging in the archway
+    const portcullis = new THREE.Group();
+    portcullis.position.set(0, 3.8, 0);
+    for (let i = -1.2; i <= 1.2; i += 0.4) {
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.8, 4), this.ironMat);
+      bar.position.set(i, 0, 0);
+      bar.castShadow = true;
+      portcullis.add(bar);
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.25, 4), this.ironMat);
+      spike.position.set(i, -1.5, 0);
+      spike.rotation.x = Math.PI;
+      portcullis.add(spike);
+    }
+    for (let y = -0.9; y <= 0.9; y += 0.6) {
+      const cross = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.08, 0.08), this.ironMat);
+      cross.position.set(0, y, 0);
+      portcullis.add(cross);
+    }
+    group.add(portcullis);
+
+    this.root.add(group);
+
+    // Obstacles: flank towers only — center 3.4-wide walkway stays clear
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+    const toWorld = (lx: number, lz: number): { x: number; z: number } => ({
+      x: x + lx * cos + lz * sin,
+      z: z - lx * sin + lz * cos,
+    });
+    const leftTower = toWorld(-2.6, 0);
+    const rightTower = toWorld(2.6, 0);
+    this.obstacles.push({ x: leftTower.x, z: leftTower.z, radius: 1.4 });
+    this.obstacles.push({ x: rightTower.x, z: rightTower.z, radius: 1.4 });
+  }
+
+  /**
+   * Stone curtain wall segment with crenellated parapets.
+   */
+  private addCastleCurtainWall(x: number, z: number, yaw: number, length: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'CastleCurtainWall';
+
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(length, 3.8, 1.2), this.castleSlateMat);
+    wall.position.y = 1.9;
+    wall.castShadow = true;
+    wall.receiveShadow = true;
+    group.add(wall);
+
+    const walkway = new THREE.Mesh(new THREE.BoxGeometry(length, 0.35, 1.4), this.castleSlateLightMat);
+    walkway.position.y = 3.9;
+    walkway.castShadow = true;
+    group.add(walkway);
+
+    // Crenellations along outer edge
+    const merlonCount = Math.floor(length / 1.4);
+    for (let i = 0; i < merlonCount; i++) {
+      const merlon = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.75, 0.3), this.castleSlateMat);
+      merlon.position.set(-length * 0.45 + i * 1.35, 4.4, -0.6);
+      merlon.castShadow = true;
+      group.add(merlon);
+    }
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: length * 0.45 });
+  }
+
+  /**
+   * Grand Citadel Keep — the massive royal palace & fortress keep.
+   * Multi-tiered masonry with grand central spire, arched portal, rose window, and battlements.
+   */
+  private addCastleCitadelKeep(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'CastleCitadelKeep';
+
+    // 1. Lower Great Hall base
+    const greatHall = new THREE.Mesh(new THREE.BoxGeometry(10.5, 5.2, 8.5), this.castleSlateMat);
+    greatHall.position.y = 2.6;
+    greatHall.castShadow = true;
+    greatHall.receiveShadow = true;
+    group.add(greatHall);
+
+    // Base plinth
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(11.2, 0.6, 9.2), this.castleSlateDarkMat);
+    plinth.position.y = 0.3;
+    plinth.receiveShadow = true;
+    group.add(plinth);
+
+    // Buttresses on facade
+    for (const bx of [-4.2, -1.8, 1.8, 4.2]) {
+      const buttress = new THREE.Mesh(new THREE.BoxGeometry(0.65, 4.6, 0.75), this.castleSlateLightMat);
+      buttress.position.set(bx, 2.3, -4.4);
+      buttress.castShadow = true;
+      group.add(buttress);
+    }
+
+    // 2. Central Citadel Tower (rises high above the hall)
+    const keepTower = new THREE.Mesh(new THREE.BoxGeometry(5.2, 6.8, 5.2), this.castleSlateMat);
+    keepTower.position.set(0, 8.2, 0.5);
+    keepTower.castShadow = true;
+    group.add(keepTower);
+
+    const keepParapet = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.5, 5.6), this.castleSlateLightMat);
+    keepParapet.position.set(0, 11.8, 0.5);
+    keepParapet.castShadow = true;
+    group.add(keepParapet);
+
+    // Grand conical royal-blue slate roof
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(3.6, 5.2, 8), this.royalBlueMat);
+    roof.position.set(0, 14.5, 0.5);
+    roof.castShadow = true;
+    group.add(roof);
+
+    // Golden spire spear & royal pennant
+    const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 2.4, 5), this.royalGoldMat);
+    spire.position.set(0, 17.5, 0.5);
+    group.add(spire);
+
+    const spireBall = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), this.royalGoldMat);
+    spireBall.position.set(0, 18.8, 0.5);
+    group.add(spireBall);
+
+    // 3. Flanking front turrets on the keep facade
+    for (const side of [-4.8, 4.8]) {
+      const turret = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.6, 8.2, 8), this.castleSlateMat);
+      turret.position.set(side, 4.1, -3.8);
+      turret.castShadow = true;
+      turret.receiveShadow = true;
+      group.add(turret);
+
+      const turretRoof = new THREE.Mesh(new THREE.ConeGeometry(1.6, 2.8, 8), this.royalBlueMat);
+      turretRoof.position.set(side, 9.4, -3.8);
+      turretRoof.castShadow = true;
+      group.add(turretRoof);
+
+      const turretSpire = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.7, 4), this.royalGoldMat);
+      turretSpire.position.set(side, 11.0, -3.8);
+      group.add(turretSpire);
+    }
+
+    // 4. Grand Entrance Portal (E interactable pad)
+    const portalArch = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.8, 0.8), this.castleSlateLightMat);
+    portalArch.position.set(0, 1.9, -4.4);
+    portalArch.castShadow = true;
+    group.add(portalArch);
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.0, 0.2), this.woodDarkMat);
+    door.position.set(0, 1.5, -4.75);
+    group.add(door);
+
+    // Iron strap hinges on doors
+    for (const dy of [0.6, 1.6, 2.4]) {
+      const strap = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.08, 0.24), this.ironMat);
+      strap.position.set(0, dy, -4.75);
+      group.add(strap);
+    }
+
+    // Royal Blue canopy awning with gold border over entrance
+    const canopy = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.15, 1.2), this.royalBlueMat);
+    canopy.position.set(0, 3.9, -4.8);
+    canopy.rotation.x = 0.2;
+    group.add(canopy);
+    const canopyTrim = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.18, 0.1), this.royalGoldMat);
+    canopyTrim.position.set(0, 3.8, -5.35);
+    group.add(canopyTrim);
+
+    // 5. Stained Glass Royal Rose Window
+    const roseWindow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.9, 12),
+      createToonMaterial(Palette.flowerCyan, {
+        emissive: Palette.flowerCyan,
+        emissiveIntensity: 0.65,
+      }),
+    );
+    roseWindow.position.set(0, 5.8, -4.26);
+    group.add(roseWindow);
+
+    const roseTrim = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.08, 6, 16), this.royalGoldMat);
+    roseTrim.position.set(0, 5.8, -4.24);
+    group.add(roseTrim);
+
+    this.root.add(group);
+
+    // Keep obstacle: large solid fortress bulk
+    this.obstacles.push({ x, z, radius: 4.8 });
+  }
+
+  /**
+   * Royal Knight Captain NPC standing in the courtyard.
+   * Model: Polished steel plate armor, gold lion pauldrons, knight helmet with gold visor and plume,
+   * steel halberd, and heater shield. Head tracks nearby players.
+   */
+  private addCastleKnightCaptain(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'CastleKnightCaptain';
+
+    const steelMat = createToonMaterial(Palette.warriorSteel, {
+      emissive: Palette.warriorSteel,
+      emissiveIntensity: 0.08,
+    });
+    const steelDarkMat = createToonMaterial(Palette.warriorSteelDark);
+    const goldMat = this.royalGoldMat;
+    const capeMat = this.royalBlueMat;
+    const skinMat = createToonMaterial(Palette.warriorSkin);
+    const bootMat = createToonMaterial(Palette.warriorBoot);
+
+    // Shadow
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.48, 14), createToonMaterial(0x1a2228, {
+      transparent: true,
+      opacity: 0.45,
+      depthWrite: false,
+    }));
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.02;
+    group.add(shadow);
+
+    // Legs / Greaves
+    for (const lx of [-0.14, 0.14]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.62, 0.2), steelMat);
+      leg.position.set(lx, 0.31, 0);
+      leg.castShadow = true;
+      group.add(leg);
+      const boot = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.18, 0.28), bootMat);
+      boot.position.set(lx, 0.09, 0.04);
+      group.add(boot);
+    }
+
+    // Torso / Cuirass
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.65, 0.38), steelMat);
+    torso.position.y = 0.88;
+    torso.castShadow = true;
+    group.add(torso);
+
+    const breastplateTrim = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.12, 0.4), goldMat);
+    breastplateTrim.position.y = 1.05;
+    group.add(breastplateTrim);
+
+    // Royal Blue Cape
+    const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 1.15), capeMat);
+    cape.position.set(0, 0.8, -0.22);
+    cape.rotation.x = 0.15;
+    cape.castShadow = true;
+    group.add(cape);
+
+    // Pauldrons (shoulder armor)
+    for (const sx of [-0.36, 0.36]) {
+      const pauldron = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 0.26), goldMat);
+      pauldron.position.set(sx, 1.15, 0);
+      pauldron.castShadow = true;
+      group.add(pauldron);
+    }
+
+    // Right Arm holding Halberd
+    const rArm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.55, 0.16), steelDarkMat);
+    rArm.position.set(0.38, 0.85, 0.1);
+    rArm.rotation.x = -0.25;
+    group.add(rArm);
+
+    // Halberd Weapon
+    const halberdGroup = new THREE.Group();
+    halberdGroup.position.set(0.48, 0, 0.22);
+    halberdGroup.rotation.z = -0.06;
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 2.9, 6), this.woodDarkMat);
+    shaft.position.y = 1.45;
+    shaft.castShadow = true;
+    halberdGroup.add(shaft);
+
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.42, 0.04), steelMat);
+    blade.position.set(0.24, 2.7, 0);
+    blade.castShadow = true;
+    halberdGroup.add(blade);
+
+    const axeSpike = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.45, 4), goldMat);
+    axeSpike.position.set(0, 3.05, 0);
+    axeSpike.castShadow = true;
+    halberdGroup.add(axeSpike);
+    group.add(halberdGroup);
+
+    // Left Arm holding Heater Shield
+    const lArm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.55, 0.16), steelDarkMat);
+    lArm.position.set(-0.38, 0.85, 0.1);
+    lArm.rotation.x = -0.25;
+    group.add(lArm);
+
+    const shield = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.82, 0.08), this.royalBlueMat);
+    shield.position.set(-0.52, 0.85, 0.22);
+    shield.rotation.y = 0.3;
+    shield.castShadow = true;
+    group.add(shield);
+
+    const shieldBoss = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 0.12), goldMat);
+    shieldBoss.position.set(-0.54, 0.85, 0.25);
+    shieldBoss.rotation.y = 0.3;
+    group.add(shieldBoss);
+
+    // Head / Helm with plumage
+    const head = new THREE.Group();
+    head.name = 'KnightCaptainHead';
+    head.position.y = 1.48;
+
+    const skull = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.36), skinMat);
+    head.add(skull);
+
+    const helm = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.36, 0.42), steelMat);
+    helm.position.y = 0.08;
+    helm.castShadow = true;
+    head.add(helm);
+
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.14, 0.16), goldMat);
+    visor.position.set(0, 0.06, 0.18);
+    head.add(visor);
+
+    // Feathered Royal Blue plume
+    const plume = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.38, 0.3), this.royalBlueMat);
+    plume.position.set(0, 0.42, -0.05);
+    head.add(plume);
+    const plumeGold = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.42, 0.12), goldMat);
+    plumeGold.position.set(0, 0.45, 0.04);
+    head.add(plumeGold);
+
+    group.add(head);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.65 });
+
+    this.knightCaptainGroup = group;
+    this.knightCaptainHead = head;
+    this.knightCaptainBaseYaw = yaw;
+  }
+
+  /**
+   * Royal Training Yard — weapon racks, archery targets, and combat dummy.
+   */
+  private addCastleTrainingYard(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'CastleTrainingYard';
+
+    // 1. Weapon Rack (CASTLE_ARMORY_SPOT)
+    const rack = new THREE.Group();
+    for (const rx of [-0.6, 0.6]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.4, 0.1), this.woodDarkMat);
+      post.position.set(rx, 0.7, 0);
+      post.castShadow = true;
+      rack.add(post);
+    }
+    const crossTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.08), this.woodMat);
+    crossTop.position.set(0, 1.25, 0);
+    rack.add(crossTop);
+    const crossMid = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.08), this.woodMat);
+    crossMid.position.set(0, 0.65, 0);
+    rack.add(crossMid);
+
+    // Swords & spears resting in the rack
+    for (let i = -0.4; i <= 0.4; i += 0.25) {
+      const sword = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 1.2, 0.02),
+        createToonMaterial(Palette.warriorSteel, { emissive: Palette.warriorSteel, emissiveIntensity: 0.1 }),
+      );
+      sword.position.set(i, 0.85, 0.05);
+      sword.rotation.z = 0.05;
+      rack.add(sword);
+    }
+    group.add(rack);
+
+    // 2. Training Dummy (CASTLE_DUMMY_SPOT)
+    const dummy = new THREE.Group();
+    dummy.position.set(1.5, 0, 1.2);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.8, 6), this.woodDarkMat);
+    pole.position.y = 0.9;
+    dummy.add(pole);
+
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.28, 0.85, 8), createToonMaterial(Palette.path));
+    body.position.y = 1.1;
+    body.castShadow = true;
+    dummy.add(body);
+
+    const arms = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 0.12), this.woodMat);
+    arms.position.y = 1.35;
+    dummy.add(arms);
+
+    const dummyHelm = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.35, 6), this.ironMat);
+    dummyHelm.position.y = 1.7;
+    dummy.add(dummyHelm);
+    group.add(dummy);
+
+    // 3. Archery Target (CASTLE_TARGET_SPOT)
+    const target = new THREE.Group();
+    target.position.set(-1.6, 0, 1.4);
+    target.rotation.y = 0.2;
+
+    const tripodA = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.6, 4), this.woodDarkMat);
+    tripodA.position.set(-0.3, 0.75, 0);
+    tripodA.rotation.z = 0.2;
+    target.add(tripodA);
+    const tripodB = tripodA.clone();
+    tripodB.position.x = 0.3;
+    tripodB.rotation.z = -0.2;
+    target.add(tripodB);
+
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.12, 16), createToonMaterial(Palette.pathDark));
+    disc.rotation.x = Math.PI / 2;
+    disc.position.set(0, 1.05, 0.08);
+    target.add(disc);
+
+    const bullseye = new THREE.Mesh(new THREE.CircleGeometry(0.25, 12), createToonMaterial(0xd84545));
+    bullseye.position.set(0, 1.05, 0.15);
+    target.add(bullseye);
+    group.add(target);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.6 });
+  }
+
+  /**
+   * Fortified stone brazier with burning flame and warm light.
+   */
+  private addCastleBrazier(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'CastleBrazier';
+
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.55, 1.1, 8), this.castleSlateMat);
+    pedestal.position.y = 0.55;
+    pedestal.castShadow = true;
+    pedestal.receiveShadow = true;
+    group.add(pedestal);
+
+    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.38, 0.35, 8), this.castleSlateLightMat);
+    bowl.position.y = 1.25;
+    bowl.castShadow = true;
+    group.add(bowl);
+
+    // Glowing flame cluster
+    const flame = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28, 0), this.brazierFlameMat);
+    flame.position.y = 1.55;
+    flame.scale.set(1.0, 1.4, 1.0);
+    flame.userData.baseScale = 1.0;
+    flame.userData.phase = hash2(x, z) * 10;
+    this.castleBrazierFlames.push(flame);
+    group.add(flame);
+
+    const light = new THREE.PointLight(0xff9933, 0.65, 6.5, 2);
+    light.position.y = 1.65;
+    group.add(light);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.45 });
+  }
+
+  /**
+   * Royal banner on high pole with wind animation.
+   */
+  private addCastleBanner(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'CastleBanner';
+
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 4.2, 6), this.woodDarkMat);
+    pole.position.y = 2.1;
+    pole.castShadow = true;
+    group.add(pole);
+
+    const spearFinial = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.45, 4), this.royalGoldMat);
+    spearFinial.position.y = 4.35;
+    group.add(spearFinial);
+
+    const pivot = new THREE.Group();
+    pivot.position.set(0, 4.0, 0.05);
+    pivot.userData.phase = hash2(x, z) * 6;
+    pivot.userData.amp = 0.14;
+
+    const crossArm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.4, 4), this.woodMat);
+    crossArm.rotation.z = Math.PI / 2;
+    pivot.add(crossArm);
+
+    // Royal Blue banner body
+    const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2.4), this.royalBlueMat);
+    cloth.position.set(0, -1.2, 0);
+    cloth.castShadow = true;
+    pivot.add(cloth);
+
+    // Golden border & emblem stripe
+    const border = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.18), this.royalGoldMat);
+    border.position.set(0, -0.6, 0.01);
+    pivot.add(border);
+
+    const emblem = new THREE.Mesh(new THREE.CircleGeometry(0.28, 6), this.royalGoldMat);
+    emblem.position.set(0, -1.2, 0.01);
+    pivot.add(emblem);
+
+    group.add(pivot);
+    this.castleBannerPivots.push(pivot);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.35 });
+  }
+
+  /**
+   * Royal Treasury Chest in the castle grounds.
+   */
+  private addCastleRoyalChest(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = -Math.PI * 0.35;
+    group.name = 'CastleRoyalChest';
+
+    // Stone chest dais
+    const dais = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.18, 1.4), this.castleSlateLightMat);
+    dais.position.y = 0.09;
+    dais.receiveShadow = true;
+    group.add(dais);
+
+    // Gilded royal chest body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.55, 0.65), this.royalBlueMat);
+    body.position.y = 0.45;
+    body.castShadow = true;
+    group.add(body);
+
+    const goldBands = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.57, 0.68), this.royalGoldMat);
+    goldBands.position.y = 0.45;
+    goldBands.scale.set(0.9, 1.02, 1.02);
+    group.add(goldBands);
+
+    // Chest lid
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.95, 8), this.royalBlueMat);
+    lid.rotation.z = Math.PI / 2;
+    lid.position.set(0, 0.72, 0);
+    lid.scale.set(1, 0.6, 1);
+    lid.castShadow = true;
+    group.add(lid);
+
+    const lock = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), this.royalGoldMat);
+    lock.position.set(0, 0.55, 0.34);
+    group.add(lock);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.6 });
   }
 
   /** Procedural KayKit-cottage stand-in for a residential home (pack-swapped later). */
@@ -5352,6 +6218,20 @@ export class MeadowBiome {
     ) {
       return true;
     }
+    const cgx = x - this.northeastCastleGatehouse.x;
+    const cgz = z - this.northeastCastleGatehouse.z;
+    if (
+      cgx * cgx + cgz * cgz <= this.northeastCastleGatehouse.radius * this.northeastCastleGatehouse.radius
+    ) {
+      return true;
+    }
+    const ckx = x - this.northeastCastle.x;
+    const ckz = z - this.northeastCastle.z;
+    if (
+      ckx * ckx + ckz * ckz <= this.northeastCastle.radius * this.northeastCastle.radius
+    ) {
+      return true;
+    }
     if (this.distToEastCorridor(x, z) <= this.eastCorridorHalfWidth) return true;
     if (this.distToWestCorridor(x, z) <= this.westCorridorHalfWidth) return true;
     if (this.distToNorthCorridor(x, z) <= this.northCorridorHalfWidth) return true;
@@ -5361,10 +6241,12 @@ export class MeadowBiome {
     if (this.distToResidentialCorridor(x, z) <= this.residentialCorridorHalfWidth) {
       return true;
     }
-    return this.distToDocksCorridor(x, z) <= this.docksCorridorHalfWidth;
+    if (this.distToDocksCorridor(x, z) <= this.docksCorridorHalfWidth) return true;
+    if (this.distToCastleGateCorridor(x, z) <= this.castleCorridorHalfWidth) return true;
+    return this.distToCastleCourtyardCorridor(x, z) <= this.castleCorridorHalfWidth;
   }
 
-  /** Keep entities inside meadow ∪ corridors ∪ clearings ∪ NE gate ∪ market ∪ homes ∪ docks. */
+  /** Keep entities inside meadow ∪ corridors ∪ clearings ∪ NE gate ∪ market ∪ homes ∪ docks ∪ castle. */
   clampToPlayArea(position: THREE.Vector3): void {
     if (this.isInPlayArea(position.x, position.z)) return;
     const nearest = this.nearestPlayPoint(position.x, position.z);
@@ -5405,6 +6287,66 @@ export class MeadowBiome {
     return this.distToDocksCorridor(position.x, position.z) <= 3.6;
   }
 
+  /** True when the player approaches the Castle Gatehouse (discovery toast). */
+  isNearCastleGatehouse(position: THREE.Vector3): boolean {
+    const dx = position.x - this.northeastCastleGatehouse.x;
+    const dz = position.z - this.northeastCastleGatehouse.z;
+    if (dx * dx + dz * dz <= 7.5 * 7.5) return true;
+    return this.distToCastleGateCorridor(position.x, position.z) <= 4.0;
+  }
+
+  /** True when the player enters the Grand Castle Keep courtyard (discovery toast). */
+  isNearCastleKeep(position: THREE.Vector3): boolean {
+    const dx = position.x - this.northeastCastle.x;
+    const dz = position.z - this.northeastCastle.z;
+    if (dx * dx + dz * dz <= 12.0 * 12.0) return true;
+    return this.distToCastleCourtyardCorridor(position.x, position.z) <= 4.5;
+  }
+
+  /** Update castle banner wind sway, brazier flame flicker, and knight captain head tracking. */
+  updateCastleAmbience(dt: number, heroPosition?: THREE.Vector3): void {
+    this.castleAnimT += dt;
+
+    // 1. Wind sway on heraldic banners
+    for (const pivot of this.castleBannerPivots) {
+      const phase = (pivot.userData.phase as number) ?? 0;
+      const amp = (pivot.userData.amp as number) ?? 0.12;
+      pivot.rotation.z = Math.sin(this.castleAnimT * 2.2 + phase) * amp;
+      pivot.rotation.x = Math.cos(this.castleAnimT * 1.6 + phase) * (amp * 0.45);
+    }
+
+    // 2. Flame scale / flicker on stone braziers
+    for (const flame of this.castleBrazierFlames) {
+      const phase = (flame.userData.phase as number) ?? 0;
+      const base = (flame.userData.baseScale as number) ?? 1.0;
+      const flicker = 1.0 + Math.sin(this.castleAnimT * 8.0 + phase) * 0.12 + Math.cos(this.castleAnimT * 14.0 + phase) * 0.08;
+      flame.scale.set(base * flicker, base * (1.3 + flicker * 0.2), base * flicker);
+      flame.rotation.y += dt * 1.5;
+    }
+
+    // 3. Knight Captain head tracking
+    if (this.knightCaptainHead && heroPosition) {
+      const dx = heroPosition.x - CASTLE_KNIGHT_CAPTAIN.x;
+      const dz = heroPosition.z - CASTLE_KNIGHT_CAPTAIN.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 14.0 && dist > 0.1) {
+        const targetYaw = Math.atan2(dx, dz) - this.knightCaptainBaseYaw;
+        const clampedYaw = THREE.MathUtils.clamp(targetYaw, -Math.PI * 0.45, Math.PI * 0.45);
+        this.knightCaptainHead.rotation.y = THREE.MathUtils.lerp(
+          this.knightCaptainHead.rotation.y,
+          clampedYaw,
+          dt * 4.0,
+        );
+      } else {
+        this.knightCaptainHead.rotation.y = THREE.MathUtils.lerp(
+          this.knightCaptainHead.rotation.y,
+          0,
+          dt * 2.0,
+        );
+      }
+    }
+  }
+
   /** Corridor + path samples used to keep props from blocking the branch. */
   private isOnEastBranchApproach(x: number, z: number): boolean {
     if (x < 10) return false;
@@ -5441,13 +6383,11 @@ export class MeadowBiome {
     return meadowPathInfluence(x, z) > 0.35 && z < -15;
   }
 
-  /** Keep props off the northeast dirt/stone road into the city gate + market + homes + docks. */
+  /** Keep props off the northeast dirt/stone road into the city gate + market + homes + docks + castle. */
   private isOnNortheastBranchApproach(x: number, z: number): boolean {
     if (x < 10 || z < 10) return false;
     // Wide cone along +X/+Z so the tree ring does not choke the NE exit / market street.
     if (x > 22 && z > 22 && Math.abs(x - z) < 12) return true;
-    // NE meadow pocket between the north path and gate road — stop rim trees / ledges
-    // from forming an overlapping trunk cage on the spawn→gate approach.
     if (x > 15 && z > 32 && x < 24 && z < 40) return true;
     if (this.distToNortheastCorridor(x, z) < this.northeastCorridorHalfWidth + 1.6) {
       return true;
@@ -5463,12 +6403,23 @@ export class MeadowBiome {
     if (this.distToDocksCorridor(x, z) < this.docksCorridorHalfWidth + 1.3) {
       return true;
     }
+    if (this.distToCastleGateCorridor(x, z) < this.castleCorridorHalfWidth + 1.5) {
+      return true;
+    }
+    if (this.distToCastleCourtyardCorridor(x, z) < this.castleCorridorHalfWidth + 1.5) {
+      return true;
+    }
+    if (Math.hypot(x - this.northeastCastleGatehouse.x, z - this.northeastCastleGatehouse.z) < 8.0) {
+      return true;
+    }
+    if (Math.hypot(x - this.northeastCastle.x, z - this.northeastCastle.z) < 14.0) {
+      return true;
+    }
     return meadowPathInfluence(x, z) > 0.35 && x > 14 && z > 14;
   }
 
   /** Distance from point to the east corridor segment (main rim → clearing). */
   private distToEastCorridor(x: number, z: number): number {
-    // Capsule from just inside the main ring toward the clearing center.
     const ax = 29;
     const az = 5.5;
     const bx = this.eastClearing.x - 3;
@@ -5507,7 +6458,6 @@ export class MeadowBiome {
   private distToNortheastCorridor(x: number, z: number): number {
     const ax = 30;
     const az = 30;
-    // Stop short of the gate center so the plaza circle owns the end.
     const bx = this.northeastGate.x - 2.2;
     const bz = this.northeastGate.z - 2.2;
     return this.distToSegment(x, z, ax, az, bx, bz);
@@ -5537,6 +6487,24 @@ export class MeadowBiome {
     const az = this.northeastMarket.z - 1.5;
     const bx = this.northeastDocks.x - 1.0;
     const bz = this.northeastDocks.z + 1.0;
+    return this.distToSegment(x, z, ax, az, bx, bz);
+  }
+
+  /** Distance from point to the castle gatehouse corridor segment (homes → gatehouse). */
+  private distToCastleGateCorridor(x: number, z: number): number {
+    const ax = this.northeastHomes.x + 2.0;
+    const az = this.northeastHomes.z + 2.0;
+    const bx = this.northeastCastleGatehouse.x - 1.0;
+    const bz = this.northeastCastleGatehouse.z - 1.0;
+    return this.distToSegment(x, z, ax, az, bx, bz);
+  }
+
+  /** Distance from point to the castle keep corridor segment (gatehouse → keep). */
+  private distToCastleCourtyardCorridor(x: number, z: number): number {
+    const ax = this.northeastCastleGatehouse.x + 1.5;
+    const az = this.northeastCastleGatehouse.z + 1.5;
+    const bx = this.northeastCastle.x - 2.0;
+    const bz = this.northeastCastle.z - 2.0;
     return this.distToSegment(x, z, ax, az, bx, bz);
   }
 
@@ -5668,6 +6636,28 @@ export class MeadowBiome {
       );
     }
 
+    // Castle Gatehouse rim
+    {
+      const dx = x - this.northeastCastleGatehouse.x;
+      const dz = z - this.northeastCastleGatehouse.z;
+      const d = Math.hypot(dx, dz) || 1;
+      consider(
+        this.northeastCastleGatehouse.x + (dx / d) * this.northeastCastleGatehouse.radius,
+        this.northeastCastleGatehouse.z + (dz / d) * this.northeastCastleGatehouse.radius,
+      );
+    }
+
+    // Castle Keep rim
+    {
+      const dx = x - this.northeastCastle.x;
+      const dz = z - this.northeastCastle.z;
+      const d = Math.hypot(dx, dz) || 1;
+      consider(
+        this.northeastCastle.x + (dx / d) * this.northeastCastle.radius,
+        this.northeastCastle.z + (dz / d) * this.northeastCastle.radius,
+      );
+    }
+
     // East corridor capsule surface
     this.considerCorridorSurface(
       x,
@@ -5761,6 +6751,30 @@ export class MeadowBiome {
       this.northeastDocks.x - 1.0,
       this.northeastDocks.z + 1.0,
       this.docksCorridorHalfWidth,
+      consider,
+    );
+
+    // Homes → Castle Gatehouse corridor capsule surface
+    this.considerCorridorSurface(
+      x,
+      z,
+      this.northeastHomes.x + 2.0,
+      this.northeastHomes.z + 2.0,
+      this.northeastCastleGatehouse.x - 1.0,
+      this.northeastCastleGatehouse.z - 1.0,
+      this.castleCorridorHalfWidth,
+      consider,
+    );
+
+    // Gatehouse → Castle Courtyard corridor capsule surface
+    this.considerCorridorSurface(
+      x,
+      z,
+      this.northeastCastleGatehouse.x + 1.5,
+      this.northeastCastleGatehouse.z + 1.5,
+      this.northeastCastle.x - 2.0,
+      this.northeastCastle.z - 2.0,
+      this.castleCorridorHalfWidth,
       consider,
     );
 

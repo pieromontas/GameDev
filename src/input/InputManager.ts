@@ -26,6 +26,8 @@ export class InputManager {
   private pointerY = 0;
   private yawDragging = false;
   private yawDelta = 0;
+  private pitchDelta = 0;
+  private resetCameraRequested = false;
   /** Accumulated orbit zoom (world units of distance). Positive = zoom out. */
   private zoomDelta = 0;
 
@@ -54,6 +56,8 @@ export class InputManager {
     this.justPressed.clear();
     this.moveImpulse.clear();
     this.yawDelta = 0;
+    this.pitchDelta = 0;
+    this.resetCameraRequested = false;
     this.zoomDelta = 0;
   }
 
@@ -100,6 +104,18 @@ export class InputManager {
     return d;
   }
 
+  consumePitchDelta(): number {
+    const d = this.pitchDelta;
+    this.pitchDelta = 0;
+    return d;
+  }
+
+  consumeResetCamera(): boolean {
+    const r = this.resetCameraRequested;
+    this.resetCameraRequested = false;
+    return r;
+  }
+
   /** Orbit zoom delta in distance units (positive = out). Cleared when consumed. */
   consumeZoomDelta(): number {
     const d = this.zoomDelta;
@@ -122,9 +138,16 @@ export class InputManager {
       e.code === 'Minus' ||
       e.code === 'Equal' ||
       e.code === 'BracketLeft' ||
-      e.code === 'BracketRight'
+      e.code === 'BracketRight' ||
+      e.code === 'PageUp' ||
+      e.code === 'PageDown' ||
+      e.code === 'Home'
     ) {
       e.preventDefault();
+    }
+
+    if (e.code === 'Home' || e.code === 'Backquote') {
+      this.resetCameraRequested = true;
     }
 
     // Synthetic / remote hosts often pulse keydown+keyup then stream keydown.repeat
@@ -153,37 +176,51 @@ export class InputManager {
   };
 
   private onPointerDown = (e: PointerEvent): void => {
-    if (e.button === 0) {
-      this.pointerX = e.clientX;
-      this.pointerY = e.clientY;
+    this.pointerX = e.clientX;
+    this.pointerY = e.clientY;
+    if (e.button === 0 && !e.altKey && !e.ctrlKey) {
       this.justPressed.add('PointerPrimary');
-      this.target.setPointerCapture(e.pointerId);
-    } else if (e.button === 2 || e.button === 1) {
-      this.yawDragging = true;
-    }
-  };
-
-  private onPointerUp = (e: PointerEvent): void => {
-    if (e.button === 0) {
       try {
-        this.target.releasePointerCapture(e.pointerId);
+        this.target.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    } else if (e.button === 2 || e.button === 1 || (e.button === 0 && (e.altKey || e.ctrlKey))) {
+      this.yawDragging = true;
+      try {
+        this.target.setPointerCapture(e.pointerId);
       } catch {
         /* ignore */
       }
     }
-    if (e.button === 2 || e.button === 1) {
+  };
+
+  private onPointerUp = (e: PointerEvent): void => {
+    try {
+      this.target.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    if (e.button === 2 || e.button === 1 || (e.button === 0 && (e.altKey || e.ctrlKey))) {
       this.yawDragging = false;
     }
   };
 
   private onPointerMove = (e: PointerEvent): void => {
+    const prevX = this.pointerX;
+    const prevY = this.pointerY;
     this.pointerX = e.clientX;
     this.pointerY = e.clientY;
 
-    // Camera yaw is RMB / MMB only — LMB must stay a clean attack click.
+    const dx = e.movementX !== undefined && Math.abs(e.movementX) > 0 ? e.movementX : (e.clientX - prevX);
+    const dy = e.movementY !== undefined && Math.abs(e.movementY) > 0 ? e.movementY : (e.clientY - prevY);
+
+    // Camera rotation & tilt via RMB, MMB, or Alt/Ctrl+LMB
     const rightOrMiddleHeld = (e.buttons & 2) !== 0 || (e.buttons & 4) !== 0;
-    if (this.yawDragging || rightOrMiddleHeld) {
-      this.yawDelta += e.movementX * 0.0075;
+    const isAltDrag = (e.buttons & 1) !== 0 && (e.altKey || e.ctrlKey);
+    if (this.yawDragging || rightOrMiddleHeld || isAltDrag) {
+      this.yawDelta += dx * 0.0075;
+      this.pitchDelta += dy * 0.0055;
     }
   };
 
