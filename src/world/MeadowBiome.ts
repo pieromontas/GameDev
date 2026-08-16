@@ -5511,76 +5511,6 @@ export class MeadowBiome {
     }
   }
 
-  updateMarketAmbience(dt: number): void {
-    this.marketAmbienceT += dt;
-    for (let i = 0; i < this.marketFountainSparkles.length; i++) {
-      const s = this.marketFountainSparkles[i]!;
-      s.position.y = (s.userData.baseY ?? 0.8) + Math.sin(this.marketAmbienceT * 3 + i) * 0.15;
-    }
-  }
-
-  updateGateBanners(dt: number): void {
-    this.gateBannerT += dt;
-    for (const p of this.gateBannerPivots) {
-      const phase = (p.userData.phase as number) ?? 0;
-      p.rotation.z = Math.sin(this.gateBannerT * 2.2 + phase) * 0.12;
-    }
-  }
-
-  updateGateGuard(dt: number, heroPos: THREE.Vector3): void {
-    this.gateGuardIdleT += dt;
-    if (this.gateGuardHead) {
-      const dx = heroPos.x - this.northeastGate.x;
-      const dz = heroPos.z - this.northeastGate.z;
-      const dist = Math.hypot(dx, dz);
-      if (dist < 12) {
-        const targetYaw = Math.atan2(dx, dz) - this.gateGuardBaseYaw;
-        const clamped = Math.max(-0.65, Math.min(0.65, targetYaw));
-        this.gateGuardHead.rotation.y += (clamped - this.gateGuardHead.rotation.y) * Math.min(1, dt * 4);
-      } else {
-        this.gateGuardHead.rotation.y += (0 - this.gateGuardHead.rotation.y) * Math.min(1, dt * 2);
-      }
-    }
-  }
-
-  updateCastleAmbience(dt: number, heroPos: THREE.Vector3): void {
-    this.castleAnimT += dt;
-    this.knightCaptainIdleT += dt;
-
-    // Wind on banners
-    for (const p of this.castleBannerPivots) {
-      const phase = (p.userData.phase as number) ?? 0;
-      const amp = (p.userData.amp as number) ?? 0.12;
-      p.rotation.z = Math.sin(this.castleAnimT * 2.4 + phase) * amp;
-    }
-
-    // Flame flicker in braziers
-    for (const f of this.castleBrazierFlames) {
-      const phase = (f.userData.phase as number) ?? 0;
-      const base = (f.userData.baseScale as number) ?? 1.0;
-      const pulse = 1.0 + Math.sin(this.castleAnimT * 9.0 + phase) * 0.14;
-      f.scale.set(base * pulse, base * (1.0 + Math.cos(this.castleAnimT * 11.0 + phase) * 0.2), base * pulse);
-    }
-
-    // Knight Captain head tracking & subtle idle breathing
-    if (this.knightCaptainHead) {
-      const dx = heroPos.x - CASTLE_KNIGHT_CAPTAIN.x;
-      const dz = heroPos.z - CASTLE_KNIGHT_CAPTAIN.z;
-      const dist = Math.hypot(dx, dz);
-      if (dist < 14) {
-        const targetYaw = Math.atan2(dx, dz) - this.knightCaptainBaseYaw;
-        const clamped = Math.max(-0.75, Math.min(0.75, targetYaw));
-        this.knightCaptainHead.rotation.y += (clamped - this.knightCaptainHead.rotation.y) * Math.min(1, dt * 4);
-      } else {
-        this.knightCaptainHead.rotation.y += (0 - this.knightCaptainHead.rotation.y) * Math.min(1, dt * 2);
-      }
-    }
-
-    if (this.knightCaptainGroup) {
-      this.knightCaptainGroup.position.y = Math.sin(this.knightCaptainIdleT * 1.8) * 0.015;
-    }
-  }
-
   private buildEdgeLedges(): void {
     const ledges: Array<[number, number, number, number]> = [
       // Outer rim ledges — kept off corridor approaches
@@ -6369,6 +6299,7 @@ export class MeadowBiome {
   /** Update castle banner wind sway, brazier flame flicker, and knight captain head tracking. */
   updateCastleAmbience(dt: number, heroPosition?: THREE.Vector3): void {
     this.castleAnimT += dt;
+    this.knightCaptainIdleT += dt;
 
     // 1. Wind sway on heraldic banners
     for (const pivot of this.castleBannerPivots) {
@@ -6387,7 +6318,7 @@ export class MeadowBiome {
       flame.rotation.y += dt * 1.5;
     }
 
-    // 3. Knight Captain head tracking
+    // 3. Knight Captain head tracking & idle breathing
     if (this.knightCaptainHead && heroPosition) {
       const dx = heroPosition.x - CASTLE_KNIGHT_CAPTAIN.x;
       const dz = heroPosition.z - CASTLE_KNIGHT_CAPTAIN.z;
@@ -6407,6 +6338,10 @@ export class MeadowBiome {
           dt * 2.0,
         );
       }
+    }
+
+    if (this.knightCaptainGroup) {
+      this.knightCaptainGroup.position.y = Math.sin(this.knightCaptainIdleT * 1.8) * 0.015;
     }
   }
 
