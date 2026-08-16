@@ -1,5 +1,5 @@
 /** Move-key tap latch: discrete keydown+keyup still yields a visible step. */
-const MOVE_LATCH_MS = 650;
+const MOVE_LATCH_MS = 80;
 
 const MOVE_CODES = new Set([
   'KeyW',
