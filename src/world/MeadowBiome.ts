@@ -55,14 +55,9 @@ import { HARBOR_CATCH_SIGN } from './HarborDocks';
 import {
   CASTLE_BANNER_POSTS,
   CASTLE_BRAZIER_SPOTS,
-  CASTLE_CITADEL_GATE,
-  CASTLE_DUMMY_SPOT,
-  CASTLE_GATEHOUSE_CENTER,
-  CASTLE_KEEP_CENTER,
   CASTLE_KNIGHT_CAPTAIN,
   CASTLE_KNIGHT_CAPTAIN_YAW,
   CASTLE_ARMORY_SPOT,
-  CASTLE_TARGET_SPOT,
   CASTLE_CHEST_SPOT,
 } from './CastleDistrict';
 
@@ -2156,8 +2151,6 @@ export class MeadowBiome {
    * Royal Courtyard with crest mosaic, Knight Captain NPC, Training Yard, Royal Chest, Braziers, and Banners.
    */
   private buildNortheastCastleKeep(): void {
-    const { x: cx, z: cz } = this.northeastCastle;
-
     // 1. Outer Gatehouse / Barbican at (78, 78) facing SW down the causeway approach
     this.addCastleGatehouse(this.northeastCastleGatehouse.x, this.northeastCastleGatehouse.z, -Math.PI * 0.75);
 
@@ -5515,6 +5508,76 @@ export class MeadowBiome {
       }
     } else {
       this.shrineCrystal.rotation.y += dt * 0.25;
+    }
+  }
+
+  updateMarketAmbience(dt: number): void {
+    this.marketAmbienceT += dt;
+    for (let i = 0; i < this.marketFountainSparkles.length; i++) {
+      const s = this.marketFountainSparkles[i]!;
+      s.position.y = (s.userData.baseY ?? 0.8) + Math.sin(this.marketAmbienceT * 3 + i) * 0.15;
+    }
+  }
+
+  updateGateBanners(dt: number): void {
+    this.gateBannerT += dt;
+    for (const p of this.gateBannerPivots) {
+      const phase = (p.userData.phase as number) ?? 0;
+      p.rotation.z = Math.sin(this.gateBannerT * 2.2 + phase) * 0.12;
+    }
+  }
+
+  updateGateGuard(dt: number, heroPos: THREE.Vector3): void {
+    this.gateGuardIdleT += dt;
+    if (this.gateGuardHead) {
+      const dx = heroPos.x - this.northeastGate.x;
+      const dz = heroPos.z - this.northeastGate.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 12) {
+        const targetYaw = Math.atan2(dx, dz) - this.gateGuardBaseYaw;
+        const clamped = Math.max(-0.65, Math.min(0.65, targetYaw));
+        this.gateGuardHead.rotation.y += (clamped - this.gateGuardHead.rotation.y) * Math.min(1, dt * 4);
+      } else {
+        this.gateGuardHead.rotation.y += (0 - this.gateGuardHead.rotation.y) * Math.min(1, dt * 2);
+      }
+    }
+  }
+
+  updateCastleAmbience(dt: number, heroPos: THREE.Vector3): void {
+    this.castleAnimT += dt;
+    this.knightCaptainIdleT += dt;
+
+    // Wind on banners
+    for (const p of this.castleBannerPivots) {
+      const phase = (p.userData.phase as number) ?? 0;
+      const amp = (p.userData.amp as number) ?? 0.12;
+      p.rotation.z = Math.sin(this.castleAnimT * 2.4 + phase) * amp;
+    }
+
+    // Flame flicker in braziers
+    for (const f of this.castleBrazierFlames) {
+      const phase = (f.userData.phase as number) ?? 0;
+      const base = (f.userData.baseScale as number) ?? 1.0;
+      const pulse = 1.0 + Math.sin(this.castleAnimT * 9.0 + phase) * 0.14;
+      f.scale.set(base * pulse, base * (1.0 + Math.cos(this.castleAnimT * 11.0 + phase) * 0.2), base * pulse);
+    }
+
+    // Knight Captain head tracking & subtle idle breathing
+    if (this.knightCaptainHead) {
+      const dx = heroPos.x - CASTLE_KNIGHT_CAPTAIN.x;
+      const dz = heroPos.z - CASTLE_KNIGHT_CAPTAIN.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 14) {
+        const targetYaw = Math.atan2(dx, dz) - this.knightCaptainBaseYaw;
+        const clamped = Math.max(-0.75, Math.min(0.75, targetYaw));
+        this.knightCaptainHead.rotation.y += (clamped - this.knightCaptainHead.rotation.y) * Math.min(1, dt * 4);
+      } else {
+        this.knightCaptainHead.rotation.y += (0 - this.knightCaptainHead.rotation.y) * Math.min(1, dt * 2);
+      }
+    }
+
+    if (this.knightCaptainGroup) {
+      this.knightCaptainGroup.position.y = Math.sin(this.knightCaptainIdleT * 1.8) * 0.015;
     }
   }
 
