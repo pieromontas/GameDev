@@ -3,12 +3,18 @@
     "rewrite": "/index.html",
     "exclude": [
       "/assets/*",
+      "/assets/**",
       "/models/*",
-      "*.{css,js,mjs,ico,png,jpg,jpeg,gif,svg,webp,glb,gltf,woff,woff2,ttf,map,txt,md,json}"
+      "/models/**",
+      "*.{css,js,mjs,ico,png,jpg,jpeg,gif,svg,webp,glb,gltf,bin,woff,woff2,ttf,map,txt,md,json}"
     ]
   },
   "mimeTypes": {
     ".glb": "model/gltf-binary",
-    ".gltf": "model/gltf+json"
+    ".gltf": "model/gltf+json",
+    ".bin": "application/octet-stream",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".webp": "image/webp"
   }
 }
