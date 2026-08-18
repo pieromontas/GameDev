@@ -36,6 +36,8 @@ import {
   MARKET_NOTICE_BOARD_YAW,
   MARKET_PLAZA_LANTERNS,
   MARKET_SIGN_SPOT,
+  MARKET_WAGON_SPOT,
+  MARKET_WAGON_YAW,
 } from './MarketDistrict';
 import {
   MARKET_VENDOR_NPC,
@@ -1589,6 +1591,7 @@ export class MeadowBiome {
     // Crates sit off the fountain footprint so the plaza center stays readable.
     // NW stall hosts the street vendor NPC (E shop — see MarketStreetVendor).
     // SE + E stalls flank the east-rim notice board; west-rim extra stall is toast-only.
+    // SE cobble hosts the parked traveling cart (toast-only — see MarketTravelingCart).
     this.addMarketStall(
       MARKET_VENDOR_STALL.x,
       MARKET_VENDOR_STALL.z,
@@ -1622,6 +1625,13 @@ export class MeadowBiome {
       MARKET_NOTICE_BOARD_SPOT.x,
       MARKET_NOTICE_BOARD_SPOT.z,
       MARKET_NOTICE_BOARD_YAW,
+    );
+
+    // Parked traveling cart on SE cobble (E flavor via MarketTravelingCart).
+    this.addMarketTravelingWagon(
+      MARKET_WAGON_SPOT.x,
+      MARKET_WAGON_SPOT.z,
+      MARKET_WAGON_YAW,
     );
 
     // Warm plaza street lanterns on the cobble rim — town-hub read at a glance.
@@ -1672,6 +1682,10 @@ export class MeadowBiome {
       if (
         Math.hypot(tx - MARKET_NOTICE_BOARD_SPOT.x, tz - MARKET_NOTICE_BOARD_SPOT.z) < 4.5
       ) {
+        continue;
+      }
+      // Keep the SE plaza traveling cart silhouette clear.
+      if (Math.hypot(tx - MARKET_WAGON_SPOT.x, tz - MARKET_WAGON_SPOT.z) < 4.5) {
         continue;
       }
       this.addTree(tx, tz, 0.86 + (i % 3) * 0.06);
@@ -4177,6 +4191,156 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 0.42 });
+  }
+
+  /**
+   * Intact traveling merchant wagon on the SE plaza cobble — wheels, bed,
+   * crate/barrel load, cloth tarp. Distinct from the south-ford wreck.
+   * Soft collision only; fountain / gate lanes stay open. No extra lights.
+   */
+  private addMarketTravelingWagon(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'MarketTravelingWagon';
+
+    const tarpMat = createToonMaterial(0xe07038, {
+      emissive: 0xe07038,
+      emissiveIntensity: 0.14,
+      side: THREE.DoubleSide,
+    });
+    const sackWarmMat = createToonMaterial(Palette.flowerYellow);
+    const sackSpiceMat = createToonMaterial(Palette.roofTile);
+    const sackDustMat = createToonMaterial(0xc4a06a);
+
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(1.15, 14),
+      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.28 }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.02;
+    group.add(shadow);
+
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.16, 1.95), this.woodMat);
+    bed.position.y = 0.62;
+    bed.castShadow = true;
+    bed.receiveShadow = true;
+    group.add(bed);
+
+    const under = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.18, 1.55), this.woodDarkMat);
+    under.position.y = 0.44;
+    under.castShadow = true;
+    group.add(under);
+
+    for (const sz of [-0.56, 0.56] as const) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.42, 1.8), this.woodDarkMat);
+      rail.position.set(sz, 0.88, 0);
+      rail.castShadow = true;
+      group.add(rail);
+    }
+    const tailgate = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.38, 0.09), this.woodDarkMat);
+    tailgate.position.set(0, 0.86, -0.94);
+    tailgate.castShadow = true;
+    group.add(tailgate);
+    const headboard = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.32, 0.09), this.woodMat);
+    headboard.position.set(0, 0.84, 0.94);
+    headboard.castShadow = true;
+    group.add(headboard);
+
+    for (const zAxle of [-0.58, 0.58] as const) {
+      const axle = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.055, 0.055, 1.42, 6),
+        this.woodDarkMat,
+      );
+      axle.rotation.z = Math.PI * 0.5;
+      axle.position.set(0, 0.4, zAxle);
+      group.add(axle);
+      for (const xWheel of [-0.68, 0.68] as const) {
+        // Solid disk wheels — torus rims vanish in the iso camera.
+        const wheel = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.4, 0.4, 0.12, 10),
+          this.woodDarkMat,
+        );
+        wheel.rotation.z = Math.PI * 0.5;
+        wheel.position.set(xWheel, 0.4, zAxle);
+        wheel.castShadow = true;
+        group.add(wheel);
+        const rim = new THREE.Mesh(
+          new THREE.TorusGeometry(0.4, 0.045, 5, 10),
+          this.woodMat,
+        );
+        rim.rotation.y = Math.PI * 0.5;
+        rim.position.set(xWheel, 0.4, zAxle);
+        group.add(rim);
+        const hub = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.09, 0.09, 0.16, 6),
+          this.woodMat,
+        );
+        hub.rotation.z = Math.PI * 0.5;
+        hub.position.set(xWheel, 0.4, zAxle);
+        group.add(hub);
+      }
+    }
+
+    const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.9), this.woodDarkMat);
+    tongue.position.set(0, 0.44, 1.36);
+    tongue.rotation.x = 0.16;
+    tongue.castShadow = true;
+    group.add(tongue);
+
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.46), this.woodMat);
+    crate.position.set(-0.24, 0.92, 0.28);
+    crate.rotation.y = 0.18;
+    crate.castShadow = true;
+    group.add(crate);
+    const crate2 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.3, 0.36), this.woodDarkMat);
+    crate2.position.set(-0.2, 1.28, 0.24);
+    crate2.rotation.y = -0.22;
+    crate2.castShadow = true;
+    group.add(crate2);
+
+    const barrel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.24, 0.26, 0.52, 8),
+      this.woodMat,
+    );
+    barrel.position.set(0.3, 0.96, -0.12);
+    barrel.castShadow = true;
+    group.add(barrel);
+
+    const sackA = new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 5), sackWarmMat);
+    sackA.position.set(0.26, 0.88, 0.48);
+    sackA.scale.set(1.2, 0.85, 1.08);
+    sackA.castShadow = true;
+    group.add(sackA);
+    const sackB = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6, 5), sackSpiceMat);
+    sackB.position.set(-0.3, 0.86, -0.48);
+    sackB.scale.set(1.25, 0.82, 1.12);
+    sackB.castShadow = true;
+    group.add(sackB);
+    const sackC = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), sackDustMat);
+    sackC.position.set(0.1, 0.84, -0.7);
+    sackC.scale.set(1.15, 0.78, 1.2);
+    sackC.castShadow = true;
+    group.add(sackC);
+
+    // Peaked spice tarp — reads at iso distance over the load.
+    const tarpL = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.07, 1.35), tarpMat);
+    tarpL.position.set(-0.28, 1.42, -0.06);
+    tarpL.rotation.z = 0.48;
+    tarpL.castShadow = true;
+    group.add(tarpL);
+    const tarpR = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.07, 1.35), tarpMat);
+    tarpR.position.set(0.28, 1.42, -0.06);
+    tarpR.rotation.z = -0.48;
+    tarpR.castShadow = true;
+    group.add(tarpR);
+    const tarpFlap = new THREE.Mesh(new THREE.PlaneGeometry(1.12, 0.5), tarpMat);
+    tarpFlap.position.set(0, 1.12, -0.72);
+    tarpFlap.rotation.x = 0.48;
+    group.add(tarpFlap);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.1 });
   }
 
   /** Procedural well stand-in at the market plaza (replaced by KayKit well). */

@@ -18,6 +18,7 @@ import {
   MarketExtraStall,
   MarketInn,
   MarketNoticeBoard,
+  MarketTravelingCart,
 } from '../world/MarketDistrict';
 import { MarketStreetVendor } from '../world/MarketStreetVendor';
 import { GateGuard } from '../world/GateGuard';
@@ -64,6 +65,7 @@ export class Game {
   private readonly marketBlacksmith: MarketBlacksmith;
   private readonly marketVendor: MarketStreetVendor;
   private readonly marketExtraStall: MarketExtraStall;
+  private readonly marketWagon: MarketTravelingCart;
   private readonly marketNoticeBoard: MarketNoticeBoard;
   private readonly marketInn: MarketInn;
   private readonly marketAlley: MarketAlley;
@@ -262,6 +264,9 @@ export class Game {
       onShopChanged: (open) => this.hud.setVendorOpen(open, this.lootCount),
     });
     this.marketExtraStall = new MarketExtraStall({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+    });
+    this.marketWagon = new MarketTravelingCart({
       onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.marketNoticeBoard = new MarketNoticeBoard({
@@ -776,11 +781,12 @@ export class Game {
 
   /**
    * E key: closed chests → healing spring → west grove herb → east shrine →
-   * gate guard → blacksmith → street vendor → produce stall → market sign →
-   * notice board → inn → alley → harbor catch crate → residential door →
-   * town chapel → cottage merchant.
+   * gate guard → blacksmith → street vendor → produce stall → traveling cart →
+   * market sign → notice board → inn → alley → harbor catch crate →
+   * residential door → town chapel → cottage merchant.
    * Produce stall is before the market sign so the west-rim pad wins on overlap;
-   * street vendor stays ahead so the snack shop still wins if those pads overlap.
+   * traveling cart is after shops so vendor / produce still win; before the
+   * generic market sign so the cart pad wins vs the sign.
    * Open shop / stall / notice panel always closes on E first so it never blocks
    * other interactables.
    */
@@ -807,6 +813,7 @@ export class Game {
     if (this.marketBlacksmith.tryInteract(this.player)) return;
     if (this.marketVendor.tryInteract(this.player)) return;
     if (this.marketExtraStall.tryInteract(this.player)) return;
+    if (this.marketWagon.tryInteract(this.player)) return;
     if (this.marketSign.tryInteract(this.player)) return;
     if (this.marketNoticeBoard.tryInteract(this.player)) return;
     if (this.marketInn.tryInteract(this.player)) return;
@@ -835,6 +842,7 @@ export class Game {
     const smithPrompt = this.marketBlacksmith.getInteractPrompt(this.player);
     const vendorPrompt = this.marketVendor.getInteractPrompt(this.player);
     const extraStallPrompt = this.marketExtraStall.getInteractPrompt(this.player);
+    const wagonPrompt = this.marketWagon.getInteractPrompt(this.player);
     const noticePrompt = this.marketNoticeBoard.getInteractPrompt(this.player);
     const innPrompt = this.marketInn.getInteractPrompt(this.player);
     const alleyPrompt = this.marketAlley.getInteractPrompt(this.player);
@@ -886,6 +894,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: extraStallPrompt.text,
+      });
+    } else if (wagonPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: wagonPrompt.text,
       });
     } else if (marketPrompt.visible) {
       this.hud.setShrineHud({
