@@ -126,6 +126,14 @@ export class InputManager {
     }
   }
 
+  /**
+   * Drop a queued LMB attack (e.g. first iPad tap that only just revealed the overlay).
+   * Safe to call even if no attack is pending.
+   */
+  suppressPendingAttack(): void {
+    this.justPressed.delete('PointerPrimary');
+  }
+
   getMoveAxes(): { x: number; z: number } {
     let x = 0;
     let z = 0;
