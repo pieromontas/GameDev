@@ -137,16 +137,17 @@ export const MARKET_WAGON_YAW =
  * traveling cart. Wagon local +X is cobble/south (away from the fountain);
  * local +Z is the tongue (ENE into the yellow stall). The tongue-adjacent
  * pad is occupied by MARKET_PLAZA_LANTERNS SSE + the yellow stall, so this
- * cluster sits just south of the bed, west of that lantern — not overlapping
- * cart r=1.1, tailor door, inn porch, or shop pack r≈4.4.
+ * cluster sits south-west of the bed — left of the cart in the default iso
+ * view, west of that lantern — not overlapping cart r=1.1, tailor door,
+ * inn porch colliders, or shop pack r≈4.4.
  * Visual-only (cart E r=3.0 would swallow a hitch prompt). Soft colliders
  * in MeadowBiome (post r≈0.28, trough r≈0.4).
  */
-export const MARKET_HITCHING_SPOT = { x: 52.05, z: 45.9 } as const;
+export const MARKET_HITCHING_SPOT = { x: 51.12, z: 45.88 } as const;
 export const MARKET_HITCHING_YAW = MARKET_WAGON_YAW;
 
 /** Trough offset in hitching-group space (+X further cobble). */
-export const MARKET_TROUGH_LOCAL = { x: 0.48, z: 0.08 } as const;
+export const MARKET_TROUGH_LOCAL = { x: 0.42, z: 0.12 } as const;
 
 export const MARKET_WATER_TROUGH = {
   x:
