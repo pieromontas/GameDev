@@ -17,6 +17,7 @@ import {
   NortheastCastleKeep,
   hash2,
 } from '../render/stylized';
+import { addDynamicPointLight } from '../render/deviceQuality';
 import type { WorldPropLibrary } from './WorldPropLibrary';
 import {
   PROP_COLLISION_SCALE,
@@ -2701,9 +2702,8 @@ export class MeadowBiome {
     this.castleBrazierFlames.push(flame);
     group.add(flame);
 
-    const light = new THREE.PointLight(0xff9933, 0.65, 6.5, 2);
-    light.position.y = 1.65;
-    group.add(light);
+    const light = addDynamicPointLight(group, 0xff9933, 0.65, 6.5, 2);
+    if (light) light.position.y = 1.65;
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 0.45 });
@@ -2981,9 +2981,8 @@ export class MeadowBiome {
     const flame = new THREE.Mesh(new THREE.SphereGeometry(0.1, 5, 4), candleMat);
     flame.position.set(0.15, 0.48, -0.85);
     group.add(flame);
-    const light = new THREE.PointLight(0xffc070, 0.35, 4.2, 2);
-    light.position.set(0.15, 0.55, -0.85);
-    group.add(light);
+    const light = addDynamicPointLight(group, 0xffc070, 0.35, 4.2, 2);
+    if (light) light.position.set(0.15, 0.55, -0.85);
 
     this.root.add(group);
   }
@@ -3050,9 +3049,8 @@ export class MeadowBiome {
     group.add(lamp);
 
     // Dim + short range — denser street lamps must not blow out MeshToon.
-    const light = new THREE.PointLight(0xffb060, 0.4, 4.8, 2);
-    light.position.y = 2.2;
-    group.add(light);
+    const light = addDynamicPointLight(group, 0xffb060, 0.4, 4.8, 2);
+    if (light) light.position.y = 2.2;
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 0.32 });
@@ -3843,9 +3841,8 @@ export class MeadowBiome {
     group.add(lamp);
 
     // Dim + short range — several plaza lamps must not blow out MeshToon.
-    const light = new THREE.PointLight(0xffb060, 0.4, 4.8, 2);
-    light.position.set(0.38, 2.0, 0);
-    group.add(light);
+    const light = addDynamicPointLight(group, 0xffb060, 0.4, 4.8, 2);
+    if (light) light.position.set(0.38, 2.0, 0);
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 0.32 });
@@ -4477,9 +4474,8 @@ export class MeadowBiome {
     group.add(barrel);
 
     // Soft ember light + rising smoke puffs (animated in updateMarketAmbience)
-    const light = new THREE.PointLight(0xff7a30, 0.85, 7.5, 2);
-    light.position.set(-0.35, 1.15, -0.1);
-    group.add(light);
+    const light = addDynamicPointLight(group, 0xff7a30, 0.85, 7.5, 2);
+    if (light) light.position.set(-0.35, 1.15, -0.1);
     this.marketForgeLight = light;
 
     const smokeMat = createToonMaterial(0xb0b0b0, {
@@ -4689,9 +4685,8 @@ export class MeadowBiome {
       const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), lanternMat);
       lamp.position.set(lx, 1.45, lz);
       group.add(lamp);
-      const light = new THREE.PointLight(0xffb060, 0.55, 5.5, 2);
-      light.position.set(lx, 1.5, lz);
-      group.add(light);
+      const light = addDynamicPointLight(group, 0xffb060, 0.55, 5.5, 2);
+      if (light) light.position.set(lx, 1.5, lz);
     }
 
     this.root.add(group);

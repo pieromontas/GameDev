@@ -35,6 +35,12 @@ import { HUD } from '../ui/HUD';
 import { HealthBars } from '../ui/HealthBars';
 import { Palette, createSkyDome } from '../render/stylized';
 import {
+  cappedPixelRatio,
+  drawingBufferSize,
+  isIosPlay,
+  isMobilePlay,
+} from '../render/deviceQuality';
+import {
   SPAWN_AGGRO_GRACE,
   isInsideSpawnSafe,
   pushOutOfSpawnSafe,
@@ -70,6 +76,10 @@ export class Game {
   readonly player: Player;
   /** Public for DevTools / touch overlay checks via `window.__game.input`. */
   readonly input: InputManager;
+  /** Phone/iPad GPU cap — `?touch=1` overlay preview stays false. */
+  readonly mobilePlay = isMobilePlay();
+  /** Safari/WebKit iOS/iPadOS — DPR 1.0 + visualViewport. Mac Safari mouse stays false. */
+  readonly iosPlay = isIosPlay();
   private readonly mobs: Enemy[];
   private readonly loot: LootPickup[] = [];
   private readonly combat: CombatSystem;
@@ -103,17 +113,22 @@ export class Game {
   private castleHintShown = false;
 
   constructor(canvas: HTMLCanvasElement, hudHost: HTMLElement) {
+    const mobile = this.mobilePlay;
+    const view = drawingBufferSize();
     this.renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: true,
+      antialias: !mobile,
       alpha: false,
       powerPreference: 'high-performance',
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setSize(window.innerWidth, window.innerHeight, false);
-    this.renderer.shadowMap.enabled = true;
-    // Soft contact shadows — closer to the style-target meadow lighting
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.setPixelRatio(cappedPixelRatio());
+    this.renderer.setSize(view.width, view.height, false);
+    this.renderer.shadowMap.enabled = !mobile;
+    // Soft contact shadows — closer to the style-target meadow lighting.
+    // iPad fill-rate: MSAA + PCF soft 1024 is the main hitch; mobile skips shadows.
+    if (!mobile) {
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
@@ -144,7 +159,7 @@ export class Game {
     this.clearEnemiesFromSpawnSafe();
     this.spawnAggroGrace = SPAWN_AGGRO_GRACE;
 
-    this.cameraRig = new FollowCamera(window.innerWidth / window.innerHeight);
+    this.cameraRig = new FollowCamera(view.width / view.height);
     this.cameraRig.snapTo(this.player.position);
 
     this.input = new InputManager(canvas);
@@ -300,6 +315,7 @@ export class Game {
     });
 
     window.addEventListener('resize', this.onResize);
+    this.bindVisualViewport();
   }
 
   /**
@@ -342,6 +358,11 @@ export class Game {
     this.touchControls.dispose();
     this.input.dispose();
     window.removeEventListener('resize', this.onResize);
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.removeEventListener('resize', this.onResize);
+      vv.removeEventListener('scroll', this.onResize);
+    }
     this.renderer.dispose();
   }
 
@@ -373,18 +394,20 @@ export class Game {
 
     const sun = new THREE.DirectionalLight(Palette.sun, 2.0);
     sun.position.set(22, 34, 14);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.bias = -0.0006;
-    sun.shadow.normalBias = 0.05;
-    sun.shadow.radius = 3;
-    sun.shadow.camera.near = 2;
-    sun.shadow.camera.far = 95;
-    sun.shadow.camera.left = -40;
-    sun.shadow.camera.right = 40;
-    sun.shadow.camera.top = 40;
-    sun.shadow.camera.bottom = -40;
-    sun.shadow.camera.updateProjectionMatrix();
+    sun.castShadow = !this.mobilePlay;
+    if (sun.castShadow) {
+      sun.shadow.mapSize.set(1024, 1024);
+      sun.shadow.bias = -0.0006;
+      sun.shadow.normalBias = 0.05;
+      sun.shadow.radius = 3;
+      sun.shadow.camera.near = 2;
+      sun.shadow.camera.far = 95;
+      sun.shadow.camera.left = -40;
+      sun.shadow.camera.right = 40;
+      sun.shadow.camera.top = 40;
+      sun.shadow.camera.bottom = -40;
+      sun.shadow.camera.updateProjectionMatrix();
+    }
     this.scene.add(sun);
     this.scene.add(sun.target);
 
@@ -541,15 +564,20 @@ export class Game {
       this.foliageLookAt,
       this.meadow.getFoliageOccluders(),
     );
-    // Keep the sun shadow frustum centered on the player (cheap soft shadows).
-    this.sun.target.position.copy(this.player.position);
-    this.sun.position.set(
-      this.player.position.x + 22,
-      34,
-      this.player.position.z + 14,
-    );
+    // Keep the sun shadow frustum centered on the player (desktop only).
+    if (this.sun.castShadow) {
+      this.sun.target.position.copy(this.player.position);
+      this.sun.position.set(
+        this.player.position.x + 22,
+        34,
+        this.player.position.z + 14,
+      );
+    }
     // Sky follows the camera so the gradient always fills the backdrop.
-    this.sky.position.copy(this.cameraRig.camera.position);
+    const camPos = this.cameraRig.camera.position;
+    if (this.sky.position.distanceToSquared(camPos) > 0.0025) {
+      this.sky.position.copy(camPos);
+    }
     this.healthBars.update(this.cameraRig.camera);
     this.hud.update(this.player, this.lootCount, this.kills, dt);
     this.hud.updateMinimap(this.player, this.mobs);
@@ -1001,10 +1029,19 @@ export class Game {
     this.renderer.render(this.scene, this.cameraRig.camera);
   }
 
+  /** Safari iPad desktop-mode / URL-bar: drawable size is visualViewport, not layout viewport. */
+  private bindVisualViewport(): void {
+    if (!this.iosPlay) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    vv.addEventListener('resize', this.onResize);
+    vv.addEventListener('scroll', this.onResize);
+  }
+
   private onResize = (): void => {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    this.renderer.setSize(w, h, false);
-    this.cameraRig.setAspect(w / h);
+    const { width, height } = drawingBufferSize();
+    this.renderer.setPixelRatio(cappedPixelRatio());
+    this.renderer.setSize(width, height, false);
+    this.cameraRig.setAspect(width / height);
   };
 }
