@@ -68,8 +68,17 @@ export type Obstacle = { x: number; z: number; radius: number };
 
 type PropPlacement = { x: number; z: number; scale: number };
 
+/** Painted hanging-sign trade for the three plaza shop cottages. */
+type ShopTrade = 'baker' | 'apothecary' | 'tailor';
+
 /** KayKit cottage reused as a market shop facade (pack-swapped like the NW cottage). */
-type ShopPlacement = { x: number; z: number; scale: number; yaw: number };
+type ShopPlacement = {
+  x: number;
+  z: number;
+  scale: number;
+  yaw: number;
+  trade?: ShopTrade;
+};
 
 type SignFacing = 'east' | 'west' | 'north' | 'south' | 'northeast';
 
@@ -1552,11 +1561,12 @@ export class MeadowBiome {
     // Street-facing KayKit shops (procedural stand-ins → pack swap). Yaw faces cobble.
     // Street runs along the NE diagonal; shops sit well off the walk lane
     // (KayKit cottage collision ≈ 1.6 × PROP_SCALE.cottage after pack apply).
-    this.addMarketShop(44.8, 58.2, 1.08, Math.PI * 0.78);
+    // Hanging trade signs (baker / tailor / apothecary) sit on the plaza facade.
+    this.addMarketShop(44.8, 58.2, 1.08, Math.PI * 0.78, 'baker');
     // SE shop — nudged SW so the open SE docks spur clears pack r≈4.4
-    this.addMarketShop(57.2, 43.2, 1.12, -Math.PI * 0.22);
+    this.addMarketShop(57.2, 43.2, 1.12, -Math.PI * 0.22, 'tailor');
     // Far-side shop — stay ≥~5 units off the diagonal so pack-scaled cottage r≈4.4 clears the street
-    this.addMarketShop(61.0, 53.0, 1.18, -Math.PI * 0.45);
+    this.addMarketShop(61.0, 53.0, 1.18, -Math.PI * 0.45, 'apothecary');
 
     // Central plaza fountain — soft blocker; leave walk lanes around the cobble.
     this.addMarketFountain(MARKET_FOUNTAIN_SPOT.x, MARKET_FOUNTAIN_SPOT.z);
@@ -3611,14 +3621,20 @@ export class MeadowBiome {
   }
 
   /** Procedural KayKit-cottage stand-in for a market shop (pack-swapped later). */
-  private addMarketShop(x: number, z: number, scale: number, yaw: number): void {
-    this.shopPlacements.push({ x, z, scale, yaw });
+  private addMarketShop(
+    x: number,
+    z: number,
+    scale: number,
+    yaw: number,
+    trade: ShopTrade,
+  ): void {
+    this.shopPlacements.push({ x, z, scale, yaw, trade });
     const group = new THREE.Group();
     group.position.set(x, 0, z);
     group.rotation.y = yaw;
     group.scale.setScalar(scale);
     group.userData.proceduralProp = true;
-    group.name = 'MarketShopStandIn';
+    group.name = `MarketShopStandIn_${trade}`;
 
     const walls = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.65, 2.15), this.rockLightMat);
     walls.position.y = 0.82;
@@ -3651,6 +3667,175 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 1.6 });
+    // Sign is a separate root child so it survives the KayKit pack swap.
+    this.addMarketShopHangingSign(x, z, scale, yaw, trade);
+  }
+
+  /**
+   * Iron-bracket hanging trade sign on a plaza shop's street-facing facade.
+   * Positioned for KayKit `building_home_A_green` (local +Z toward the cobble).
+   * Board stays inside pack r≈4.4 so fountain / gate lanes need no extra collider.
+   * Slight idle sway reuses city-gate banner pivots — no new animation system.
+   */
+  private addMarketShopHangingSign(
+    x: number,
+    z: number,
+    scale: number,
+    yaw: number,
+    trade: ShopTrade,
+  ): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = `MarketShopSign_${trade}`;
+
+    // KayKit home_A raw +Z wall 0.385, height 0.93 → world × (TARGET.cottage / 0.93) × shop.scale.
+    const pack = 7.54 * scale;
+    const wallZ = 0.385 * pack;
+    const hangX = 0.23 * pack;
+    const hangY = 0.47 * pack;
+    const armLen = 0.38;
+
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.32, 0.07), this.ironMat);
+    plate.position.set(hangX, hangY, wallZ + 0.02);
+    plate.castShadow = true;
+    group.add(plate);
+
+    const arm = new THREE.Mesh(
+      new THREE.BoxGeometry(0.065, 0.065, armLen),
+      this.ironMat,
+    );
+    arm.position.set(hangX, hangY, wallZ + 0.04 + armLen * 0.5);
+    arm.castShadow = true;
+    group.add(arm);
+
+    const brace = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, 0.28), this.ironMat);
+    brace.position.set(hangX, hangY - 0.1, wallZ + 0.16);
+    brace.rotation.x = 0.55;
+    group.add(brace);
+
+    const pivot = new THREE.Group();
+    pivot.position.set(hangX, hangY - 0.02, wallZ + 0.04 + armLen);
+    pivot.userData.phase = hash2(x, z) * 8.1;
+    pivot.userData.amp = 0.045;
+    group.add(pivot);
+    this.gateBannerPivots.push(pivot);
+
+    for (const side of [-1, 1] as const) {
+      const hook = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.018, 0.018, 0.16, 5),
+        this.ironMat,
+      );
+      hook.position.set(side * 0.16, -0.08, 0);
+      pivot.add(hook);
+    }
+
+    const board = new THREE.Mesh(
+      new THREE.BoxGeometry(0.78, 0.62, 0.07),
+      this.signBoardMat,
+    );
+    board.position.set(0, -0.42, 0);
+    board.castShadow = true;
+    pivot.add(board);
+
+    const trim = new THREE.Mesh(
+      new THREE.BoxGeometry(0.68, 0.07, 0.08),
+      this.bannerTrimMat,
+    );
+    trim.position.set(0, -0.16, 0.01);
+    pivot.add(trim);
+
+    const frame = new THREE.Mesh(
+      new THREE.BoxGeometry(0.82, 0.66, 0.045),
+      this.woodDarkMat,
+    );
+    frame.position.set(0, -0.42, -0.01);
+    pivot.add(frame);
+
+    this.addMarketShopTradeIcon(pivot, trade);
+    this.root.add(group);
+  }
+
+  /** Simple MeshToon silhouette painted on the hanging board — readable from the fountain. */
+  private addMarketShopTradeIcon(parent: THREE.Group, trade: ShopTrade): void {
+    const icon = new THREE.Group();
+    icon.position.set(0, -0.46, 0.055);
+    parent.add(icon);
+
+    if (trade === 'baker') {
+      const loafMat = createToonMaterial(0xe0a050, {
+        emissive: 0xc47828,
+        emissiveIntensity: 0.12,
+      });
+      const crustMat = createToonMaterial(Palette.woodDark);
+      const loaf = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), loafMat);
+      loaf.scale.set(1.35, 0.62, 0.85);
+      loaf.castShadow = true;
+      icon.add(loaf);
+      const score = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.03, 0.04), crustMat);
+      score.position.set(0, 0.08, 0.12);
+      score.rotation.z = 0.12;
+      icon.add(score);
+      return;
+    }
+
+    if (trade === 'apothecary') {
+      const glassMat = createToonMaterial(Palette.pond, {
+        emissive: Palette.pond,
+        emissiveIntensity: 0.32,
+        transparent: true,
+        opacity: 0.88,
+      });
+      const liquidMat = createToonMaterial(Palette.flowerPurple, {
+        emissive: Palette.flowerPurple,
+        emissiveIntensity: 0.4,
+      });
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 7), glassMat);
+      body.position.y = -0.02;
+      body.castShadow = true;
+      icon.add(body);
+      const liquid = new THREE.Mesh(new THREE.SphereGeometry(0.11, 7, 6), liquidMat);
+      liquid.position.y = -0.04;
+      icon.add(liquid);
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.14, 6), glassMat);
+      neck.position.y = 0.16;
+      icon.add(neck);
+      const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.05, 6), this.woodDarkMat);
+      cork.position.y = 0.25;
+      icon.add(cork);
+      return;
+    }
+
+    const clothMat = createToonMaterial(Palette.warriorCloth, {
+      emissive: Palette.warriorCloth,
+      emissiveIntensity: 0.1,
+    });
+    const clothLight = createToonMaterial(Palette.flowerCyan);
+    const fold = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.26, 0.07), clothMat);
+    fold.rotation.z = -0.18;
+    fold.position.set(-0.02, 0.02, 0);
+    fold.castShadow = true;
+    icon.add(fold);
+    const fold2 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.2, 0.06), clothLight);
+    fold2.rotation.z = 0.28;
+    fold2.position.set(0.05, -0.06, 0.03);
+    icon.add(fold2);
+    const spool = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.07, 0.07, 0.16, 7),
+      createToonMaterial(Palette.flowerPink),
+    );
+    spool.rotation.z = Math.PI * 0.5;
+    spool.position.set(0, -0.18, 0.02);
+    icon.add(spool);
+    for (const side of [-1, 1] as const) {
+      const disk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.09, 0.025, 8),
+        this.woodDarkMat,
+      );
+      disk.rotation.z = Math.PI * 0.5;
+      disk.position.set(side * 0.09, -0.18, 0.02);
+      icon.add(disk);
+    }
   }
 
   /**
@@ -6076,12 +6261,14 @@ export class MeadowBiome {
     }
 
     // Market district shops — KayKit cottages facing the cobble street.
+    // Hanging trade signs are independent root children (survive this swap).
     for (const shop of this.shopPlacements) {
       const mesh = library.createCottage(shop.x, shop.z, {
         scale: shop.scale,
         yaw: shop.yaw,
       });
       if (mesh) {
+        mesh.name = `MarketShop_${shop.trade}`;
         this.root.add(mesh);
         placed += 1;
       }
