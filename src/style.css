@@ -34,6 +34,7 @@ body {
 }
 
 #app {
+  position: relative;
   margin: 0;
   width: 100%;
   height: 100%;
@@ -43,8 +44,11 @@ body {
 
 #game-canvas {
   display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 0;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -1011,7 +1015,7 @@ kbd {
 #touch-controls {
   position: fixed;
   inset: 0;
-  z-index: 11;
+  z-index: 20;
   pointer-events: none;
   touch-action: none;
   user-select: none;

@@ -71,7 +71,9 @@ export class TouchControls {
 
     this.stickZone.addEventListener('pointerdown', this.onStickDown);
     this.stick.addEventListener('pointerdown', this.onStickDown);
-    window.addEventListener('pointermove', this.onStickMove);
+    // Capture so a left-half press still starts the stick if the canvas wins hit-testing.
+    document.addEventListener('pointerdown', this.onGlobalStickDown, true);
+    window.addEventListener('pointermove', this.onStickMove, { passive: false });
     window.addEventListener('pointerup', this.onStickUp);
     window.addEventListener('pointercancel', this.onStickUp);
     this.stickZone.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -102,6 +104,7 @@ export class TouchControls {
     this.clearStick();
     this.stickZone.removeEventListener('pointerdown', this.onStickDown);
     this.stick.removeEventListener('pointerdown', this.onStickDown);
+    document.removeEventListener('pointerdown', this.onGlobalStickDown, true);
     window.removeEventListener('pointermove', this.onStickMove);
     window.removeEventListener('pointerup', this.onStickUp);
     window.removeEventListener('pointercancel', this.onStickUp);
@@ -135,6 +138,18 @@ export class TouchControls {
     const el = e.target as HTMLElement | null;
     if (el?.closest('.shop-panel')) return;
     e.preventDefault();
+  };
+
+  /** Left-half press starts the stick even when the canvas is the hit target. */
+  private onGlobalStickDown = (e: PointerEvent): void => {
+    if (this.root.hidden) return;
+    if (this.stickPointerId !== null) return;
+    const t = e.target as HTMLElement | null;
+    if (t?.closest('.touch-btn, .shop-panel, #minimap-panel')) return;
+    const zone = this.stickZone.getBoundingClientRect();
+    if (zone.width <= 0 || zone.height <= 0) return;
+    if (e.clientX > zone.right || e.clientY < zone.top) return;
+    this.onStickDown(e);
   };
 
   private onStickDown = (e: PointerEvent): void => {
