@@ -4696,8 +4696,17 @@ export class MeadowBiome {
       createToonMaterial(0x1a2818, { transparent: true, opacity: 0.32 }),
     );
     shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = 0.025;
+    shadow.position.y = 0.02;
     group.add(shadow);
+
+    // Grey paver so the wood silhouette reads against tan plaza cobble from iso.
+    const paver = new THREE.Mesh(
+      new THREE.BoxGeometry(1.42, 0.07, 0.58),
+      this.rockMat,
+    );
+    paver.position.y = 0.045;
+    paver.receiveShadow = true;
+    group.add(paver);
 
     const seat = new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.12, 0.46), this.woodMat);
     seat.position.y = 0.5;
