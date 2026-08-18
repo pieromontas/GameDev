@@ -4696,9 +4696,10 @@ export class MeadowBiome {
     const ropeMat = createToonMaterial(Palette.trunkDark);
     const troughWaterMat = createToonMaterial(Palette.pond, {
       transparent: true,
-      opacity: 0.88,
+      opacity: 0.92,
       emissive: Palette.pond,
-      emissiveIntensity: 0.12,
+      emissiveIntensity: 0.22,
+      side: THREE.DoubleSide,
     });
 
     const shadow = new THREE.Mesh(
@@ -4778,8 +4779,9 @@ export class MeadowBiome {
     lip.position.set(troughX, 0.4, troughZ);
     lip.castShadow = true;
     group.add(lip);
-    const water = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.06, 0.76), troughWaterMat);
-    water.position.set(troughX, 0.36, troughZ);
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.72), troughWaterMat);
+    water.rotation.x = -Math.PI / 2;
+    water.position.set(troughX, 0.445, troughZ);
     group.add(water);
 
     this.root.add(group);
