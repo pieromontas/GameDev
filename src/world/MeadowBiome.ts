@@ -4204,9 +4204,9 @@ export class MeadowBiome {
     group.rotation.y = yaw;
     group.name = 'MarketTravelingWagon';
 
-    const tarpMat = createToonMaterial(0xd4783a, {
-      emissive: 0xd4783a,
-      emissiveIntensity: 0.08,
+    const tarpMat = createToonMaterial(0xe07038, {
+      emissive: 0xe07038,
+      emissiveIntensity: 0.14,
       side: THREE.DoubleSide,
     });
     const sackWarmMat = createToonMaterial(Palette.flowerYellow);
@@ -4214,115 +4214,129 @@ export class MeadowBiome {
     const sackDustMat = createToonMaterial(0xc4a06a);
 
     const shadow = new THREE.Mesh(
-      new THREE.CircleGeometry(1.05, 14),
-      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.26 }),
+      new THREE.CircleGeometry(1.15, 14),
+      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.28 }),
     );
     shadow.rotation.x = -Math.PI / 2;
     shadow.position.y = 0.02;
     group.add(shadow);
 
-    const bed = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.14, 1.85), this.woodMat);
-    bed.position.y = 0.58;
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.16, 1.95), this.woodMat);
+    bed.position.y = 0.62;
     bed.castShadow = true;
     bed.receiveShadow = true;
     group.add(bed);
 
-    const under = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.16, 1.45), this.woodDarkMat);
-    under.position.y = 0.42;
+    const under = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.18, 1.55), this.woodDarkMat);
+    under.position.y = 0.44;
     under.castShadow = true;
     group.add(under);
 
-    for (const sz of [-0.52, 0.52] as const) {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.38, 1.7), this.woodDarkMat);
-      rail.position.set(sz, 0.82, 0);
+    for (const sz of [-0.56, 0.56] as const) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.42, 1.8), this.woodDarkMat);
+      rail.position.set(sz, 0.88, 0);
       rail.castShadow = true;
       group.add(rail);
     }
-    const tailgate = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.34, 0.08), this.woodDarkMat);
-    tailgate.position.set(0, 0.8, -0.88);
+    const tailgate = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.38, 0.09), this.woodDarkMat);
+    tailgate.position.set(0, 0.86, -0.94);
     tailgate.castShadow = true;
     group.add(tailgate);
-    const headboard = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.28, 0.08), this.woodMat);
-    headboard.position.set(0, 0.78, 0.88);
+    const headboard = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.32, 0.09), this.woodMat);
+    headboard.position.set(0, 0.84, 0.94);
     headboard.castShadow = true;
     group.add(headboard);
 
-    for (const zAxle of [-0.55, 0.55] as const) {
+    for (const zAxle of [-0.58, 0.58] as const) {
       const axle = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.05, 0.05, 1.28, 6),
+        new THREE.CylinderGeometry(0.055, 0.055, 1.42, 6),
         this.woodDarkMat,
       );
       axle.rotation.z = Math.PI * 0.5;
-      axle.position.set(0, 0.38, zAxle);
+      axle.position.set(0, 0.4, zAxle);
       group.add(axle);
-      for (const xWheel of [-0.62, 0.62] as const) {
+      for (const xWheel of [-0.68, 0.68] as const) {
+        // Solid disk wheels — torus rims vanish in the iso camera.
         const wheel = new THREE.Mesh(
-          new THREE.TorusGeometry(0.36, 0.08, 6, 12),
+          new THREE.CylinderGeometry(0.4, 0.4, 0.12, 10),
           this.woodDarkMat,
         );
-        wheel.position.set(xWheel, 0.38, zAxle);
-        wheel.rotation.y = Math.PI * 0.5;
+        wheel.rotation.z = Math.PI * 0.5;
+        wheel.position.set(xWheel, 0.4, zAxle);
         wheel.castShadow = true;
         group.add(wheel);
+        const rim = new THREE.Mesh(
+          new THREE.TorusGeometry(0.4, 0.045, 5, 10),
+          this.woodMat,
+        );
+        rim.rotation.y = Math.PI * 0.5;
+        rim.position.set(xWheel, 0.4, zAxle);
+        group.add(rim);
         const hub = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.08, 0.08, 0.12, 6),
+          new THREE.CylinderGeometry(0.09, 0.09, 0.16, 6),
           this.woodMat,
         );
         hub.rotation.z = Math.PI * 0.5;
-        hub.position.set(xWheel, 0.38, zAxle);
+        hub.position.set(xWheel, 0.4, zAxle);
         group.add(hub);
       }
     }
 
-    const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.85), this.woodDarkMat);
-    tongue.position.set(0, 0.42, 1.28);
-    tongue.rotation.x = 0.18;
+    const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.9), this.woodDarkMat);
+    tongue.position.set(0, 0.44, 1.36);
+    tongue.rotation.x = 0.16;
     tongue.castShadow = true;
     group.add(tongue);
 
-    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.38, 0.42), this.woodMat);
-    crate.position.set(-0.22, 0.86, 0.22);
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.46), this.woodMat);
+    crate.position.set(-0.24, 0.92, 0.28);
     crate.rotation.y = 0.18;
     crate.castShadow = true;
     group.add(crate);
-    const crate2 = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.28, 0.34), this.woodDarkMat);
-    crate2.position.set(-0.18, 1.18, 0.18);
+    const crate2 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.3, 0.36), this.woodDarkMat);
+    crate2.position.set(-0.2, 1.28, 0.24);
     crate2.rotation.y = -0.22;
     crate2.castShadow = true;
     group.add(crate2);
 
     const barrel = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.22, 0.24, 0.48, 8),
+      new THREE.CylinderGeometry(0.24, 0.26, 0.52, 8),
       this.woodMat,
     );
-    barrel.position.set(0.28, 0.9, -0.15);
+    barrel.position.set(0.3, 0.96, -0.12);
     barrel.castShadow = true;
     group.add(barrel);
 
-    const sackA = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6, 5), sackWarmMat);
-    sackA.position.set(0.22, 0.82, 0.42);
-    sackA.scale.set(1.15, 0.85, 1.05);
+    const sackA = new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 5), sackWarmMat);
+    sackA.position.set(0.26, 0.88, 0.48);
+    sackA.scale.set(1.2, 0.85, 1.08);
     sackA.castShadow = true;
     group.add(sackA);
-    const sackB = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), sackSpiceMat);
-    sackB.position.set(-0.28, 0.8, -0.42);
-    sackB.scale.set(1.2, 0.8, 1.1);
+    const sackB = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6, 5), sackSpiceMat);
+    sackB.position.set(-0.3, 0.86, -0.48);
+    sackB.scale.set(1.25, 0.82, 1.12);
     sackB.castShadow = true;
     group.add(sackB);
-    const sackC = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), sackDustMat);
-    sackC.position.set(0.08, 0.78, -0.58);
-    sackC.scale.set(1.1, 0.75, 1.15);
+    const sackC = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), sackDustMat);
+    sackC.position.set(0.1, 0.84, -0.7);
+    sackC.scale.set(1.15, 0.78, 1.2);
     sackC.castShadow = true;
     group.add(sackC);
 
-    const tarp = new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.06, 1.15), tarpMat);
-    tarp.position.set(0, 1.28, -0.08);
-    tarp.rotation.x = -0.12;
-    tarp.castShadow = true;
-    group.add(tarp);
-    const tarpFlap = new THREE.Mesh(new THREE.PlaneGeometry(1.05, 0.42), tarpMat);
-    tarpFlap.position.set(0, 1.08, -0.62);
-    tarpFlap.rotation.x = 0.55;
+    // Peaked spice tarp — reads at iso distance over the load.
+    const tarpL = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.07, 1.35), tarpMat);
+    tarpL.position.set(-0.28, 1.42, -0.06);
+    tarpL.rotation.z = 0.48;
+    tarpL.castShadow = true;
+    group.add(tarpL);
+    const tarpR = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.07, 1.35), tarpMat);
+    tarpR.position.set(0.28, 1.42, -0.06);
+    tarpR.rotation.z = -0.48;
+    tarpR.castShadow = true;
+    group.add(tarpR);
+    const tarpFlap = new THREE.Mesh(new THREE.PlaneGeometry(1.12, 0.5), tarpMat);
+    tarpFlap.position.set(0, 1.12, -0.72);
+    tarpFlap.rotation.x = 0.48;
     group.add(tarpFlap);
 
     this.root.add(group);
