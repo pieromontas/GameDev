@@ -4,6 +4,21 @@ const STICK_DEADZONE = 0.14;
 const STICK_RADIUS_PX = 58;
 const ROTATE_HINT = 'Rotate for landscape';
 
+/** Navigator fields used by the iPadOS-as-desktop heuristic. */
+export type TouchNavHint = Pick<Navigator, 'maxTouchPoints' | 'platform' | 'userAgent'>;
+
+/**
+ * iPadOS 13+ Safari “Request Desktop Website” reports a Macintosh UA
+ * (`pointer: fine`, `hover: hover`). Do not use `maxTouchPoints > 1` alone —
+ * that would also match Windows laptops with a touchscreen.
+ */
+export function isIPadOsDesktopTouch(nav: TouchNavHint): boolean {
+  return (
+    nav.maxTouchPoints > 1 &&
+    (nav.platform === 'MacIntel' || /iPad|iPhone|iPod/.test(nav.userAgent))
+  );
+}
+
 /** Primary pointing device is a finger (phone / tablet), not a desktop mouse. */
 export function isCoarsePointer(): boolean {
   if (typeof window === 'undefined') return false;
@@ -16,6 +31,7 @@ export function isCoarsePointer(): boolean {
   if ('ontouchstart' in window && window.matchMedia('(hover: none)').matches) {
     return true;
   }
+  if (isIPadOsDesktopTouch(window.navigator)) return true;
   return false;
 }
 
@@ -34,6 +50,8 @@ export class TouchControls {
   private stickPointerId: number | null = null;
   private originX = 0;
   private originY = 0;
+  /** First real finger tap revealed the overlay when media queries missed. */
+  private revealedByTouch = false;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -96,6 +114,9 @@ export class TouchControls {
     this.hoverMq.addEventListener('change', this.syncMode);
     window.addEventListener('resize', this.syncMode);
     window.addEventListener('orientationchange', this.syncMode);
+    // Capture so overlay mode is on before InputManager sees the same tap as LMB.
+    window.addEventListener('pointerdown', this.onFirstTouchPointer, true);
+    window.addEventListener('touchstart', this.onFirstTouchStart, { capture: true, passive: true });
 
     this.syncMode();
   }
@@ -115,13 +136,32 @@ export class TouchControls {
     this.hoverMq.removeEventListener('change', this.syncMode);
     window.removeEventListener('resize', this.syncMode);
     window.removeEventListener('orientationchange', this.syncMode);
+    window.removeEventListener('pointerdown', this.onFirstTouchPointer, true);
+    window.removeEventListener('touchstart', this.onFirstTouchStart, true);
     this.root.remove();
     this.input.setCanvasTouchPlay(false);
     document.documentElement.classList.remove('touch-play', 'touch-portrait');
   }
 
+  private onFirstTouchPointer = (e: PointerEvent): void => {
+    if (e.pointerType !== 'touch') return;
+    this.revealFromFinger();
+  };
+
+  private onFirstTouchStart = (): void => {
+    this.revealFromFinger();
+  };
+
+  /** Belt-and-suspenders: a real finger shows the overlay even if heuristics miss. */
+  private revealFromFinger(): void {
+    if (!this.root.hidden) return;
+    this.revealedByTouch = true;
+    this.syncMode();
+    this.input.suppressPendingAttack();
+  }
+
   private syncMode = (): void => {
-    const show = isCoarsePointer();
+    const show = isCoarsePointer() || this.revealedByTouch;
     this.root.hidden = !show;
     this.root.setAttribute('aria-hidden', show ? 'false' : 'true');
     document.documentElement.classList.toggle('touch-play', show);
@@ -153,7 +193,7 @@ export class TouchControls {
   };
 
   private onStickDown = (e: PointerEvent): void => {
-    if (e.pointerType === 'mouse' && !isCoarsePointer()) return;
+    if (e.pointerType === 'mouse' && this.root.hidden) return;
     if (this.stickPointerId !== null) return;
     e.preventDefault();
     e.stopPropagation();
