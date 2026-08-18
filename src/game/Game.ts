@@ -601,12 +601,20 @@ export class Game {
     if (mouseYaw !== 0) this.cameraRig.addYaw(mouseYaw);
     if (mousePitch !== 0) this.cameraRig.addPitch(-mousePitch);
 
-    // Keyboard camera rotation ([ / ] or , / .)
+    // Keyboard camera rotation (← / →, [ / ], or , / .)
     const rotSpeed = 2.4 * dt;
-    if (this.input.isDown('BracketLeft') || this.input.isDown('Comma')) {
+    if (
+      this.input.isDown('ArrowLeft') ||
+      this.input.isDown('BracketLeft') ||
+      this.input.isDown('Comma')
+    ) {
       this.cameraRig.addYaw(-rotSpeed);
     }
-    if (this.input.isDown('BracketRight') || this.input.isDown('Period')) {
+    if (
+      this.input.isDown('ArrowRight') ||
+      this.input.isDown('BracketRight') ||
+      this.input.isDown('Period')
+    ) {
       this.cameraRig.addYaw(rotSpeed);
     }
 

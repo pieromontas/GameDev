@@ -7,9 +7,7 @@ const MOVE_CODES = new Set([
   'KeyS',
   'KeyD',
   'ArrowUp',
-  'ArrowLeft',
   'ArrowDown',
-  'ArrowRight',
 ]);
 
 export class InputManager {
@@ -139,8 +137,8 @@ export class InputManager {
     let z = 0;
     // Held keys OR tap latch / impulse (hosts that emit keydown+keyup or latch-refreshing repeats).
     // wasPressed covers the same-frame edge if latch somehow missed.
-    if (this.moveActive('KeyA') || this.moveActive('ArrowLeft')) x -= 1;
-    if (this.moveActive('KeyD') || this.moveActive('ArrowRight')) x += 1;
+    if (this.moveActive('KeyA')) x -= 1;
+    if (this.moveActive('KeyD')) x += 1;
     if (this.moveActive('KeyW') || this.moveActive('ArrowUp')) z -= 1;
     if (this.moveActive('KeyS') || this.moveActive('ArrowDown')) z += 1;
     x += this.touchMoveX;
@@ -200,10 +198,12 @@ export class InputManager {
   private onKeyDown = (e: KeyboardEvent): void => {
     // Keep Tab for in-game class switch instead of browser focus cycling.
     if (e.code === 'Tab') e.preventDefault();
-    // Avoid page zoom / find when using camera zoom keys.
+    // Avoid page zoom / find / scroll when using camera keys.
     if (
       e.code === 'Minus' ||
       e.code === 'Equal' ||
+      e.code === 'ArrowLeft' ||
+      e.code === 'ArrowRight' ||
       e.code === 'BracketLeft' ||
       e.code === 'BracketRight' ||
       e.code === 'PageUp' ||
