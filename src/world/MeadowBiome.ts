@@ -4683,6 +4683,7 @@ export class MeadowBiome {
   /**
    * Simple MeshToon wood bench on the inner plaza cobble — two legs, seat plank,
    * low backrest. Faces the fountain; small collider so gaps stay walkable.
+   * Sized to read from the iso camera against tan plaza cobble.
    */
   private addMarketFountainBench(x: number, z: number, yaw: number): void {
     const group = new THREE.Group();
@@ -4691,27 +4692,44 @@ export class MeadowBiome {
     group.name = 'MarketFountainBench';
 
     const shadow = new THREE.Mesh(
-      new THREE.CircleGeometry(0.62, 10),
-      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.26 }),
+      new THREE.CircleGeometry(0.72, 10),
+      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.32 }),
     );
     shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = 0.02;
+    shadow.position.y = 0.025;
     group.add(shadow);
 
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.1, 0.38), this.woodMat);
-    seat.position.y = 0.52;
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.12, 0.46), this.woodMat);
+    seat.position.y = 0.5;
     seat.castShadow = true;
     seat.receiveShadow = true;
     group.add(seat);
 
-    const back = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.38, 0.09), this.woodDarkMat);
-    back.position.set(0, 0.72, -0.16);
-    back.castShadow = true;
-    group.add(back);
+    // Dark lip under the seat so the plank doesn't melt into cobble from iso.
+    const apron = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.08, 0.42), this.woodDarkMat);
+    apron.position.y = 0.42;
+    apron.castShadow = true;
+    group.add(apron);
 
-    for (const lx of [-0.42, 0.42] as const) {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.48, 0.32), this.woodDarkMat);
-      leg.position.set(lx, 0.24, 0.02);
+    const backPosts = [-0.58, 0.58] as const;
+    for (const lx of backPosts) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.55, 0.09), this.woodDarkMat);
+      post.position.set(lx, 0.72, -0.2);
+      post.castShadow = true;
+      group.add(post);
+    }
+    const railTop = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.1, 0.08), this.woodDarkMat);
+    railTop.position.set(0, 0.96, -0.2);
+    railTop.castShadow = true;
+    group.add(railTop);
+    const railMid = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.09, 0.07), this.woodMat);
+    railMid.position.set(0, 0.78, -0.19);
+    railMid.castShadow = true;
+    group.add(railMid);
+
+    for (const lx of [-0.5, 0.5] as const) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.46, 0.38), this.woodDarkMat);
+      leg.position.set(lx, 0.23, 0.02);
       leg.castShadow = true;
       group.add(leg);
     }
