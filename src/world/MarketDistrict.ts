@@ -132,6 +132,34 @@ export const MARKET_WAGON_YAW =
   ) +
   Math.PI * 0.5;
 
+/**
+ * KayKit plaza shop cottages — origins + street-facing yaws match MeadowBiome.
+ * Local +Z is the plaza facade (hanging signs / flower boxes).
+ */
+export const MARKET_BAKERY_SPOT = { x: 44.8, z: 58.2, yaw: Math.PI * 0.78 } as const;
+export const MARKET_TAILOR_SPOT = { x: 57.2, z: 43.2, yaw: -Math.PI * 0.22 } as const;
+export const MARKET_APOTHECARY_SPOT = { x: 61.0, z: 53.0, yaw: -Math.PI * 0.45 } as const;
+
+/**
+ * Plaza-facing door pads. Direct local +Z from the baker hits the market well,
+ * and tailor +Z hits the traveling cart, so those two pads sit on the walkable
+ * stoop still toward the cobble (inside pack r≈4.4). Apothecary +Z is clear.
+ */
+const PLAZA_SHOP_DOOR_OFFSET = 3.05;
+
+function plazaShopDoor(spot: { readonly x: number; readonly z: number; readonly yaw: number }) {
+  return {
+    x: spot.x + Math.sin(spot.yaw) * PLAZA_SHOP_DOOR_OFFSET,
+    z: spot.z + Math.cos(spot.yaw) * PLAZA_SHOP_DOOR_OFFSET,
+  };
+}
+
+/** East stoop beside the well — local +Z is blocked by the plaza well. */
+export const MARKET_BAKERY_DOOR = { x: 47.9, z: 57.85 } as const;
+/** North cobble stoop — local +Z overlaps the traveling cart / inn radii. */
+export const MARKET_TAILOR_DOOR = { x: 55.9, z: 46.35 } as const;
+export const MARKET_APOTHECARY_DOOR = plazaShopDoor(MARKET_APOTHECARY_SPOT);
+
 /** Cheap short rest — reachable after one chest. */
 export const INN_REST_COST = 3;
 export const INN_REST_HEAL = 40;
@@ -377,6 +405,93 @@ export class MarketTravelingCart {
     if (!player.alive || !this.isNear(player.position)) return false;
     this.onToast(WAGON_TOAST, 2.0);
     return true;
+  }
+}
+
+const PLAZA_SHOP_INTERACT_RADIUS = 3.2;
+const PLAZA_SHOP_INTERACT_RADIUS_SQ =
+  PLAZA_SHOP_INTERACT_RADIUS * PLAZA_SHOP_INTERACT_RADIUS;
+
+type PlazaShopKind = 'baker' | 'tailor' | 'apothecary';
+
+type PlazaShopDef = {
+  kind: PlazaShopKind;
+  spot: THREE.Vector3;
+  prompt: string;
+  toast: string;
+};
+
+/**
+ * Flavor interact at the three signed plaza shop doors — toast only (no shop
+ * panel / gold). Distinct baker / tailor / apothecary prompts.
+ *
+ * Door pads sit on the plaza facade (local +Z). Vendor r≈3.5 / cart r≈3.0 /
+ * notice r≈3.4 overlap the stoops, so keep E-priority *before* those pads or
+ * the porches read as Street Vendor / Traveling Cart / Notice Board. Shop r=3.2
+ * does not reach the vendor stand, cart center, inn door, or fountain benches,
+ * so those pads still win at their own stand points.
+ */
+export class MarketPlazaShops {
+  private readonly shops: readonly PlazaShopDef[];
+  private readonly onToast: (message: string, duration?: number) => void;
+
+  constructor(hooks: { onToast: (message: string, duration?: number) => void }) {
+    this.onToast = hooks.onToast;
+    this.shops = [
+      {
+        kind: 'baker',
+        spot: new THREE.Vector3(MARKET_BAKERY_DOOR.x, 0, MARKET_BAKERY_DOOR.z),
+        prompt: 'Press E — Bakery',
+        toast: 'Bakery  ·  warm loaves · sold out till dawn',
+      },
+      {
+        kind: 'tailor',
+        spot: new THREE.Vector3(MARKET_TAILOR_DOOR.x, 0, MARKET_TAILOR_DOOR.z),
+        prompt: 'Press E — Tailor',
+        toast: 'Tailor  ·  thread & patches · a cloak later',
+      },
+      {
+        kind: 'apothecary',
+        spot: new THREE.Vector3(MARKET_APOTHECARY_DOOR.x, 0, MARKET_APOTHECARY_DOOR.z),
+        prompt: 'Press E — Apothecary',
+        toast: 'Apothecary  ·  tonics on the shelf · no potions for sale yet',
+      },
+    ];
+  }
+
+  isNear(pos: THREE.Vector3): boolean {
+    return this.nearestShop(pos) != null;
+  }
+
+  getInteractPrompt(player: Player): MarketHudPrompt {
+    if (!player.alive) return { visible: false, text: '' };
+    const shop = this.nearestShop(player.position);
+    if (!shop) return { visible: false, text: '' };
+    return { visible: true, text: shop.prompt };
+  }
+
+  tryInteract(player: Player): boolean {
+    if (!player.alive) return false;
+    const shop = this.nearestShop(player.position);
+    if (!shop) return false;
+    this.onToast(shop.toast, 2.0);
+    return true;
+  }
+
+  /** Closest in-range door — baker / tailor / apothecary radii do not overlap. */
+  private nearestShop(pos: THREE.Vector3): PlazaShopDef | null {
+    let best: PlazaShopDef | null = null;
+    let bestD2 = Infinity;
+    for (const shop of this.shops) {
+      const dx = pos.x - shop.spot.x;
+      const dz = pos.z - shop.spot.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 <= PLAZA_SHOP_INTERACT_RADIUS_SQ && d2 < bestD2) {
+        best = shop;
+        bestD2 = d2;
+      }
+    }
+    return best;
   }
 }
 
