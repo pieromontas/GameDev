@@ -1,7 +1,7 @@
 import type { InputManager } from './InputManager';
 
-const STICK_DEADZONE = 0.18;
-const STICK_RADIUS_PX = 52;
+const STICK_DEADZONE = 0.14;
+const STICK_RADIUS_PX = 58;
 const ROTATE_HINT = 'Rotate for landscape';
 
 /** Primary pointing device is a finger (phone / tablet), not a desktop mouse. */
@@ -70,9 +70,10 @@ export class TouchControls {
     this.rotateHint = this.root.querySelector('#touch-rotate-hint')!;
 
     this.stickZone.addEventListener('pointerdown', this.onStickDown);
-    this.stickZone.addEventListener('pointermove', this.onStickMove);
-    this.stickZone.addEventListener('pointerup', this.onStickUp);
-    this.stickZone.addEventListener('pointercancel', this.onStickUp);
+    this.stick.addEventListener('pointerdown', this.onStickDown);
+    window.addEventListener('pointermove', this.onStickMove);
+    window.addEventListener('pointerup', this.onStickUp);
+    window.addEventListener('pointercancel', this.onStickUp);
     this.stickZone.addEventListener('contextmenu', (e) => e.preventDefault());
 
     this.root.querySelectorAll<HTMLButtonElement>('.touch-btn').forEach((btn) => {
@@ -100,9 +101,10 @@ export class TouchControls {
   dispose(): void {
     this.clearStick();
     this.stickZone.removeEventListener('pointerdown', this.onStickDown);
-    this.stickZone.removeEventListener('pointermove', this.onStickMove);
-    this.stickZone.removeEventListener('pointerup', this.onStickUp);
-    this.stickZone.removeEventListener('pointercancel', this.onStickUp);
+    this.stick.removeEventListener('pointerdown', this.onStickDown);
+    window.removeEventListener('pointermove', this.onStickMove);
+    window.removeEventListener('pointerup', this.onStickUp);
+    window.removeEventListener('pointercancel', this.onStickUp);
     this.canvas.removeEventListener('touchmove', this.suppressScroll);
     this.root.removeEventListener('touchmove', this.suppressScroll);
     document.removeEventListener('touchmove', this.suppressScroll);
@@ -146,7 +148,7 @@ export class TouchControls {
     this.originY = rect.top + rect.height * 0.5;
     this.stick.classList.add('active');
     try {
-      this.stickZone.setPointerCapture(e.pointerId);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     } catch {
       /* ignore */
     }
@@ -162,11 +164,6 @@ export class TouchControls {
   private onStickUp = (e: PointerEvent): void => {
     if (e.pointerId !== this.stickPointerId) return;
     e.preventDefault();
-    try {
-      this.stickZone.releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
     this.clearStick();
   };
 

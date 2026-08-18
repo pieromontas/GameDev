@@ -46,7 +46,6 @@ export class Game {
   private readonly cameraRig: FollowCamera;
   private readonly foliageOcclusion = new FoliageOcclusion();
   private readonly foliageLookAt = new THREE.Vector3();
-  private readonly input: InputManager;
   private readonly touchControls: TouchControls;
   private readonly loop: GameLoop;
   private readonly meadow: MeadowBiome;
@@ -69,6 +68,8 @@ export class Game {
   private readonly castleDistrict = new CastleDistrict();
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
+  /** Public for DevTools / touch overlay checks via `window.__game.input`. */
+  readonly input: InputManager;
   private readonly mobs: Enemy[];
   private readonly loot: LootPickup[] = [];
   private readonly combat: CombatSystem;

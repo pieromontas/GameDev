@@ -1060,7 +1060,8 @@ kbd {
   bottom: max(14px, env(safe-area-inset-bottom, 0px));
   width: 128px;
   height: 128px;
-  pointer-events: none;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .touch-stick-base {
