@@ -7,6 +7,11 @@ const ROTATE_HINT = 'Rotate for landscape';
 /** Primary pointing device is a finger (phone / tablet), not a desktop mouse. */
 export function isCoarsePointer(): boolean {
   if (typeof window === 'undefined') return false;
+  try {
+    if (new URLSearchParams(window.location.search).get('touch') === '1') return true;
+  } catch {
+    /* ignore */
+  }
   if (window.matchMedia('(pointer: coarse)').matches) return true;
   if ('ontouchstart' in window && window.matchMedia('(hover: none)').matches) {
     return true;
@@ -106,6 +111,7 @@ export class TouchControls {
     window.removeEventListener('resize', this.syncMode);
     window.removeEventListener('orientationchange', this.syncMode);
     this.root.remove();
+    this.input.setCanvasTouchPlay(false);
     document.documentElement.classList.remove('touch-play', 'touch-portrait');
   }
 
@@ -118,6 +124,7 @@ export class TouchControls {
       'touch-portrait',
       show && window.innerHeight > window.innerWidth,
     );
+    this.input.setCanvasTouchPlay(show);
     this.rotateHint.hidden = !(show && window.innerHeight > window.innerWidth);
     if (!show) this.clearStick();
   };

@@ -37,6 +37,8 @@ export class InputManager {
   private lookPointerId: number | null = null;
   private lookLastX = 0;
   private lookLastY = 0;
+  /** When the on-screen overlay is up, canvas primary-drag is look — never LMB attack. */
+  private canvasTouchPlay = false;
 
   constructor(private readonly target: HTMLElement) {
     window.addEventListener('keydown', this.onKeyDown);
@@ -109,6 +111,18 @@ export class InputManager {
     if (MOVE_CODES.has(code)) {
       this.moveLatchUntil.set(code, performance.now() + MOVE_LATCH_MS);
       this.moveImpulse.add(code);
+    }
+  }
+
+  /**
+   * Phone overlay visible: canvas primary pointer looks (right half) and never attacks.
+   * Desktop mouse path stays LMB attack + RMB look when this is false.
+   */
+  setCanvasTouchPlay(active: boolean): void {
+    this.canvasTouchPlay = active;
+    if (!active) {
+      this.lookPointerId = null;
+      this.setTouchMove(0, 0);
     }
   }
 
@@ -224,8 +238,21 @@ export class InputManager {
     this.pointerX = e.clientX;
     this.pointerY = e.clientY;
 
-    // Touch: never LMB-attack from the canvas. Right half = look; left half is the stick overlay.
-    if (e.pointerType === 'touch') {
+    // Touch, or phone overlay: never LMB-attack from the canvas.
+    // Right half = look; left half is the stick overlay.
+    if (e.pointerType === 'touch' || this.canvasTouchPlay) {
+      if (e.pointerType !== 'touch' && e.button !== 0 && e.button !== -1) {
+        // Preserve RMB / MMB look if a mouse is plugged into a tablet.
+        if (e.button === 2 || e.button === 1) {
+          this.yawDragging = true;
+          try {
+            this.target.setPointerCapture(e.pointerId);
+          } catch {
+            /* ignore */
+          }
+        }
+        return;
+      }
       const rect = this.target.getBoundingClientRect();
       const midX = rect.left + rect.width * 0.5;
       if (e.clientX >= midX && this.lookPointerId === null) {
