@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isMobilePlay } from '../render/deviceQuality';
 
 /** Soft see-through when a crown sits between the camera and the knight. */
 const FADE_OPACITY = 0.16;
@@ -10,6 +11,10 @@ const NEAR_XZ = 18;
 const BOUNDS_PAD = 1.2;
 /** Fade neighboring crowns so overlapping KayKit spheres don't stay solid. */
 const NEIGHBOR_XZ = 5.5;
+/** Mobile: skip occlusion work unless camera/hero moved this far. */
+const MOBILE_MOVE = 0.4;
+/** Mobile: at most one occlusion pass every N frames. */
+const MOBILE_FRAME_STRIDE = 3;
 
 type FoliageBase = {
   transparent: boolean;
@@ -41,6 +46,11 @@ export class FoliageOcclusion {
   /** Groups currently faded this frame (restored when the ray is clear). */
   private readonly faded = new Map<THREE.Object3D, number>();
   private readonly nextFaded = new Map<THREE.Object3D, number>();
+  private readonly cheapMode = isMobilePlay();
+  private readonly lastCam = new THREE.Vector3();
+  private readonly lastLook = new THREE.Vector3();
+  private mobileTick = 0;
+  private didRun = false;
 
   /**
    * @param lookAt World point near the hero helmet (FollowCamera look target).
@@ -51,6 +61,8 @@ export class FoliageOcclusion {
     lookAt: THREE.Vector3,
     occluders: readonly THREE.Object3D[],
   ): void {
+    if (this.cheapMode && this.skipCheapUpdate(camera, lookAt)) return;
+
     this.nextFaded.clear();
     if (occluders.length === 0) {
       this.restoreCleared();
@@ -76,23 +88,28 @@ export class FoliageOcclusion {
     }
 
     // 2) A few camera→hero rays catch crowns that sit on the view line.
-    this.origin.copy(camera.position);
-    this.direction.copy(lookAt).sub(this.origin).normalize();
-    this.camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
-    this.camUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize();
-    const lateral = Math.min(0.7, span * 0.045);
+    // Mobile skips the 4× intersectObjects casts (CPU + GPU transparent DoubleSide bomb).
+    let nearList: THREE.Object3D[] | null = null;
+    if (!this.cheapMode) {
+      this.origin.copy(camera.position);
+      this.direction.copy(lookAt).sub(this.origin).normalize();
+      this.camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+      this.camUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+      const lateral = Math.min(0.7, span * 0.045);
 
-    const nearList = this.collectNear(occluders, lookAt);
-    this.castSample(this.origin, this.direction, span, nearList);
-    this.sampleOrigin.copy(this.origin).addScaledVector(this.camRight, lateral);
-    this.castSample(this.sampleOrigin, this.direction, span, nearList);
-    this.sampleOrigin.copy(this.origin).addScaledVector(this.camRight, -lateral);
-    this.castSample(this.sampleOrigin, this.direction, span, nearList);
-    this.sampleOrigin.copy(this.origin).addScaledVector(this.camUp, lateral * 0.7);
-    this.castSample(this.sampleOrigin, this.direction, span, nearList);
+      nearList = this.collectNear(occluders, lookAt);
+      this.castSample(this.origin, this.direction, span, nearList);
+      this.sampleOrigin.copy(this.origin).addScaledVector(this.camRight, lateral);
+      this.castSample(this.sampleOrigin, this.direction, span, nearList);
+      this.sampleOrigin.copy(this.origin).addScaledVector(this.camRight, -lateral);
+      this.castSample(this.sampleOrigin, this.direction, span, nearList);
+      this.sampleOrigin.copy(this.origin).addScaledVector(this.camUp, lateral * 0.7);
+      this.castSample(this.sampleOrigin, this.direction, span, nearList);
+    }
 
     // 3) Soft-fade neighbors of any blocked crown (overlapping KayKit spheres).
-    if (this.nextFaded.size > 0) {
+    // Mobile only fades the 1–2 blocking crowns — no meadow-wide DoubleSide clones.
+    if (!this.cheapMode && nearList && this.nextFaded.size > 0) {
       for (const root of nearList) {
         if (this.nextFaded.has(root)) continue;
         for (const blocked of this.nextFaded.keys()) {
@@ -115,6 +132,28 @@ export class FoliageOcclusion {
     }
     this.faded.clear();
     for (const [group, opacity] of this.nextFaded) this.faded.set(group, opacity);
+  }
+
+  /** Keep last fade set unless the camera/hero moved or a stride elapsed. */
+  private skipCheapUpdate(camera: THREE.Camera, lookAt: THREE.Vector3): boolean {
+    if (!this.didRun) {
+      this.lastCam.copy(camera.position);
+      this.lastLook.copy(lookAt);
+      this.didRun = true;
+      this.mobileTick = 0;
+      return false;
+    }
+    this.mobileTick += 1;
+    if (this.mobileTick < MOBILE_FRAME_STRIDE) return true;
+    this.mobileTick = 0;
+    const moveSq = MOBILE_MOVE * MOBILE_MOVE;
+    const moved =
+      this.lastCam.distanceToSquared(camera.position) > moveSq ||
+      this.lastLook.distanceToSquared(lookAt) > moveSq;
+    if (!moved) return true;
+    this.lastCam.copy(camera.position);
+    this.lastLook.copy(lookAt);
+    return false;
   }
 
   private markFade(root: THREE.Object3D, opacity: number): void {
