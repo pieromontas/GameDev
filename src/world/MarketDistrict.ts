@@ -87,6 +87,22 @@ export const MARKET_PLAZA_LANTERNS = [
   { x: 55.65, z: 49.35 }, // ESE — between notice board and SE stall
 ] as const;
 
+/**
+ * Parked traveling cart on the SE plaza cobble (west of the yellow SE stall,
+ * east of the inn porch). Clear of gate→market diagonal, fountain walk lanes,
+ * vendor / produce pads, alley, inn door, notice board, forge, plaza lanterns,
+ * and KayKit shop pack radii (~4.4). Soft collision in MeadowBiome.
+ */
+export const MARKET_WAGON_SPOT = { x: 51.9, z: 47.5 } as const;
+
+/** Long axis follows the cobble rim so the bed does not poke the fountain lane. */
+export const MARKET_WAGON_YAW =
+  Math.atan2(
+    MARKET_FOUNTAIN_SPOT.x - MARKET_WAGON_SPOT.x,
+    MARKET_FOUNTAIN_SPOT.z - MARKET_WAGON_SPOT.z,
+  ) +
+  Math.PI * 0.5;
+
 /** Cheap short rest — reachable after one chest. */
 export const INN_REST_COST = 3;
 export const INN_REST_HEAL = 40;
@@ -293,6 +309,44 @@ export class MarketExtraStall {
   tryInteract(player: Player): boolean {
     if (!player.alive || !this.isNear(player.position)) return false;
     this.onToast(EXTRA_STALL_TOAST, 2.0);
+    return true;
+  }
+}
+
+const WAGON_INTERACT_RADIUS = 3.0;
+const WAGON_INTERACT_RADIUS_SQ = WAGON_INTERACT_RADIUS * WAGON_INTERACT_RADIUS;
+const WAGON_PROMPT = 'Press E — Traveling Cart';
+const WAGON_TOAST = 'Traveling cart  ·  spices from the south road';
+
+/**
+ * Flavor interact at the parked plaza wagon — toast only (no shop panel).
+ * Keep E-priority after the street vendor / produce stall so shops still win
+ * on overlap; before the market sign so the cart pad wins vs the generic sign.
+ */
+export class MarketTravelingCart {
+  private readonly spot = new THREE.Vector3(MARKET_WAGON_SPOT.x, 0, MARKET_WAGON_SPOT.z);
+  private readonly onToast: (message: string, duration?: number) => void;
+
+  constructor(hooks: { onToast: (message: string, duration?: number) => void }) {
+    this.onToast = hooks.onToast;
+  }
+
+  isNear(pos: THREE.Vector3): boolean {
+    const dx = pos.x - this.spot.x;
+    const dz = pos.z - this.spot.z;
+    return dx * dx + dz * dz <= WAGON_INTERACT_RADIUS_SQ;
+  }
+
+  getInteractPrompt(player: Player): MarketHudPrompt {
+    if (!player.alive || !this.isNear(player.position)) {
+      return { visible: false, text: '' };
+    }
+    return { visible: true, text: WAGON_PROMPT };
+  }
+
+  tryInteract(player: Player): boolean {
+    if (!player.alive || !this.isNear(player.position)) return false;
+    this.onToast(WAGON_TOAST, 2.0);
     return true;
   }
 }

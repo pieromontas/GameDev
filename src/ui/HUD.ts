@@ -24,6 +24,7 @@ import {
   MARKET_BLACKSMITH_SPOT,
   MARKET_INN_SPOT,
   MARKET_NOTICE_BOARD_SPOT,
+  MARKET_WAGON_SPOT,
   type NoticeBoardLine,
 } from '../world/MarketDistrict';
 import {
@@ -85,6 +86,14 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
     color: '#e85858',
     r: 2.4,
     name: 'Vendor',
+  },
+  // SE plaza traveling cart — spice ochre, distinct from vendor red / inn gold.
+  {
+    x: MARKET_WAGON_SPOT.x,
+    z: MARKET_WAGON_SPOT.z,
+    color: '#d4893a',
+    r: 2.3,
+    name: 'Cart',
   },
   // East-rim notice / bounty board accent.
   {
