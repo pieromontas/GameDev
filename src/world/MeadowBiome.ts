@@ -1563,7 +1563,7 @@ export class MeadowBiome {
     // Street-facing KayKit shops (procedural stand-ins → pack swap). Yaw faces cobble.
     // Street runs along the NE diagonal; shops sit well off the walk lane
     // (KayKit cottage collision ≈ 1.6 × PROP_SCALE.cottage after pack apply).
-    // Hanging trade signs (baker / tailor / apothecary) sit on the plaza facade.
+    // Hanging trade signs + window flower boxes sit on the plaza facade.
     this.addMarketShop(44.8, 58.2, 1.08, Math.PI * 0.78, 'baker');
     // SE shop — nudged SW so the open SE docks spur clears pack r≈4.4
     this.addMarketShop(57.2, 43.2, 1.12, -Math.PI * 0.22, 'tailor');
@@ -3674,8 +3674,9 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 1.6 });
-    // Sign is a separate root child so it survives the KayKit pack swap.
+    // Sign + window box are separate root children so they survive the KayKit pack swap.
     this.addMarketShopHangingSign(x, z, scale, yaw, trade);
+    this.addMarketShopWindowBox(x, z, scale, yaw, trade);
   }
 
   /**
@@ -3760,6 +3761,114 @@ export class MeadowBiome {
     pivot.add(frame);
 
     this.addMarketShopTradeIcon(pivot, trade);
+    this.root.add(group);
+  }
+
+  /**
+   * Wooden window box on a plaza shop's street-facing facade (KayKit home_A +Z).
+   * Sits under the left window — opposite the hanging-sign arm at local +X —
+   * so the trough stays on the wall, inside pack r≈4.4, with no extra collider.
+   */
+  private addMarketShopWindowBox(
+    x: number,
+    z: number,
+    scale: number,
+    yaw: number,
+    trade: ShopTrade,
+  ): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = `MarketShopWindowBox_${trade}`;
+
+    // Same pack factor as hanging signs (TARGET.cottage / raw height 0.93).
+    const pack = 7.54 * scale;
+    const wallZ = 0.385 * pack;
+    // Left +Z window: raw x≈-0.26, sill y≈0.328. Sign arm is at raw +0.23.
+    const boxX = -0.26 * pack;
+    const sillY = 0.328 * pack;
+    const boxW = 0.145 * pack;
+    const boxH = 0.2;
+    const boxD = 0.22;
+    const boxZ = wallZ + 0.04 + boxD * 0.5;
+    const boxY = sillY - boxH * 0.32;
+
+    const trough = new THREE.Mesh(new THREE.BoxGeometry(boxW, boxH, boxD), this.woodMat);
+    trough.position.set(boxX, boxY, boxZ);
+    trough.castShadow = true;
+    trough.receiveShadow = true;
+    group.add(trough);
+
+    const lip = new THREE.Mesh(
+      new THREE.BoxGeometry(boxW + 0.05, 0.05, boxD + 0.04),
+      this.woodDarkMat,
+    );
+    lip.position.set(boxX, boxY + boxH * 0.42, boxZ + 0.01);
+    lip.castShadow = true;
+    group.add(lip);
+
+    const soil = new THREE.Mesh(
+      new THREE.BoxGeometry(boxW * 0.86, 0.055, boxD * 0.68),
+      createToonMaterial(Palette.pathDark),
+    );
+    soil.position.set(boxX, boxY + boxH * 0.44, boxZ);
+    group.add(soil);
+
+    for (const side of [-1, 1] as const) {
+      const brace = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.16, 0.15), this.woodDarkMat);
+      brace.position.set(boxX + side * boxW * 0.34, boxY - 0.07, wallZ + 0.09);
+      brace.rotation.x = 0.48;
+      brace.castShadow = true;
+      group.add(brace);
+    }
+
+    // 1–2 meadow colors per trade so the three cottages read apart from the fountain.
+    const bloomColors =
+      trade === 'baker'
+        ? ([Palette.flowerYellow, Palette.flowerPink] as const)
+        : trade === 'tailor'
+          ? ([Palette.flowerCyan, Palette.flowerYellow] as const)
+          : ([Palette.flowerPink, Palette.flowerCyan] as const);
+    const bloomMats = bloomColors.map((hex) =>
+      createToonMaterial(hex, { emissive: hex, emissiveIntensity: 0.14 }),
+    );
+
+    const bloomCount = 4;
+    for (let i = 0; i < bloomCount; i++) {
+      const along = ((i + 0.5) / bloomCount - 0.5) * boxW * 0.72;
+      const jitter = (hash2(x + i * 1.7, z + i * 0.9) - 0.5) * 0.06;
+      const stemH = 0.11 + (i % 2) * 0.03;
+      const bloom = new THREE.Group();
+      bloom.position.set(boxX + along + jitter, soil.position.y + 0.02, boxZ + (i % 2 === 0 ? 0.03 : -0.02));
+
+      const stem = new THREE.Mesh(this.stemGeo, this.stemMat);
+      stem.scale.set(0.7, stemH / 0.26, 0.7);
+      stem.position.y = stemH * 0.5;
+      bloom.add(stem);
+
+      const petalMat = bloomMats[i % bloomMats.length]!;
+      const petals = new THREE.Mesh(this.flowerPetalGeo, petalMat);
+      petals.position.y = stemH + 0.04;
+      petals.scale.set(0.52, 0.32, 0.52);
+      bloom.add(petals);
+
+      const center = new THREE.Mesh(this.flowerCenterGeo, this.flowerCenterMat);
+      center.position.y = stemH + 0.07;
+      center.scale.setScalar(0.7);
+      bloom.add(center);
+
+      group.add(bloom);
+    }
+
+    for (let i = 0; i < 3; i++) {
+      const along = ((i + 0.5) / 3 - 0.5) * boxW * 0.55;
+      const leaf = new THREE.Mesh(this.rockSmallGeo, this.leafMat);
+      leaf.position.set(boxX + along, soil.position.y + 0.05, boxZ + 0.04);
+      leaf.scale.set(0.22, 0.12, 0.18);
+      leaf.rotation.set(0.4, i * 0.9, -0.25 + i * 0.2);
+      group.add(leaf);
+    }
+
     this.root.add(group);
   }
 
@@ -6335,7 +6444,7 @@ export class MeadowBiome {
     }
 
     // Market district shops — KayKit cottages facing the cobble street.
-    // Hanging trade signs are independent root children (survive this swap).
+    // Hanging trade signs + window flower boxes are independent root children (survive this swap).
     for (const shop of this.shopPlacements) {
       const mesh = library.createCottage(shop.x, shop.z, {
         scale: shop.scale,
