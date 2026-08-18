@@ -3784,14 +3784,15 @@ export class MeadowBiome {
     // Same pack factor as hanging signs (TARGET.cottage / raw height 0.93).
     const pack = 7.54 * scale;
     const wallZ = 0.385 * pack;
-    // Left +Z window: raw x≈-0.26, sill y≈0.328. Sign arm is at raw +0.23.
-    const boxX = -0.26 * pack;
+    // Left +Z window (raw x≈-0.18..-0.37, sill y≈0.328). Sign arm is at raw +0.23.
+    // Bias toward the door so the outer corner stays inside pack r≈4.4.
+    const boxX = -0.188 * pack;
     const sillY = 0.328 * pack;
-    const boxW = 0.145 * pack;
-    const boxH = 0.2;
-    const boxD = 0.22;
-    const boxZ = wallZ + 0.04 + boxD * 0.5;
-    const boxY = sillY - boxH * 0.32;
+    const boxW = 1.02;
+    const boxH = 0.24;
+    const boxD = 0.3;
+    const boxZ = wallZ + 0.03 + boxD * 0.5;
+    const boxY = sillY - boxH * 0.28;
 
     const trough = new THREE.Mesh(new THREE.BoxGeometry(boxW, boxH, boxD), this.woodMat);
     trough.position.set(boxX, boxY, boxZ);
@@ -3835,37 +3836,41 @@ export class MeadowBiome {
 
     const bloomCount = 4;
     for (let i = 0; i < bloomCount; i++) {
-      const along = ((i + 0.5) / bloomCount - 0.5) * boxW * 0.72;
-      const jitter = (hash2(x + i * 1.7, z + i * 0.9) - 0.5) * 0.06;
-      const stemH = 0.11 + (i % 2) * 0.03;
+      const along = ((i + 0.5) / bloomCount - 0.5) * boxW * 0.7;
+      const jitter = (hash2(x + i * 1.7, z + i * 0.9) - 0.5) * 0.05;
+      const stemH = 0.14 + (i % 2) * 0.04;
       const bloom = new THREE.Group();
-      bloom.position.set(boxX + along + jitter, soil.position.y + 0.02, boxZ + (i % 2 === 0 ? 0.03 : -0.02));
+      bloom.position.set(
+        boxX + along + jitter,
+        soil.position.y + 0.02,
+        boxZ + (i % 2 === 0 ? 0.05 : -0.01),
+      );
 
       const stem = new THREE.Mesh(this.stemGeo, this.stemMat);
-      stem.scale.set(0.7, stemH / 0.26, 0.7);
+      stem.scale.set(0.85, stemH / 0.26, 0.85);
       stem.position.y = stemH * 0.5;
       bloom.add(stem);
 
       const petalMat = bloomMats[i % bloomMats.length]!;
       const petals = new THREE.Mesh(this.flowerPetalGeo, petalMat);
-      petals.position.y = stemH + 0.04;
-      petals.scale.set(0.52, 0.32, 0.52);
+      petals.position.y = stemH + 0.05;
+      petals.scale.set(0.78, 0.48, 0.78);
       bloom.add(petals);
 
       const center = new THREE.Mesh(this.flowerCenterGeo, this.flowerCenterMat);
-      center.position.y = stemH + 0.07;
-      center.scale.setScalar(0.7);
+      center.position.y = stemH + 0.09;
+      center.scale.setScalar(0.95);
       bloom.add(center);
 
       group.add(bloom);
     }
 
     for (let i = 0; i < 3; i++) {
-      const along = ((i + 0.5) / 3 - 0.5) * boxW * 0.55;
+      const along = ((i + 0.5) / 3 - 0.5) * boxW * 0.52;
       const leaf = new THREE.Mesh(this.rockSmallGeo, this.leafMat);
-      leaf.position.set(boxX + along, soil.position.y + 0.05, boxZ + 0.04);
-      leaf.scale.set(0.22, 0.12, 0.18);
-      leaf.rotation.set(0.4, i * 0.9, -0.25 + i * 0.2);
+      leaf.position.set(boxX + along, soil.position.y + 0.06, boxZ + 0.07);
+      leaf.scale.set(0.28, 0.14, 0.22);
+      leaf.rotation.set(0.35, i * 0.9, -0.25 + i * 0.2);
       group.add(leaf);
     }
 
