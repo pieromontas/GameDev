@@ -290,7 +290,7 @@ src/
   entities/               Player, PlayerVisual, Mob, Spitter, ArmoredBrute, GroveHerb, SpitProjectile, Loot, Entity
   combat/                 Skills, CombatSystem, damage numbers
   render/stylized.ts      Toon materials, sky, palette, ground helpers
-  render/deviceQuality.ts Phone/iPad GPU cap (MSAA / shadows / point lights)
+  render/deviceQuality.ts Phone/iPad GPU cap (MSAA / shadows / lights; Safari DPR 1.0)
   ui/                     HUD + billboard health bars
   utils/math.ts           Small helpers
 ```

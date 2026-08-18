@@ -34,7 +34,12 @@ import { CombatSystem } from '../combat/CombatSystem';
 import { HUD } from '../ui/HUD';
 import { HealthBars } from '../ui/HealthBars';
 import { Palette, createSkyDome } from '../render/stylized';
-import { cappedPixelRatio, isMobilePlay } from '../render/deviceQuality';
+import {
+  cappedPixelRatio,
+  drawingBufferSize,
+  isIosPlay,
+  isMobilePlay,
+} from '../render/deviceQuality';
 import {
   SPAWN_AGGRO_GRACE,
   isInsideSpawnSafe,
@@ -73,6 +78,8 @@ export class Game {
   readonly input: InputManager;
   /** Phone/iPad GPU cap — `?touch=1` overlay preview stays false. */
   readonly mobilePlay = isMobilePlay();
+  /** Safari/WebKit iOS/iPadOS — DPR 1.0 + visualViewport. Mac Safari mouse stays false. */
+  readonly iosPlay = isIosPlay();
   private readonly mobs: Enemy[];
   private readonly loot: LootPickup[] = [];
   private readonly combat: CombatSystem;
@@ -107,6 +114,7 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, hudHost: HTMLElement) {
     const mobile = this.mobilePlay;
+    const view = drawingBufferSize();
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: !mobile,
@@ -114,7 +122,7 @@ export class Game {
       powerPreference: 'high-performance',
     });
     this.renderer.setPixelRatio(cappedPixelRatio());
-    this.renderer.setSize(window.innerWidth, window.innerHeight, false);
+    this.renderer.setSize(view.width, view.height, false);
     this.renderer.shadowMap.enabled = !mobile;
     // Soft contact shadows — closer to the style-target meadow lighting.
     // iPad fill-rate: MSAA + PCF soft 1024 is the main hitch; mobile skips shadows.
@@ -151,7 +159,7 @@ export class Game {
     this.clearEnemiesFromSpawnSafe();
     this.spawnAggroGrace = SPAWN_AGGRO_GRACE;
 
-    this.cameraRig = new FollowCamera(window.innerWidth / window.innerHeight);
+    this.cameraRig = new FollowCamera(view.width / view.height);
     this.cameraRig.snapTo(this.player.position);
 
     this.input = new InputManager(canvas);
@@ -307,6 +315,7 @@ export class Game {
     });
 
     window.addEventListener('resize', this.onResize);
+    this.bindVisualViewport();
   }
 
   /**
@@ -349,6 +358,11 @@ export class Game {
     this.touchControls.dispose();
     this.input.dispose();
     window.removeEventListener('resize', this.onResize);
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.removeEventListener('resize', this.onResize);
+      vv.removeEventListener('scroll', this.onResize);
+    }
     this.renderer.dispose();
   }
 
@@ -1015,11 +1029,19 @@ export class Game {
     this.renderer.render(this.scene, this.cameraRig.camera);
   }
 
+  /** Safari iPad desktop-mode / URL-bar: drawable size is visualViewport, not layout viewport. */
+  private bindVisualViewport(): void {
+    if (!this.iosPlay) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    vv.addEventListener('resize', this.onResize);
+    vv.addEventListener('scroll', this.onResize);
+  }
+
   private onResize = (): void => {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const { width, height } = drawingBufferSize();
     this.renderer.setPixelRatio(cappedPixelRatio());
-    this.renderer.setSize(w, h, false);
-    this.cameraRig.setAspect(w / h);
+    this.renderer.setSize(width, height, false);
+    this.cameraRig.setAspect(width / height);
   };
 }
