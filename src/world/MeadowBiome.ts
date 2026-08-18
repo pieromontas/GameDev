@@ -35,14 +35,18 @@ import {
   MARKET_FOUNTAIN_BENCHES,
   MARKET_FOUNTAIN_BENCH_YAWS,
   MARKET_FOUNTAIN_SPOT,
+  MARKET_HITCHING_SPOT,
+  MARKET_HITCHING_YAW,
   MARKET_INN_SPOT,
   MARKET_NOTICE_BOARD_SPOT,
   MARKET_NOTICE_BOARD_YAW,
   MARKET_PLAZA_LANTERNS,
   MARKET_SIGN_SPOT,
   MARKET_TAILOR_SPOT,
+  MARKET_TROUGH_LOCAL,
   MARKET_WAGON_SPOT,
   MARKET_WAGON_YAW,
+  MARKET_WATER_TROUGH,
 } from './MarketDistrict';
 import {
   MARKET_VENDOR_NPC,
@@ -1630,7 +1634,7 @@ export class MeadowBiome {
     // Crates sit off the fountain footprint so the plaza center stays readable.
     // NW stall hosts the street vendor NPC (E shop — see MarketStreetVendor).
     // SE + E stalls flank the east-rim notice board; west-rim extra stall is toast-only.
-    // SE cobble hosts the parked traveling cart (toast-only — see MarketTravelingCart).
+    // SE cobble hosts the parked traveling cart + hitching post / trough.
     this.addMarketStall(
       MARKET_VENDOR_STALL.x,
       MARKET_VENDOR_STALL.z,
@@ -1671,6 +1675,12 @@ export class MeadowBiome {
       MARKET_WAGON_SPOT.x,
       MARKET_WAGON_SPOT.z,
       MARKET_WAGON_YAW,
+    );
+    // Hitching rail + trough on the cart's street-side cobble (not fountain lane).
+    this.addMarketHitchingPost(
+      MARKET_HITCHING_SPOT.x,
+      MARKET_HITCHING_SPOT.z,
+      MARKET_HITCHING_YAW,
     );
 
     // Warm plaza street lanterns on the cobble rim — town-hub read at a glance.
@@ -4669,6 +4679,115 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 1.1 });
+  }
+
+  /**
+   * MeshToon hitching rail + low water trough beside the traveling cart.
+   * Shares wagon yaw so +X is cobble/south (away from the fountain lane) and
+   * +Z follows the tongue. Visual-only; small colliders keep plaza walk gaps.
+   * No extra lights, no horse mesh.
+   */
+  private addMarketHitchingPost(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'MarketHitchingPost';
+
+    const ropeMat = createToonMaterial(Palette.trunkDark);
+    const troughWaterMat = createToonMaterial(Palette.pond, {
+      transparent: true,
+      opacity: 0.88,
+      emissive: Palette.pond,
+      emissiveIntensity: 0.12,
+    });
+
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.78, 12),
+      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.3 }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.set(0.18, 0.02, 0);
+    group.add(shadow);
+
+    // Grey paver so the wood rail reads against tan plaza cobble from iso.
+    const paver = new THREE.Mesh(
+      new THREE.BoxGeometry(0.72, 0.06, 1.12),
+      this.rockMat,
+    );
+    paver.position.set(0.08, 0.04, 0);
+    paver.receiveShadow = true;
+    group.add(paver);
+
+    const postZs = [-0.38, 0.38] as const;
+    for (const pz of postZs) {
+      const post = new THREE.Mesh(
+        new THREE.BoxGeometry(0.14, 1.18, 0.14),
+        this.woodDarkMat,
+      );
+      post.position.set(0, 0.62, pz);
+      post.castShadow = true;
+      group.add(post);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.07, 0.18), this.woodMat);
+      cap.position.set(0, 1.24, pz);
+      cap.castShadow = true;
+      group.add(cap);
+    }
+
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.86), this.woodMat);
+    rail.position.set(0, 1.04, 0);
+    rail.castShadow = true;
+    group.add(rail);
+    const railLow = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.82), this.woodDarkMat);
+    railLow.position.set(0, 0.58, 0);
+    railLow.castShadow = true;
+    group.add(railLow);
+
+    // Iron hitch ring on the rail — reads as a tie-off from iso.
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.018, 5, 8), this.ironMat);
+    ring.position.set(0.05, 1.04, 0.18);
+    ring.rotation.y = Math.PI * 0.5;
+    group.add(ring);
+
+    // Rope loop hanging from the tongue-ward post.
+    const rope = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 5, 8), ropeMat);
+    rope.position.set(0.04, 0.82, 0.38);
+    rope.rotation.y = Math.PI * 0.5;
+    rope.castShadow = true;
+    group.add(rope);
+
+    const troughX = MARKET_TROUGH_LOCAL.x;
+    const troughZ = MARKET_TROUGH_LOCAL.z;
+    const troughPaver = new THREE.Mesh(
+      new THREE.BoxGeometry(0.58, 0.05, 0.92),
+      this.rockMat,
+    );
+    troughPaver.position.set(troughX, 0.035, troughZ);
+    troughPaver.receiveShadow = true;
+    group.add(troughPaver);
+
+    const basin = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.3, 0.82), this.woodMat);
+    basin.position.set(troughX, 0.2, troughZ);
+    basin.castShadow = true;
+    basin.receiveShadow = true;
+    group.add(basin);
+    const lip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.05, 0.86),
+      this.woodDarkMat,
+    );
+    lip.position.set(troughX, 0.34, troughZ);
+    lip.castShadow = true;
+    group.add(lip);
+    const water = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.04, 0.68), troughWaterMat);
+    water.position.set(troughX, 0.3, troughZ);
+    group.add(water);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.28 });
+    this.obstacles.push({
+      x: MARKET_WATER_TROUGH.x,
+      z: MARKET_WATER_TROUGH.z,
+      radius: 0.4,
+    });
   }
 
   /** Procedural well stand-in at the market plaza (replaced by KayKit well). */
