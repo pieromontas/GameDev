@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GameLoop } from './loop';
 import { InputManager } from '../input/InputManager';
+import { TouchControls } from '../input/TouchControls';
 import { FollowCamera } from '../camera/FollowCamera';
 import { FoliageOcclusion } from '../camera/FoliageOcclusion';
 import { MeadowBiome } from '../world/MeadowBiome';
@@ -45,7 +46,7 @@ export class Game {
   private readonly cameraRig: FollowCamera;
   private readonly foliageOcclusion = new FoliageOcclusion();
   private readonly foliageLookAt = new THREE.Vector3();
-  private readonly input: InputManager;
+  private readonly touchControls: TouchControls;
   private readonly loop: GameLoop;
   private readonly meadow: MeadowBiome;
   private readonly shrine: ShrineObjective;
@@ -67,6 +68,8 @@ export class Game {
   private readonly castleDistrict = new CastleDistrict();
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
+  /** Public for DevTools / touch overlay checks via `window.__game.input`. */
+  readonly input: InputManager;
   private readonly mobs: Enemy[];
   private readonly loot: LootPickup[] = [];
   private readonly combat: CombatSystem;
@@ -145,6 +148,7 @@ export class Game {
     this.cameraRig.snapTo(this.player.position);
 
     this.input = new InputManager(canvas);
+    this.touchControls = new TouchControls(canvas, this.input, canvas.parentElement ?? hudHost);
     this.hud = new HUD(hudHost);
     this.healthBars = new HealthBars(this.scene);
     // Player HP is HUD-only; world bars are for enemies (camera-facing billboards).
@@ -335,6 +339,7 @@ export class Game {
 
   dispose(): void {
     this.loop.stop();
+    this.touchControls.dispose();
     this.input.dispose();
     window.removeEventListener('resize', this.onResize);
     this.renderer.dispose();
@@ -588,9 +593,11 @@ export class Game {
     this.moveDir.addScaledVector(this.right, axes.x);
     this.moveDir.addScaledVector(this.forward, -axes.z);
 
-    if (this.moveDir.lengthSq() > 1e-6) {
-      this.moveDir.normalize();
-    } else {
+    const moveLenSq = this.moveDir.lengthSq();
+    if (moveLenSq > 1) {
+      // Keyboard diagonals stay unit; analog stick magnitude below 1 is preserved.
+      this.moveDir.multiplyScalar(1 / Math.sqrt(moveLenSq));
+    } else if (moveLenSq < 1e-6) {
       this.moveDir.set(0, 0, 0);
     }
 

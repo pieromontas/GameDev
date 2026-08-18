@@ -493,11 +493,12 @@ export class Player extends Entity {
       this.anim === 'bash' ||
       this.anim === 'burst';
     if (wishDir.lengthSq() > 1e-6) {
+      const wishMag = Math.min(1, Math.hypot(wishDir.x, wishDir.z));
       const accelScale = attacking ? 0.35 : 1;
       this.velocity.x += wishDir.x * this.accel * accelScale * dt;
       this.velocity.z += wishDir.z * this.accel * accelScale * dt;
       const speed = Math.hypot(this.velocity.x, this.velocity.z);
-      const cap = attacking ? this.moveSpeed * 0.45 : this.moveSpeed;
+      const cap = (attacking ? this.moveSpeed * 0.45 : this.moveSpeed) * wishMag;
       if (speed > cap) {
         const s = cap / speed;
         this.velocity.x *= s;

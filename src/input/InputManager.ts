@@ -30,12 +30,22 @@ export class InputManager {
   private resetCameraRequested = false;
   /** Accumulated orbit zoom (world units of distance). Positive = zoom out. */
   private zoomDelta = 0;
+  /** Analog stick axes in the same space as WASD (`x` right, `z` down/back). */
+  private touchMoveX = 0;
+  private touchMoveZ = 0;
+  /** Touch look pointer (right-half drag). Independent of mouse RMB. */
+  private lookPointerId: number | null = null;
+  private lookLastX = 0;
+  private lookLastY = 0;
+  /** When the on-screen overlay is up, canvas primary-drag is look — never LMB attack. */
+  private canvasTouchPlay = false;
 
   constructor(private readonly target: HTMLElement) {
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     target.addEventListener('pointerdown', this.onPointerDown);
     window.addEventListener('pointerup', this.onPointerUp);
+    window.addEventListener('pointercancel', this.onPointerUp);
     window.addEventListener('pointermove', this.onPointerMove);
     // passive:false so we can prevent page scroll / browser pinch-zoom over the canvas.
     target.addEventListener('wheel', this.onWheel, { passive: false });
@@ -47,6 +57,7 @@ export class InputManager {
     window.removeEventListener('keyup', this.onKeyUp);
     this.target.removeEventListener('pointerdown', this.onPointerDown);
     window.removeEventListener('pointerup', this.onPointerUp);
+    window.removeEventListener('pointercancel', this.onPointerUp);
     window.removeEventListener('pointermove', this.onPointerMove);
     this.target.removeEventListener('wheel', this.onWheel);
   }
@@ -74,6 +85,47 @@ export class InputManager {
     return this.justPressed.has('PointerPrimary');
   }
 
+  /**
+   * Virtual left stick. Axes match WASD (`x` right, `z` screen-down / KeyS).
+   * Magnitude is clamped to 1. Finger up should pass (0, 0).
+   */
+  setTouchMove(x: number, z: number): void {
+    const mag = Math.hypot(x, z);
+    if (mag > 1) {
+      x /= mag;
+      z /= mag;
+    } else if (mag < 1e-6) {
+      x = 0;
+      z = 0;
+    }
+    this.touchMoveX = x;
+    this.touchMoveZ = z;
+  }
+
+  /**
+   * One-frame key / pointer edge for on-screen buttons (skills, dodge, E, LMB).
+   * Does not leave `keys` held — matches keyboard tap → `wasPressed`.
+   */
+  tapVirtual(code: string): void {
+    this.justPressed.add(code);
+    if (MOVE_CODES.has(code)) {
+      this.moveLatchUntil.set(code, performance.now() + MOVE_LATCH_MS);
+      this.moveImpulse.add(code);
+    }
+  }
+
+  /**
+   * Phone overlay visible: canvas primary pointer looks (right half) and never attacks.
+   * Desktop mouse path stays LMB attack + RMB look when this is false.
+   */
+  setCanvasTouchPlay(active: boolean): void {
+    this.canvasTouchPlay = active;
+    if (!active) {
+      this.lookPointerId = null;
+      this.setTouchMove(0, 0);
+    }
+  }
+
   getMoveAxes(): { x: number; z: number } {
     let x = 0;
     let z = 0;
@@ -83,6 +135,13 @@ export class InputManager {
     if (this.moveActive('KeyD') || this.moveActive('ArrowRight')) x += 1;
     if (this.moveActive('KeyW') || this.moveActive('ArrowUp')) z -= 1;
     if (this.moveActive('KeyS') || this.moveActive('ArrowDown')) z += 1;
+    x += this.touchMoveX;
+    z += this.touchMoveZ;
+    const mag = Math.hypot(x, z);
+    if (mag > 1) {
+      x /= mag;
+      z /= mag;
+    }
     return { x, z };
   }
 
@@ -178,6 +237,37 @@ export class InputManager {
   private onPointerDown = (e: PointerEvent): void => {
     this.pointerX = e.clientX;
     this.pointerY = e.clientY;
+
+    // Touch, or phone overlay: never LMB-attack from the canvas.
+    // Right half = look; left half is the stick overlay.
+    if (e.pointerType === 'touch' || this.canvasTouchPlay) {
+      if (e.pointerType !== 'touch' && e.button !== 0 && e.button !== -1) {
+        // Preserve RMB / MMB look if a mouse is plugged into a tablet.
+        if (e.button === 2 || e.button === 1) {
+          this.yawDragging = true;
+          try {
+            this.target.setPointerCapture(e.pointerId);
+          } catch {
+            /* ignore */
+          }
+        }
+        return;
+      }
+      const rect = this.target.getBoundingClientRect();
+      const midX = rect.left + rect.width * 0.5;
+      if (e.clientX >= midX && this.lookPointerId === null) {
+        this.lookPointerId = e.pointerId;
+        this.lookLastX = e.clientX;
+        this.lookLastY = e.clientY;
+        try {
+          this.target.setPointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+      }
+      return;
+    }
+
     if (e.button === 0 && !e.altKey && !e.ctrlKey) {
       this.justPressed.add('PointerPrimary');
       try {
@@ -201,7 +291,14 @@ export class InputManager {
     } catch {
       /* ignore */
     }
+    if (this.lookPointerId === e.pointerId) {
+      this.lookPointerId = null;
+    }
     if (e.button === 2 || e.button === 1 || (e.button === 0 && (e.altKey || e.ctrlKey))) {
+      this.yawDragging = false;
+    }
+    // Mouse LMB look (alt/ctrl) may end without alt still down; also stop if no buttons held.
+    if ((e.buttons & 6) === 0 && (e.buttons & 1) === 0) {
       this.yawDragging = false;
     }
   };
@@ -212,8 +309,24 @@ export class InputManager {
     this.pointerX = e.clientX;
     this.pointerY = e.clientY;
 
-    const dx = e.movementX !== undefined && Math.abs(e.movementX) > 0 ? e.movementX : (e.clientX - prevX);
-    const dy = e.movementY !== undefined && Math.abs(e.movementY) > 0 ? e.movementY : (e.clientY - prevY);
+    if (this.lookPointerId === e.pointerId) {
+      const dx =
+        e.movementX !== undefined && Math.abs(e.movementX) > 0
+          ? e.movementX
+          : e.clientX - this.lookLastX;
+      const dy =
+        e.movementY !== undefined && Math.abs(e.movementY) > 0
+          ? e.movementY
+          : e.clientY - this.lookLastY;
+      this.lookLastX = e.clientX;
+      this.lookLastY = e.clientY;
+      this.yawDelta += dx * 0.0075;
+      this.pitchDelta += dy * 0.0055;
+      return;
+    }
+
+    const dx = e.movementX !== undefined && Math.abs(e.movementX) > 0 ? e.movementX : e.clientX - prevX;
+    const dy = e.movementY !== undefined && Math.abs(e.movementY) > 0 ? e.movementY : e.clientY - prevY;
 
     // Camera rotation & tilt via RMB, MMB, or Alt/Ctrl+LMB
     const rightOrMiddleHeld = (e.buttons & 2) !== 0 || (e.buttons & 4) !== 0;
