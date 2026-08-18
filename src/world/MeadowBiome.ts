@@ -26,6 +26,8 @@ import {
 } from './WorldPropLibrary';
 import {
   MARKET_ALLEY_SPOT,
+  MARKET_APOTHECARY_SPOT,
+  MARKET_BAKERY_SPOT,
   MARKET_BLACKSMITH_SPOT,
   MARKET_EXTRA_STALL,
   MARKET_EXTRA_STALL_YAW,
@@ -38,6 +40,7 @@ import {
   MARKET_NOTICE_BOARD_YAW,
   MARKET_PLAZA_LANTERNS,
   MARKET_SIGN_SPOT,
+  MARKET_TAILOR_SPOT,
   MARKET_WAGON_SPOT,
   MARKET_WAGON_YAW,
 } from './MarketDistrict';
@@ -1564,11 +1567,30 @@ export class MeadowBiome {
     // Street runs along the NE diagonal; shops sit well off the walk lane
     // (KayKit cottage collision ≈ 1.6 × PROP_SCALE.cottage after pack apply).
     // Hanging trade signs + window flower boxes sit on the plaza facade.
-    this.addMarketShop(44.8, 58.2, 1.08, Math.PI * 0.78, 'baker');
+    // E at the porch is toast-only (MarketPlazaShops) — no extra collision.
+    this.addMarketShop(
+      MARKET_BAKERY_SPOT.x,
+      MARKET_BAKERY_SPOT.z,
+      1.08,
+      MARKET_BAKERY_SPOT.yaw,
+      'baker',
+    );
     // SE shop — nudged SW so the open SE docks spur clears pack r≈4.4
-    this.addMarketShop(57.2, 43.2, 1.12, -Math.PI * 0.22, 'tailor');
+    this.addMarketShop(
+      MARKET_TAILOR_SPOT.x,
+      MARKET_TAILOR_SPOT.z,
+      1.12,
+      MARKET_TAILOR_SPOT.yaw,
+      'tailor',
+    );
     // Far-side shop — stay ≥~5 units off the diagonal so pack-scaled cottage r≈4.4 clears the street
-    this.addMarketShop(61.0, 53.0, 1.18, -Math.PI * 0.45, 'apothecary');
+    this.addMarketShop(
+      MARKET_APOTHECARY_SPOT.x,
+      MARKET_APOTHECARY_SPOT.z,
+      1.18,
+      MARKET_APOTHECARY_SPOT.yaw,
+      'apothecary',
+    );
 
     // Central plaza fountain — soft blocker; leave walk lanes around the cobble.
     this.addMarketFountain(MARKET_FOUNTAIN_SPOT.x, MARKET_FOUNTAIN_SPOT.z);

@@ -18,6 +18,7 @@ import {
   MarketExtraStall,
   MarketInn,
   MarketNoticeBoard,
+  MarketPlazaShops,
   MarketTravelingCart,
 } from '../world/MarketDistrict';
 import { MarketStreetVendor } from '../world/MarketStreetVendor';
@@ -64,6 +65,7 @@ export class Game {
   private readonly marketSign: MarketDistrictSign;
   private readonly marketBlacksmith: MarketBlacksmith;
   private readonly marketVendor: MarketStreetVendor;
+  private readonly marketPlazaShops: MarketPlazaShops;
   private readonly marketExtraStall: MarketExtraStall;
   private readonly marketWagon: MarketTravelingCart;
   private readonly marketNoticeBoard: MarketNoticeBoard;
@@ -262,6 +264,9 @@ export class Game {
         return true;
       },
       onShopChanged: (open) => this.hud.setVendorOpen(open, this.lootCount),
+    });
+    this.marketPlazaShops = new MarketPlazaShops({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.marketExtraStall = new MarketExtraStall({
       onToast: (message, duration) => this.hud.showToast(message, duration),
@@ -789,9 +794,12 @@ export class Game {
 
   /**
    * E key: closed chests → healing spring → west grove herb → east shrine →
-   * gate guard → blacksmith → street vendor → produce stall → traveling cart →
-   * market sign → notice board → inn → alley → harbor catch crate →
-   * residential door → town chapel → cottage merchant.
+   * gate guard → blacksmith → plaza baker/tailor/apothecary → street vendor →
+   * produce stall → traveling cart → market sign → notice board → inn → alley →
+   * harbor catch crate → residential door → town chapel → cottage merchant.
+   * Plaza shop doors sit before vendor / cart / notice so the porches are not
+   * stolen by those larger radii; shop r=3.2 still leaves vendor / produce /
+   * cart / inn / sign stand points to those pads.
    * Produce stall is before the market sign so the west-rim pad wins on overlap;
    * traveling cart is after shops so vendor / produce still win; before the
    * generic market sign so the cart pad wins vs the sign.
@@ -819,6 +827,7 @@ export class Game {
     if (this.shrine.tryInteract(this.player)) return;
     if (this.gateGuard.tryInteract(this.player)) return;
     if (this.marketBlacksmith.tryInteract(this.player)) return;
+    if (this.marketPlazaShops.tryInteract(this.player)) return;
     if (this.marketVendor.tryInteract(this.player)) return;
     if (this.marketExtraStall.tryInteract(this.player)) return;
     if (this.marketWagon.tryInteract(this.player)) return;
@@ -848,6 +857,7 @@ export class Game {
     const gateGuardPrompt = this.gateGuard.getInteractPrompt(this.player);
     const marketPrompt = this.marketSign.getInteractPrompt(this.player);
     const smithPrompt = this.marketBlacksmith.getInteractPrompt(this.player);
+    const plazaShopPrompt = this.marketPlazaShops.getInteractPrompt(this.player);
     const vendorPrompt = this.marketVendor.getInteractPrompt(this.player);
     const extraStallPrompt = this.marketExtraStall.getInteractPrompt(this.player);
     const wagonPrompt = this.marketWagon.getInteractPrompt(this.player);
@@ -890,6 +900,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: smithPrompt.text,
+      });
+    } else if (plazaShopPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: plazaShopPrompt.text,
       });
     } else if (vendorPrompt.visible) {
       this.hud.setShrineHud({
