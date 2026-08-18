@@ -45,6 +45,9 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **RMB drag** | Rotate camera yaw |
 | **Mouse wheel** / trackpad pinch | Zoom camera in / out (clamped) |
 | **-** / **=** or **[** / **]** | Zoom out / in (alternate) |
+| **Phone browser** | Left stick move · right-drag look · on-screen **1–4** / **Dodge** / **E** (no WASD / RMB needed) |
+
+On a phone browser (Chrome / Safari), coarse-pointer detection shows a left analog stick, right-half look drag (not an attack), and a lower-right **1–4 / Dodge / E** cluster. Desktop WASD, LMB attack, and RMB look stay unchanged.
 
 HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / grove herb / gate guard / market / street vendor / produce stall / notice board / inn / alley / docks crate / home door / chapel / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path (glowing herb), the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market, homes & docks** roads, the **city gate guard**, the **market street vendor**, the **produce stall**, the **plaza notice board**, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, gate guard accent, **Market** (fountain), street vendor stall, notice board, **Homes**, chapel, **Docks**, blacksmith, inn, chests, the healing spring, the west grove herb, the cottage shop, and nearby enemies. Hover a landmark pin to read its name beside the radar (e.g. Gate vs Ford vs Market).
 
@@ -269,7 +272,8 @@ src/
   game/
     Game.ts               Scene wiring + systems orchestration
     loop.ts               rAF loop with fixed 60 Hz update
-  input/InputManager.ts   Keyboard + pointer
+  input/InputManager.ts   Keyboard + pointer + touch axes / virtual taps
+  input/TouchControls.ts  Phone overlay — left stick, right-drag look, 1–4 / Dodge / E
   camera/FollowCamera.ts  Angled follow cam + yaw + smooth zoom
   world/MeadowBiome.ts    Ground + props, play-area clamp, gate + market + homes + docks
   world/WorldPropLibrary.ts  KayKit prop GLTF loader + toon remap
