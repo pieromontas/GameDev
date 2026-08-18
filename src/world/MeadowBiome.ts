@@ -30,6 +30,8 @@ import {
   MARKET_EXTRA_STALL,
   MARKET_EXTRA_STALL_YAW,
   MARKET_FORGE_SPOT,
+  MARKET_FOUNTAIN_BENCHES,
+  MARKET_FOUNTAIN_BENCH_YAWS,
   MARKET_FOUNTAIN_SPOT,
   MARKET_INN_SPOT,
   MARKET_NOTICE_BOARD_SPOT,
@@ -1570,6 +1572,11 @@ export class MeadowBiome {
 
     // Central plaza fountain — soft blocker; leave walk lanes around the cobble.
     this.addMarketFountain(MARKET_FOUNTAIN_SPOT.x, MARKET_FOUNTAIN_SPOT.z);
+    // Fountain-side wood benches on the inner cobble ring (visual-only).
+    for (let i = 0; i < MARKET_FOUNTAIN_BENCHES.length; i++) {
+      const bench = MARKET_FOUNTAIN_BENCHES[i]!;
+      this.addMarketFountainBench(bench.x, bench.z, MARKET_FOUNTAIN_BENCH_YAWS[i]!);
+    }
 
     // Blacksmith workshop on the NNE rim (KayKit cottage) + forge/anvil yard toward plaza.
     // Clear of shop A/C pack radii (~4.4) and the gate→market diagonal.
@@ -4671,6 +4678,73 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 1.25 });
+  }
+
+  /**
+   * Simple MeshToon wood bench on the inner plaza cobble — two legs, seat plank,
+   * low backrest. Faces the fountain; small collider so gaps stay walkable.
+   * Sized to read from the iso camera against tan plaza cobble.
+   */
+  private addMarketFountainBench(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'MarketFountainBench';
+
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.72, 10),
+      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.32 }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.02;
+    group.add(shadow);
+
+    // Grey paver so the wood silhouette reads against tan plaza cobble from iso.
+    const paver = new THREE.Mesh(
+      new THREE.BoxGeometry(1.42, 0.07, 0.58),
+      this.rockMat,
+    );
+    paver.position.y = 0.045;
+    paver.receiveShadow = true;
+    group.add(paver);
+
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.12, 0.46), this.woodMat);
+    seat.position.y = 0.5;
+    seat.castShadow = true;
+    seat.receiveShadow = true;
+    group.add(seat);
+
+    // Dark lip under the seat so the plank doesn't melt into cobble from iso.
+    const apron = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.08, 0.42), this.woodDarkMat);
+    apron.position.y = 0.42;
+    apron.castShadow = true;
+    group.add(apron);
+
+    const backPosts = [-0.58, 0.58] as const;
+    for (const lx of backPosts) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.55, 0.09), this.woodDarkMat);
+      post.position.set(lx, 0.72, -0.2);
+      post.castShadow = true;
+      group.add(post);
+    }
+    const railTop = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.1, 0.08), this.woodDarkMat);
+    railTop.position.set(0, 0.96, -0.2);
+    railTop.castShadow = true;
+    group.add(railTop);
+    const railMid = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.09, 0.07), this.woodMat);
+    railMid.position.set(0, 0.78, -0.19);
+    railMid.castShadow = true;
+    group.add(railMid);
+
+    for (const lx of [-0.5, 0.5] as const) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.46, 0.38), this.woodDarkMat);
+      leg.position.set(lx, 0.23, 0.02);
+      leg.castShadow = true;
+      group.add(leg);
+    }
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 0.55 });
   }
 
   /** Procedural KayKit-cottage stand-in for the blacksmith workshop (pack-swapped). */

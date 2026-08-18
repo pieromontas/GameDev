@@ -26,6 +26,35 @@ export const MARKET_FOUNTAIN_SPOT = {
 } as const;
 
 /**
+ * Wooden benches on the inner plaza cobble around the fountain.
+ * Sit just outside the fountain collider (r≈1.25) / visual plinth (r≈1.7).
+ * Clear of the SW gate→market diagonal, fountain walk gaps, vendor / produce /
+ * traveling cart / notice board / forge pad / inn porch / alley mouth,
+ * MARKET_PLAZA_LANTERNS poles, and KayKit shop pack radii (~4.4).
+ */
+export const MARKET_FOUNTAIN_BENCHES = [
+  { x: MARKET_FOUNTAIN_SPOT.x + 0.0, z: MARKET_FOUNTAIN_SPOT.z + 2.45 }, // N
+  { x: MARKET_FOUNTAIN_SPOT.x - 2.45, z: MARKET_FOUNTAIN_SPOT.z + 0.12 }, // W
+  { x: MARKET_FOUNTAIN_SPOT.x + 2.22, z: MARKET_FOUNTAIN_SPOT.z + 0.82 }, // ENE
+] as const;
+
+/** Face the plaza fountain so the seat reads from the cobble ring. */
+export const MARKET_FOUNTAIN_BENCH_YAWS = [
+  Math.atan2(
+    MARKET_FOUNTAIN_SPOT.x - MARKET_FOUNTAIN_BENCHES[0].x,
+    MARKET_FOUNTAIN_SPOT.z - MARKET_FOUNTAIN_BENCHES[0].z,
+  ),
+  Math.atan2(
+    MARKET_FOUNTAIN_SPOT.x - MARKET_FOUNTAIN_BENCHES[1].x,
+    MARKET_FOUNTAIN_SPOT.z - MARKET_FOUNTAIN_BENCHES[1].z,
+  ),
+  Math.atan2(
+    MARKET_FOUNTAIN_SPOT.x - MARKET_FOUNTAIN_BENCHES[2].x,
+    MARKET_FOUNTAIN_SPOT.z - MARKET_FOUNTAIN_BENCHES[2].z,
+  ),
+] as const;
+
+/**
  * KayKit cottage blacksmith workshop on the NNE market rim.
  * Forge / anvil yard sits toward the plaza (see MeadowBiome).
  */
