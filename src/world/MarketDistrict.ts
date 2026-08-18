@@ -141,9 +141,9 @@ export const MARKET_TAILOR_SPOT = { x: 57.2, z: 43.2, yaw: -Math.PI * 0.22 } as 
 export const MARKET_APOTHECARY_SPOT = { x: 61.0, z: 53.0, yaw: -Math.PI * 0.45 } as const;
 
 /**
- * Plaza-facing door pads — a few units toward the cobble from each cottage
- * origin (local +Z). Offset stays inside pack r≈4.4 so you stand on the porch,
- * not in the wall and not out on the fountain ring.
+ * Plaza-facing door pads. Direct local +Z from the baker hits the market well,
+ * and tailor +Z hits the traveling cart, so those two pads sit on the walkable
+ * stoop still toward the cobble (inside pack r≈4.4). Apothecary +Z is clear.
  */
 const PLAZA_SHOP_DOOR_OFFSET = 3.05;
 
@@ -154,8 +154,10 @@ function plazaShopDoor(spot: { readonly x: number; readonly z: number; readonly 
   };
 }
 
-export const MARKET_BAKERY_DOOR = plazaShopDoor(MARKET_BAKERY_SPOT);
-export const MARKET_TAILOR_DOOR = plazaShopDoor(MARKET_TAILOR_SPOT);
+/** East stoop beside the well — local +Z is blocked by the plaza well. */
+export const MARKET_BAKERY_DOOR = { x: 47.9, z: 57.85 } as const;
+/** North cobble stoop — local +Z overlaps the traveling cart / inn radii. */
+export const MARKET_TAILOR_DOOR = { x: 55.9, z: 46.35 } as const;
 export const MARKET_APOTHECARY_DOOR = plazaShopDoor(MARKET_APOTHECARY_SPOT);
 
 /** Cheap short rest — reachable after one chest. */
