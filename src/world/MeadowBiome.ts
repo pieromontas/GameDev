@@ -4702,55 +4702,56 @@ export class MeadowBiome {
     });
 
     const shadow = new THREE.Mesh(
-      new THREE.CircleGeometry(0.78, 12),
-      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.3 }),
+      new THREE.CircleGeometry(0.95, 12),
+      createToonMaterial(0x1a2818, { transparent: true, opacity: 0.34 }),
     );
     shadow.rotation.x = -Math.PI / 2;
-    shadow.position.set(0.18, 0.02, 0);
+    shadow.position.set(0.22, 0.02, 0);
     group.add(shadow);
 
     // Grey paver so the wood rail reads against tan plaza cobble from iso.
     const paver = new THREE.Mesh(
-      new THREE.BoxGeometry(0.72, 0.06, 1.12),
+      new THREE.BoxGeometry(0.95, 0.07, 1.22),
       this.rockMat,
     );
-    paver.position.set(0.08, 0.04, 0);
+    paver.position.set(0.12, 0.045, 0);
     paver.receiveShadow = true;
     group.add(paver);
 
-    const postZs = [-0.38, 0.38] as const;
+    // Chunky posts — thin sticks vanish in the iso camera (same lesson as wagon rims).
+    const postZs = [-0.4, 0.4] as const;
     for (const pz of postZs) {
       const post = new THREE.Mesh(
-        new THREE.BoxGeometry(0.14, 1.18, 0.14),
+        new THREE.BoxGeometry(0.2, 1.38, 0.2),
         this.woodDarkMat,
       );
-      post.position.set(0, 0.62, pz);
+      post.position.set(0, 0.72, pz);
       post.castShadow = true;
       group.add(post);
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.07, 0.18), this.woodMat);
-      cap.position.set(0, 1.24, pz);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, 0.26), this.woodMat);
+      cap.position.set(0, 1.44, pz);
       cap.castShadow = true;
       group.add(cap);
     }
 
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.86), this.woodMat);
-    rail.position.set(0, 1.04, 0);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.92), this.woodMat);
+    rail.position.set(0, 1.18, 0);
     rail.castShadow = true;
     group.add(rail);
-    const railLow = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.82), this.woodDarkMat);
-    railLow.position.set(0, 0.58, 0);
+    const railLow = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.12, 0.88), this.woodDarkMat);
+    railLow.position.set(0, 0.62, 0);
     railLow.castShadow = true;
     group.add(railLow);
 
-    // Iron hitch ring on the rail — reads as a tie-off from iso.
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.018, 5, 8), this.ironMat);
-    ring.position.set(0.05, 1.04, 0.18);
-    ring.rotation.y = Math.PI * 0.5;
+    // Iron hitch ring on the rail — box ring so it doesn't vanish like a thin torus.
+    const ring = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.16), this.ironMat);
+    ring.position.set(0.12, 1.18, 0.12);
+    ring.castShadow = true;
     group.add(ring);
 
-    // Rope loop hanging from the tongue-ward post.
-    const rope = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 5, 8), ropeMat);
-    rope.position.set(0.04, 0.82, 0.38);
+    // Rope loop on the tongue-ward post (tube thick enough for iso).
+    const rope = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.045, 5, 8), ropeMat);
+    rope.position.set(0.08, 0.92, 0.4);
     rope.rotation.y = Math.PI * 0.5;
     rope.castShadow = true;
     group.add(rope);
@@ -4758,27 +4759,27 @@ export class MeadowBiome {
     const troughX = MARKET_TROUGH_LOCAL.x;
     const troughZ = MARKET_TROUGH_LOCAL.z;
     const troughPaver = new THREE.Mesh(
-      new THREE.BoxGeometry(0.58, 0.05, 0.92),
+      new THREE.BoxGeometry(0.7, 0.06, 1.02),
       this.rockMat,
     );
-    troughPaver.position.set(troughX, 0.035, troughZ);
+    troughPaver.position.set(troughX, 0.04, troughZ);
     troughPaver.receiveShadow = true;
     group.add(troughPaver);
 
-    const basin = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.3, 0.82), this.woodMat);
-    basin.position.set(troughX, 0.2, troughZ);
+    const basin = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.36, 0.92), this.woodMat);
+    basin.position.set(troughX, 0.24, troughZ);
     basin.castShadow = true;
     basin.receiveShadow = true;
     group.add(basin);
     const lip = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 0.05, 0.86),
+      new THREE.BoxGeometry(0.62, 0.07, 0.98),
       this.woodDarkMat,
     );
-    lip.position.set(troughX, 0.34, troughZ);
+    lip.position.set(troughX, 0.4, troughZ);
     lip.castShadow = true;
     group.add(lip);
-    const water = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.04, 0.68), troughWaterMat);
-    water.position.set(troughX, 0.3, troughZ);
+    const water = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.06, 0.76), troughWaterMat);
+    water.position.set(troughX, 0.36, troughZ);
     group.add(water);
 
     this.root.add(group);
