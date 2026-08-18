@@ -34,7 +34,7 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 
 | Input | Action |
 | --- | --- |
-| **W A S D** / arrows | Move relative to camera (hold walks; a tap still steps) |
+| **W A S D** / **↑ ↓** | Move relative to camera (hold walks; a tap still steps) |
 | **Shift** | Dodge roll — short burst + brief i-frames (~1.55s cooldown) |
 | **C** or **Tab** | Cycle class (**Warrior → Mage → Rogue → Warrior…**) |
 | **E** | Interact — awaken east shrine / open treasure chests / drink from healing spring / pick west grove herb / talk to the city gate guard / read market sign / talk to blacksmith / trade with market street vendor / browse the produce stall / peek the traveling cart / read the town notice board / rest at market inn / peek the market alley / read the docks catch crate / try a residential door / bless at the town chapel / talk to cottage merchant (when near) |
@@ -42,14 +42,15 @@ Requires a modern Chromium-based browser (or current Firefox/Safari).
 | **2** | Skill 2 (Quake / Frost Nova / Fan of Knives) |
 | **3** | Skill 3 (Shield Bash / Arcane Ward / Smoke Bomb) |
 | **4** | Skill 4 (Leap Strike / Meteor / Shadow Leap) — unlocks at **Level 3** |
+| **← →** / **[ ]** / **, .** | Rotate camera yaw (hold to turn) |
 | **RMB drag** | Rotate camera yaw |
 | **Mouse wheel** / trackpad pinch | Zoom camera in / out (clamped) |
-| **-** / **=** or **[** / **]** | Zoom out / in (alternate) |
+| **-** / **=** or **PgUp** / **PgDn** | Zoom out / in (alternate) |
 | **Phone browser** | Left stick move · right-drag look · on-screen **1–4** / **Dodge** / **E** (no WASD / RMB needed) |
 
 On a phone browser (Chrome / Safari), coarse-pointer detection shows a left analog stick, right-half look drag (not an attack), and a lower-right **1–4 / Dodge / E** cluster. Desktop WASD, LMB attack, and RMB look stay unchanged. iPad Safari is supported — desktop-mode iPad (Request Desktop Website) still gets the overlay; `?touch=1` remains a force-preview. Phone / iPad uses a lower GPU profile (no MSAA, no shadows, fewer lights); Safari on iOS/iPadOS also caps pixel ratio at 1.0 and sizes the canvas from the visual viewport. Desktop quality is unchanged.
 
-HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / grove herb / gate guard / market / street vendor / produce stall / traveling cart / notice board / inn / alley / docks crate / home door / chapel / cottage merchant**, **scroll / pinch / - = [ ] — camera zoom**, the west misty grove path (glowing herb), the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market, homes & docks** roads, the **city gate guard**, the **market street vendor**, the **produce stall**, the **plaza traveling cart**, the **plaza notice board**, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, gate guard accent, **Market** (fountain), street vendor stall, traveling cart, notice board, **Homes**, chapel, **Docks**, blacksmith, inn, chests, the healing spring, the west grove herb, the cottage shop, and nearby enemies. Hover a landmark pin to read its name beside the radar (e.g. Gate vs Ford vs Market).
+HUD skill names and the class line update when you switch. Slot 4 stays grayed with a **Lv 3** hint until you level up. A compact **Dodge** cooldown pip sits next to the skill row. A controls hint also lists **Shift — dodge roll**, **C / Tab — cycle Warrior → Mage → Rogue**, **E — shrine / treasure chests / healing spring / grove herb / gate guard / market / street vendor / produce stall / traveling cart / notice board / inn / alley / docks crate / home door / chapel / cottage merchant**, **← → / [ ] / , . — rotate camera**, **scroll / pinch / - = — camera zoom**, the west misty grove path (glowing herb), the **north ruins** path (healing spring), the **south river ford** path, the **northeast city-gate, market, homes & docks** roads, the **city gate guard**, the **market street vendor**, the **produce stall**, the **plaza traveling cart**, the **plaza notice board**, and the **NW cottage** merchant. A **north-up minimap** (top-right radar) tracks your facing arrow, the pocket landmarks, the **Gate**, gate guard accent, **Market** (fountain), street vendor stall, traveling cart, notice board, **Homes**, chapel, **Docks**, blacksmith, inn, chests, the healing spring, the west grove herb, the cottage shop, and nearby enemies. Hover a landmark pin to read its name beside the radar (e.g. Gate vs Ford vs Market).
 
 ## Treasure chests
 

@@ -338,7 +338,7 @@ export class HUD {
       <div class="hud-panel hud-bottom" id="skills"></div>
       <div class="hud-panel hud-hint" id="controls-hint">
         <strong>Controls</strong><br/>
-        WASD — move (tap or hold)<br/>
+        WASD / ↑↓ — move (tap or hold)<br/>
         <kbd>Shift</kbd> — dodge roll<br/>
         LMB / 1 — skill 1<br/>
         2 / 3 / 4 — skills 2–4<br/>
@@ -347,7 +347,7 @@ export class HUD {
         <kbd>E</kbd> — interact (Knight Captain, shrine, chests, shops, etc.)<br/>
         <strong>Camera Controls</strong><br/>
         RMB / MMB drag (or <kbd>Alt</kbd>+LMB) — orbit &amp; tilt camera<br/>
-        <kbd>[</kbd><kbd>]</kbd> or <kbd>,</kbd><kbd>.</kbd> — rotate view<br/>
+        <kbd>←</kbd><kbd>→</kbd> / <kbd>[</kbd><kbd>]</kbd> / <kbd>,</kbd><kbd>.</kbd> — rotate view<br/>
         Scroll / pinch — zoom (<kbd>-</kbd><kbd>=</kbd> or <kbd>PgUp</kbd><kbd>PgDn</kbd>)<br/>
         <kbd>Home</kbd> / <kbd>\`</kbd> — reset view
       </div>
