@@ -218,6 +218,10 @@ export const INN_REST_COST = 3;
 export const INN_REST_HEAL = 40;
 export const INN_REST_COOLDOWN = 45;
 
+/** Free plaza sip — smaller than grove herb / snack bread / inn rest. */
+export const FOUNTAIN_SIP_HEAL = 10;
+export const FOUNTAIN_SIP_COOLDOWN = 25;
+
 const SIGN_INTERACT_RADIUS = 3.4;
 const SIGN_INTERACT_RADIUS_SQ = SIGN_INTERACT_RADIUS * SIGN_INTERACT_RADIUS;
 const SIGN_PROMPT = 'Press E — Market District';
@@ -376,6 +380,91 @@ export class MarketInn {
   }
 
   /** Tick rest cooldown — call once per frame from the game loop. */
+  update(dt: number): void {
+    if (this.cooldownRemain > 0) {
+      this.cooldownRemain = Math.max(0, this.cooldownRemain - dt);
+    }
+  }
+}
+
+/**
+ * Small enough to cover walkable cobble around the basin (collider r≈1.25,
+ * plinth r≈1.7, closest stand ≈1.75) between the benches at ~2.45 — not the
+ * vendor / produce / cart / notice / inn / forge / shop / alley pads.
+ */
+const FOUNTAIN_INTERACT_RADIUS = 2.15;
+const FOUNTAIN_INTERACT_RADIUS_SQ =
+  FOUNTAIN_INTERACT_RADIUS * FOUNTAIN_INTERACT_RADIUS;
+const FOUNTAIN_PROMPT = 'Press E — Drink';
+const FOUNTAIN_TOAST_FLAVOR = 'Fountain  ·  cool plaza water';
+
+/**
+ * Free small sip at the plaza fountain — tiny heal + cooldown, no gold / panel.
+ * Keep E-priority after plaza baker/tailor/apothecary so a stoop never reads
+ * as Drink; before street vendor / produce / cart / market sign so the basin
+ * wins vs those larger radii on the inner cobble.
+ */
+export class MarketFountain {
+  private readonly spot = new THREE.Vector3(
+    MARKET_FOUNTAIN_SPOT.x,
+    0,
+    MARKET_FOUNTAIN_SPOT.z,
+  );
+  private cooldownRemain = 0;
+  private readonly onToast: (message: string, duration?: number) => void;
+
+  constructor(hooks: { onToast: (message: string, duration?: number) => void }) {
+    this.onToast = hooks.onToast;
+  }
+
+  get ready(): boolean {
+    return this.cooldownRemain <= 0;
+  }
+
+  get cooldownRemaining(): number {
+    return Math.max(0, this.cooldownRemain);
+  }
+
+  isNear(pos: THREE.Vector3): boolean {
+    const dx = pos.x - this.spot.x;
+    const dz = pos.z - this.spot.z;
+    return dx * dx + dz * dz <= FOUNTAIN_INTERACT_RADIUS_SQ;
+  }
+
+  getInteractPrompt(player: Player): MarketHudPrompt {
+    if (!player.alive || !this.isNear(player.position)) {
+      return { visible: false, text: '' };
+    }
+    if (!this.ready) {
+      const secs = Math.ceil(this.cooldownRemaining);
+      return { visible: true, text: `Fountain… ${secs}s` };
+    }
+    return { visible: true, text: FOUNTAIN_PROMPT };
+  }
+
+  tryInteract(player: Player): boolean {
+    if (!player.alive || !this.isNear(player.position)) return false;
+
+    if (!this.ready) {
+      const secs = Math.ceil(this.cooldownRemaining);
+      this.onToast(`Fountain… ${secs}s`, 1.4);
+      return true;
+    }
+
+    if (player.hp >= player.maxHp) {
+      this.onToast(`${FOUNTAIN_TOAST_FLAVOR}  ·  already quenched`, 2.0);
+      return true;
+    }
+
+    const before = player.hp;
+    player.heal(FOUNTAIN_SIP_HEAL);
+    const gained = Math.max(0, Math.round(player.hp - before));
+    this.cooldownRemain = FOUNTAIN_SIP_COOLDOWN;
+    this.onToast(`${FOUNTAIN_TOAST_FLAVOR}  ·  +${gained} HP`, 2.0);
+    return true;
+  }
+
+  /** Tick sip cooldown — call once per frame from the game loop. */
   update(dt: number): void {
     if (this.cooldownRemain > 0) {
       this.cooldownRemain = Math.max(0, this.cooldownRemain - dt);
