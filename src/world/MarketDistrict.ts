@@ -79,6 +79,31 @@ export const MARKET_INN_DOOR = { x: 49.6, z: 45.3 } as const;
 export const MARKET_ALLEY_SPOT = { x: 43.6, z: 52.4 } as const;
 
 /**
+ * MeshToon clothesline across the west-rim alley walk lane.
+ * Midpoint sits east of the flavor board (MARKET_ALLEY_SPOT) so the cobble
+ * stays open. Yaw matches the alley ribbon (−0.15); posts nestle the crate /
+ * barrel flanks. Line hangs ~2.05 (walk under). Soft collision on posts only
+ * (r≈0.22) — hanging cloth does not collide. Clear of produce stall, plaza
+ * lanterns, vendor, baker pack, curtain wall, and fountain lanes.
+ */
+export const MARKET_CLOTHESLINE_SPOT = { x: 44.31, z: 52.15 } as const;
+export const MARKET_CLOTHESLINE_YAW = -0.15;
+export const MARKET_CLOTHESLINE_HALF = 1.08;
+
+function clotheslinePost(along: number) {
+  return {
+    x: MARKET_CLOTHESLINE_SPOT.x + Math.sin(MARKET_CLOTHESLINE_YAW) * along,
+    z: MARKET_CLOTHESLINE_SPOT.z + Math.cos(MARKET_CLOTHESLINE_YAW) * along,
+  };
+}
+
+/** North (+along) then south (−along) posts — MeadowBiome colliders. */
+export const MARKET_CLOTHESLINE_POSTS = [
+  clotheslinePost(MARKET_CLOTHESLINE_HALF),
+  clotheslinePost(-MARKET_CLOTHESLINE_HALF),
+] as const;
+
+/**
  * Extra west-rim plaza stall (toast-only produce / cloth / trinket flavor).
  * Clear of gate→market diagonal, fountain lanes, vendor stand, alley, inn porch,
  * notice board, and KayKit shop pack radii (~4.4). Soft collision in MeadowBiome.
