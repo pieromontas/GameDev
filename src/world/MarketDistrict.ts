@@ -26,16 +26,17 @@ export const MARKET_FOUNTAIN_SPOT = {
 } as const;
 
 /**
- * Wooden benches on the inner plaza cobble around the fountain.
- * Sit just outside the fountain collider (r≈1.25) / visual plinth (r≈1.7).
- * Clear of the SW gate→market diagonal, fountain walk gaps, vendor / produce /
- * traveling cart / notice board / forge pad / inn porch / alley mouth,
+ * Wooden benches on the plaza cobble around the fountain.
+ * Pushed onto the outer cobble ring (~3.2 from the basin) so a walkable
+ * inner loop stays open (fountain r≈1.25 + bench r≈0.38 + ~1.5 gap).
+ * No SW seat — gate→market diagonal stays a clear quadrant. Clear of vendor /
+ * produce / traveling cart / notice board / forge pad / inn porch / alley mouth,
  * MARKET_PLAZA_LANTERNS poles, and KayKit shop pack radii (~4.4).
  */
 export const MARKET_FOUNTAIN_BENCHES = [
-  { x: MARKET_FOUNTAIN_SPOT.x + 0.0, z: MARKET_FOUNTAIN_SPOT.z + 2.45 }, // N
-  { x: MARKET_FOUNTAIN_SPOT.x - 2.45, z: MARKET_FOUNTAIN_SPOT.z + 0.12 }, // W
-  { x: MARKET_FOUNTAIN_SPOT.x + 2.22, z: MARKET_FOUNTAIN_SPOT.z + 0.82 }, // ENE
+  { x: MARKET_FOUNTAIN_SPOT.x + 0.0, z: MARKET_FOUNTAIN_SPOT.z + 3.22 }, // N
+  { x: MARKET_FOUNTAIN_SPOT.x - 3.2, z: MARKET_FOUNTAIN_SPOT.z + 0.16 }, // W
+  { x: MARKET_FOUNTAIN_SPOT.x + 3.02, z: MARKET_FOUNTAIN_SPOT.z + 1.12 }, // ENE
 ] as const;
 
 /** Face the plaza fountain so the seat reads from the cobble ring. */
@@ -129,16 +130,16 @@ export const MARKET_NOTICE_BOARD_YAW = Math.atan2(
 );
 
 /**
- * Warm street lanterns on the cobble plaza rim (around the fountain).
- * Clear of gate→market diagonal, fountain walk lanes, vendor stand, produce stall,
- * forge pad, inn porch, notice board, and west-rim alley. Soft pole collision only.
+ * Warm street lanterns on the outer plaza rim / building flanks.
+ * Poles sit off the fountain cobble loop and the gate→vendor / produce / cart /
+ * inn spokes. Soft pole collision only (thin post, modest radius).
  */
 export const MARKET_PLAZA_LANTERNS = [
-  { x: 50.2, z: 55.95 }, // N rim — west of forge
-  { x: 45.9, z: 53.4 }, // WNW — between alley mouth and vendor stall
-  { x: 45.7, z: 50.5 }, // WSW — between produce stall and west crates
-  { x: 52.85, z: 46.25 }, // SSE — east of inn porch approach
-  { x: 55.65, z: 49.35 }, // ESE — between notice board and SE stall
+  { x: 49.25, z: 57.05 }, // N — baker / well flank, west of forge
+  { x: 43.65, z: 55.15 }, // WNW — alley / baker flank
+  { x: 42.85, z: 49.35 }, // WSW — curtain / produce flank
+  { x: 54.55, z: 44.75 }, // SSE — tailor / inn street flank
+  { x: 57.15, z: 48.35 }, // ESE — tailor / apothecary flank
 ] as const;
 
 /**
@@ -158,17 +159,15 @@ export const MARKET_WAGON_YAW =
   Math.PI * 0.5;
 
 /**
- * Hitching rail + water trough on the SE plaza cobble, street-side of the
- * traveling cart. Wagon local +X is cobble/south (away from the fountain);
- * local +Z is the tongue (ENE into the yellow stall). The tongue-adjacent
- * pad is occupied by MARKET_PLAZA_LANTERNS SSE + the yellow stall, so this
- * cluster sits south-west of the bed — left of the cart in the default iso
- * view, west of that lantern — not overlapping cart r=1.1, tailor door,
- * inn porch colliders, or shop pack r≈4.4.
+ * Hitching rail + water trough on the SE plaza cobble, street-side / west of
+ * the traveling cart. Wagon local +X is cobble/south (away from the fountain);
+ * local +Z is the tongue (ENE into the yellow stall). Cluster sits south of
+ * the bed so fountain→inn and fountain→cart gaps stay walkable — not on the
+ * inner cobble ring, not overlapping tailor door or shop pack r≈4.4.
  * Visual-only (cart E r=3.0 would swallow a hitch prompt). Soft colliders
- * in MeadowBiome (post r≈0.28, trough r≈0.4).
+ * in MeadowBiome (post r≈0.22, trough r≈0.32).
  */
-export const MARKET_HITCHING_SPOT = { x: 51.12, z: 45.88 } as const;
+export const MARKET_HITCHING_SPOT = { x: 51.32, z: 45.12 } as const;
 export const MARKET_HITCHING_YAW = MARKET_WAGON_YAW;
 
 /** Trough offset in hitching-group space (+X further cobble). */

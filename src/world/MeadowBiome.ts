@@ -1602,7 +1602,7 @@ export class MeadowBiome {
 
     // Central plaza fountain — soft blocker; leave walk lanes around the cobble.
     this.addMarketFountain(MARKET_FOUNTAIN_SPOT.x, MARKET_FOUNTAIN_SPOT.z);
-    // Fountain-side wood benches on the inner cobble ring (visual-only).
+    // Fountain-side wood benches on the outer cobble ring (inner loop stays walkable).
     for (let i = 0; i < MARKET_FOUNTAIN_BENCHES.length; i++) {
       const bench = MARKET_FOUNTAIN_BENCHES[i]!;
       this.addMarketFountainBench(bench.x, bench.z, MARKET_FOUNTAIN_BENCH_YAWS[i]!);
@@ -1662,8 +1662,9 @@ export class MeadowBiome {
       ),
     );
 
-    this.addMarketCrates(47.2, 51.4, 0.2);
-    this.addMarketCrates(54.0, 49.2, -0.35);
+    // Stall-flank crates — off the fountain cobble ring (west by produce, east by yellow stall).
+    this.addMarketCrates(45.4, 49.85, 0.2);
+    this.addMarketCrates(54.7, 48.45, -0.35);
     this.addMarketBannerPost(47.0, 49.2, 0.1);
     this.addMarketBannerPost(55.0, 52.6, -0.08);
 
@@ -1680,14 +1681,14 @@ export class MeadowBiome {
       MARKET_WAGON_SPOT.z,
       MARKET_WAGON_YAW,
     );
-    // Hitching rail + trough on the cart's street-side cobble (not fountain lane).
+    // Hitching rail + trough street-side / west of the cart (fountain→inn / cart gaps open).
     this.addMarketHitchingPost(
       MARKET_HITCHING_SPOT.x,
       MARKET_HITCHING_SPOT.z,
       MARKET_HITCHING_YAW,
     );
 
-    // Warm plaza street lanterns on the cobble rim — town-hub read at a glance.
+    // Warm plaza street lanterns on the outer rim / building flanks — town-hub read, off walk lanes.
     for (const lamp of MARKET_PLAZA_LANTERNS) {
       this.addMarketPlazaLantern(lamp.x, lamp.z);
     }
@@ -4160,7 +4161,7 @@ export class MeadowBiome {
     group.add(barrel);
 
     this.root.add(group);
-    this.obstacles.push({ x, z, radius: 0.65 });
+    this.obstacles.push({ x, z, radius: 0.5 });
   }
 
   /**
@@ -4201,7 +4202,8 @@ export class MeadowBiome {
     if (light) light.position.set(0.38, 2.0, 0);
 
     this.root.add(group);
-    this.obstacles.push({ x, z, radius: 0.32 });
+    // Pole is ~0.09 thick — keep collider tight so rim lamps do not pinch walk lanes.
+    this.obstacles.push({ x, z, radius: 0.16 });
   }
 
   /** Banner pole dressing for the market street. */
@@ -4403,12 +4405,13 @@ export class MeadowBiome {
     this.root.add(path);
 
     // North flank — crates / barrels (soft blockers; leave center lane open).
-    this.addMarketCrates(45.8, 53.55, 0.35);
+    // Mouth stack sits west of the plaza cobble ring so the alley does not pinch the fountain loop.
+    this.addMarketCrates(45.05, 54.2, 0.35);
     this.addMarketCrates(44.2, 53.7, -0.2);
     this.addMarketCrates(42.9, 53.35, 0.55);
 
     // South flank — barrel stack + spare crate (mirrors inn-yard dressing).
-    this.addMarketAlleyBarrels(45.4, 51.05, 0.1);
+    this.addMarketAlleyBarrels(43.85, 50.5, 0.1);
     this.addMarketAlleyBarrels(43.5, 51.15, -0.4);
     this.addMarketCrates(42.4, 51.35, 0.25);
 
@@ -4800,7 +4803,8 @@ export class MeadowBiome {
     group.add(tarpFlap);
 
     this.root.add(group);
-    this.obstacles.push({ x, z, radius: 1.1 });
+    // Bed is ~1.15×1.95; r=0.9 covers the hull without eating the fountain cobble loop.
+    this.obstacles.push({ x, z, radius: 0.9 });
   }
 
   /**
@@ -4907,11 +4911,11 @@ export class MeadowBiome {
     group.add(water);
 
     this.root.add(group);
-    this.obstacles.push({ x, z, radius: 0.28 });
+    this.obstacles.push({ x, z, radius: 0.22 });
     this.obstacles.push({
       x: MARKET_WATER_TROUGH.x,
       z: MARKET_WATER_TROUGH.z,
-      radius: 0.4,
+      radius: 0.32,
     });
   }
 
@@ -5061,8 +5065,9 @@ export class MeadowBiome {
   }
 
   /**
-   * Simple MeshToon wood bench on the inner plaza cobble — two legs, seat plank,
-   * low backrest. Faces the fountain; small collider so gaps stay walkable.
+   * Simple MeshToon wood bench on the plaza cobble — two legs, seat plank,
+   * low backrest. Faces the fountain; collider matches the seat footprint
+   * (~1.32×0.46) so the inner fountain loop stays walkable.
    * Sized to read from the iso camera against tan plaza cobble.
    */
   private addMarketFountainBench(x: number, z: number, yaw: number): void {
@@ -5124,7 +5129,7 @@ export class MeadowBiome {
     }
 
     this.root.add(group);
-    this.obstacles.push({ x, z, radius: 0.55 });
+    this.obstacles.push({ x, z, radius: 0.38 });
   }
 
   /** Procedural KayKit-cottage stand-in for the blacksmith workshop (pack-swapped). */
