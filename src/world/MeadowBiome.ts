@@ -29,6 +29,10 @@ import {
   MARKET_APOTHECARY_SPOT,
   MARKET_BAKERY_SPOT,
   MARKET_BLACKSMITH_SPOT,
+  MARKET_CLOTHESLINE_HALF,
+  MARKET_CLOTHESLINE_POSTS,
+  MARKET_CLOTHESLINE_SPOT,
+  MARKET_CLOTHESLINE_YAW,
   MARKET_EXTRA_STALL,
   MARKET_EXTRA_STALL_YAW,
   MARKET_FORGE_SPOT,
@@ -4410,6 +4414,124 @@ export class MeadowBiome {
 
     // Dead-end notice board at the alley bend (E interact via MarketAlley).
     this.addMarketAlleySign(ax, az);
+
+    // Clothesline across the cobble — walk under; posts only as soft blockers.
+    this.addMarketAlleyClothesline(
+      MARKET_CLOTHESLINE_SPOT.x,
+      MARKET_CLOTHESLINE_SPOT.z,
+      MARKET_CLOTHESLINE_YAW,
+    );
+  }
+
+  /**
+   * Short MeshToon clothesline between two posts across the west-rim alley.
+   * Line sits at ~2.12 so the cobble lane stays walkable. 4 hanging cloths
+   * (warriorCloth / flowerCyan / cream) are chunky + slightly tilted so they
+   * read from the steep iso cam (thin vertical sheets vanish from above).
+   * Slight idle sway reuses city-gate banner pivots. Soft collision on the
+   * posts only — not the laundry.
+   */
+  private addMarketAlleyClothesline(x: number, z: number, yaw: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'MarketAlleyClothesline';
+
+    const creamMat = createToonMaterial(Palette.flowerWhite);
+    const clothMat = createToonMaterial(Palette.warriorCloth, {
+      side: THREE.DoubleSide,
+    });
+    const cyanMat = createToonMaterial(Palette.flowerCyan, {
+      emissive: Palette.flowerCyan,
+      emissiveIntensity: 0.08,
+      side: THREE.DoubleSide,
+    });
+    const ropeMat = createToonMaterial(Palette.trunkDark);
+
+    const half = MARKET_CLOTHESLINE_HALF;
+    const lineY = 2.12;
+
+    for (const pz of [-half, half] as const) {
+      // Chunky posts — thin sticks vanish in the iso camera.
+      const post = new THREE.Mesh(
+        new THREE.BoxGeometry(0.22, 2.36, 0.22),
+        this.woodDarkMat,
+      );
+      post.position.set(0, 1.18, pz);
+      post.castShadow = true;
+      group.add(post);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.3), this.woodMat);
+      cap.position.set(0, 2.4, pz);
+      cap.castShadow = true;
+      group.add(cap);
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.34), this.woodMat);
+      base.position.set(0, 0.07, pz);
+      base.castShadow = true;
+      base.receiveShadow = true;
+      group.add(base);
+      const hook = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, 0.1), this.ironMat);
+      hook.position.set(0, lineY, pz * 0.92);
+      hook.castShadow = true;
+      group.add(hook);
+    }
+
+    // Wood rail + rope so the span reads from above, not just a hairline.
+    const rail = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.1, half * 2 - 0.12),
+      this.woodMat,
+    );
+    rail.position.set(0, lineY + 0.02, 0);
+    rail.castShadow = true;
+    group.add(rail);
+    const line = new THREE.Mesh(
+      new THREE.BoxGeometry(0.055, 0.045, half * 2 - 0.16),
+      ropeMat,
+    );
+    line.position.set(0, lineY - 0.04, 0);
+    line.castShadow = true;
+    group.add(line);
+
+    const cloths = [
+      { z: -0.66, w: 0.62, h: 0.82, lean: 0.32, twist: 0.18, mat: clothMat },
+      { z: -0.2, w: 0.5, h: 0.68, lean: 0.38, twist: -0.22, mat: cyanMat },
+      { z: 0.24, w: 0.58, h: 0.88, lean: 0.28, twist: 0.12, mat: creamMat },
+      { z: 0.68, w: 0.48, h: 0.64, lean: 0.36, twist: -0.16, mat: clothMat },
+    ] as const;
+
+    for (const c of cloths) {
+      const pivot = new THREE.Group();
+      pivot.position.set(0, lineY - 0.05, c.z);
+      pivot.userData.phase = hash2(x + c.z, z) * 6.4 + c.z;
+      pivot.userData.amp = 0.055;
+      group.add(pivot);
+      this.gateBannerPivots.push(pivot);
+
+      const peg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.07), this.woodMat);
+      peg.position.set(0, 0.02, 0);
+      pivot.add(peg);
+
+      // Lean toward the iso cam so the sheet has a readable top silhouette.
+      const cloth = new THREE.Mesh(new THREE.BoxGeometry(c.w, c.h, 0.085), c.mat);
+      cloth.position.set(0, -0.1 - c.h * 0.5, 0);
+      cloth.rotation.x = c.lean;
+      cloth.rotation.y = c.twist;
+      cloth.castShadow = true;
+      pivot.add(cloth);
+
+      const hem = new THREE.Mesh(
+        new THREE.BoxGeometry(c.w * 0.9, 0.07, 0.1),
+        c.mat === creamMat ? clothMat : creamMat,
+      );
+      hem.position.set(0, -0.1 - c.h + 0.04, 0.02);
+      hem.rotation.x = c.lean;
+      hem.rotation.y = c.twist;
+      pivot.add(hem);
+    }
+
+    this.root.add(group);
+    for (const post of MARKET_CLOTHESLINE_POSTS) {
+      this.obstacles.push({ x: post.x, z: post.z, radius: 0.22 });
+    }
   }
 
   /** Compact barrel cluster for alley flanks (smaller footprint than crate stacks). */
