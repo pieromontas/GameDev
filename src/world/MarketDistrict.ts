@@ -82,7 +82,7 @@ export const MARKET_ALLEY_SPOT = { x: 43.6, z: 52.4 } as const;
  * MeshToon clothesline across the west-rim alley walk lane.
  * Midpoint sits east of the flavor board (MARKET_ALLEY_SPOT) so the cobble
  * stays open. Yaw matches the alley ribbon (−0.15); posts nestle the crate /
- * barrel flanks. Line hangs ~2.05 (walk under). Soft collision on posts only
+ * barrel flanks. Line hangs ~2.12 (walk under). Soft collision on posts only
  * (r≈0.22) — hanging cloth does not collide. Clear of produce stall, plaza
  * lanterns, vendor, baker pack, curtain wall, and fountain lanes.
  */
