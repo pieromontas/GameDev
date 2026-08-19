@@ -16,6 +16,7 @@ import {
   MarketBlacksmith,
   MarketDistrictSign,
   MarketExtraStall,
+  MarketFountain,
   MarketInn,
   MarketNoticeBoard,
   MarketPlazaShops,
@@ -66,6 +67,7 @@ export class Game {
   private readonly marketBlacksmith: MarketBlacksmith;
   private readonly marketVendor: MarketStreetVendor;
   private readonly marketPlazaShops: MarketPlazaShops;
+  private readonly marketFountain: MarketFountain;
   private readonly marketExtraStall: MarketExtraStall;
   private readonly marketWagon: MarketTravelingCart;
   private readonly marketNoticeBoard: MarketNoticeBoard;
@@ -266,6 +268,9 @@ export class Game {
       onShopChanged: (open) => this.hud.setVendorOpen(open, this.lootCount),
     });
     this.marketPlazaShops = new MarketPlazaShops({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+    });
+    this.marketFountain = new MarketFountain({
       onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.marketExtraStall = new MarketExtraStall({
@@ -535,6 +540,7 @@ export class Game {
     this.meadow.updateCastleAmbience(dt, this.player.position);
     this.castleDistrict.update(dt);
     this.marketInn.update(dt);
+    this.marketFountain.update(dt);
     this.residentialChapel.update(dt);
     this.merchant.update(this.player);
     this.marketVendor.update(this.player);
@@ -794,12 +800,15 @@ export class Game {
 
   /**
    * E key: closed chests → healing spring → west grove herb → east shrine →
-   * gate guard → blacksmith → plaza baker/tailor/apothecary → street vendor →
-   * produce stall → traveling cart → market sign → notice board → inn → alley →
-   * harbor catch crate → residential door → town chapel → cottage merchant.
+   * gate guard → blacksmith → plaza baker/tailor/apothecary → plaza fountain →
+   * street vendor → produce stall → traveling cart → market sign → notice board →
+   * inn → alley → harbor catch crate → residential door → town chapel →
+   * cottage merchant.
    * Plaza shop doors sit before vendor / cart / notice so the porches are not
    * stolen by those larger radii; shop r=3.2 still leaves vendor / produce /
    * cart / inn / sign stand points to those pads.
+   * Fountain sip sits after shops so a stoop never reads as Drink; before
+   * vendor / produce / cart / sign so the basin wins vs those larger radii.
    * Produce stall is before the market sign so the west-rim pad wins on overlap;
    * traveling cart is after shops so vendor / produce still win; before the
    * generic market sign so the cart pad wins vs the sign.
@@ -828,6 +837,7 @@ export class Game {
     if (this.gateGuard.tryInteract(this.player)) return;
     if (this.marketBlacksmith.tryInteract(this.player)) return;
     if (this.marketPlazaShops.tryInteract(this.player)) return;
+    if (this.marketFountain.tryInteract(this.player)) return;
     if (this.marketVendor.tryInteract(this.player)) return;
     if (this.marketExtraStall.tryInteract(this.player)) return;
     if (this.marketWagon.tryInteract(this.player)) return;
@@ -858,6 +868,7 @@ export class Game {
     const marketPrompt = this.marketSign.getInteractPrompt(this.player);
     const smithPrompt = this.marketBlacksmith.getInteractPrompt(this.player);
     const plazaShopPrompt = this.marketPlazaShops.getInteractPrompt(this.player);
+    const fountainPrompt = this.marketFountain.getInteractPrompt(this.player);
     const vendorPrompt = this.marketVendor.getInteractPrompt(this.player);
     const extraStallPrompt = this.marketExtraStall.getInteractPrompt(this.player);
     const wagonPrompt = this.marketWagon.getInteractPrompt(this.player);
@@ -906,6 +917,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: plazaShopPrompt.text,
+      });
+    } else if (fountainPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: fountainPrompt.text,
       });
     } else if (vendorPrompt.visible) {
       this.hud.setShrineHud({
