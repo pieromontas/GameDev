@@ -117,16 +117,17 @@ export const MARKET_CLOTHESLINE_POSTS = [
 
 /**
  * MeshToon cat loafing on a west-rim alley crate lid (clothesline area).
- * Sits on the existing north-flank crate stack at (42.9, 53.35) — lid center
- * after the stack yaw — not in the cobble walk lane. Clear of clothesline
- * posts, alley E board, produce stall, and the fountain cobble loop.
+ * Sits on the existing mid north-flank crate stack at (44.2, 53.7) — lid
+ * center after the stack yaw, nudged a hair north of the clothesline post.
+ * Not in the cobble walk lane. Clear of clothesline posts, alley E board,
+ * produce stall, curtain wall, and the fountain cobble loop.
  * Visual-only (no E, no extra lights, no collision — crate collider holds).
  */
 export const MARKET_ALLEY_CAT = {
-  x: 42.94,
-  z: 53.27,
-  y: 1.005,
-  yaw: 0.95,
+  x: 44.29,
+  z: 53.72,
+  y: 1.02,
+  yaw: 0.85,
 } as const;
 
 /**
