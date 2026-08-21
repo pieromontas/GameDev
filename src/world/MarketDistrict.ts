@@ -116,6 +116,21 @@ export const MARKET_CLOTHESLINE_POSTS = [
 ] as const;
 
 /**
+ * MeshToon cat loafing on a west-rim alley crate lid (clothesline area).
+ * Sits on the existing south-flank crate stack at (42.4, 51.35) — lid center
+ * after the stack yaw. Foreground from the default iso cam (not tucked under
+ * the baker cottage eaves). Not in the cobble walk lane. Clear of clothesline
+ * posts, alley E board, produce stall, curtain wall, and the fountain loop.
+ * Visual-only (no E, no extra lights, no collision — crate collider holds).
+ */
+export const MARKET_ALLEY_CAT = {
+  x: 42.47,
+  z: 51.28,
+  y: 1.16,
+  yaw: 0.55,
+} as const;
+
+/**
  * Extra west-rim plaza stall (toast-only produce / cloth / trinket flavor).
  * Clear of gate→market diagonal, fountain lanes, vendor stand, alley, inn porch,
  * notice board, and KayKit shop pack radii (~4.4). Soft collision in MeadowBiome.
