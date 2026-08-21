@@ -5537,6 +5537,7 @@ export class MeadowBiome {
       const group = new THREE.Group();
       group.position.set(bird.x, 0, bird.z);
       group.rotation.y = bird.yaw;
+      // 1.65× so body/comb/beak still read at default follow distance 24.
       group.scale.setScalar(1.65);
       group.name = 'MarketInnChicken';
 
