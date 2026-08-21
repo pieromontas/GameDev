@@ -340,6 +340,7 @@ export class MeadowBiome {
     this.buildNortheastResidentialStreet();
     this.buildNortheastHarborDocks();
     this.buildNortheastCastleKeep();
+    this.buildCityWallRing();
     this.buildEdgeLedges();
   }
 
@@ -2396,6 +2397,146 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: length * 0.45 });
+  }
+
+  /**
+   * Full city curtain wall ring around the whole NE city cluster
+   * (gate → market → homes → docks → castle). Same language as the castle
+   * curtain walls: slate stone, walkway, crenellations, and bastion towers at
+   * every corner. The only opening is the SW city-gate arch, where the meadow
+   * road enters; every district pocket, corridor, and pack footprint is clear.
+   */
+  private buildCityWallRing(): void {
+    // Ring corners (counterclockwise). The SW gap between the last and first
+    // corner is the city gate arch / approach — left open for the road.
+    const corners: ReadonlyArray<readonly [number, number]> = [
+      [52.0, 35.5], // SE of gate
+      [61.0, 31.8], // SE bend — clears the docks rim tree at (60.3, 34.8)
+      [72.0, 33.5], // SE of docks (harbor bulge)
+      [85.0, 52.0], // SE mid
+      [100.0, 70.0], // SE of castle
+      [103.0, 94.0], // E of castle
+      [93.5, 102.5], // N of castle
+      [72.0, 97.5], // NW of castle
+      [49.5, 70.0], // NW of homes / market
+      [39.5, 61.0], // NW of market (bakery flank)
+      [34.0, 51.0], // NW of gate
+    ];
+    for (let i = 0; i < corners.length; i++) {
+      const [x, z] = corners[i]!;
+      this.addCityWallTower(x, z);
+      if (i >= corners.length - 1) break; // keep the gate gap open
+      const [nx, nz] = corners[i + 1]!;
+      this.addCityWallRun(x, z, nx, nz);
+    }
+  }
+
+  /** One straight run of the city curtain wall between two ring corners. */
+  private addCityWallRun(x0: number, z0: number, x1: number, z1: number): void {
+    const dx = x1 - x0;
+    const dz = z1 - z0;
+    const len = Math.hypot(dx, dz);
+    // Wall length runs along local +X — yaw places it on the (dx, dz) bearing.
+    const yaw = Math.atan2(-dz, dx);
+    const sub = Math.max(1, Math.ceil(len / 9));
+    const segLen = len / sub;
+    for (let i = 0; i < sub; i++) {
+      const t = (i + 0.5) / sub;
+      this.addCityCurtainWall(x0 + dx * t, z0 + dz * t, yaw, segLen);
+    }
+  }
+
+  /**
+   * City curtain wall segment — slightly lower than the castle's inner curtain
+   * (3.4 vs 3.8) so the citadel stays the tallest silhouette in the city.
+   */
+  private addCityCurtainWall(x: number, z: number, yaw: number, length: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'CityCurtainWall';
+
+    const wall = new THREE.Mesh(
+      new THREE.BoxGeometry(length, 3.4, 1.2),
+      this.castleSlateMat,
+    );
+    wall.position.y = 1.7;
+    wall.castShadow = true;
+    wall.receiveShadow = true;
+    group.add(wall);
+
+    const walkway = new THREE.Mesh(
+      new THREE.BoxGeometry(length, 0.35, 1.4),
+      this.castleSlateLightMat,
+    );
+    walkway.position.y = 3.55;
+    walkway.castShadow = true;
+    group.add(walkway);
+
+    // Crenellations along the outer edge (local −Z faces away from the city).
+    const merlonCount = Math.floor(length / 1.4);
+    for (let i = 0; i < merlonCount; i++) {
+      const merlon = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, 0.7, 0.3),
+        this.castleSlateMat,
+      );
+      merlon.position.set(-length * 0.45 + i * 1.35, 4.05, -0.6);
+      merlon.castShadow = true;
+      group.add(merlon);
+    }
+
+    this.root.add(group);
+    // Soft capsule along the segment — consecutive sub-walls overlap, no gaps.
+    this.obstacles.push({ x, z, radius: length * 0.45 });
+  }
+
+  /** Bastion tower post at a city-wall corner — castle-gatehouse language. */
+  private addCityWallTower(x: number, z: number): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.name = 'CityWallTower';
+
+    const towerH = 5.6;
+    const shaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.95, 1.15, towerH, 8),
+      this.castleSlateMat,
+    );
+    shaft.position.y = towerH * 0.5;
+    shaft.castShadow = true;
+    shaft.receiveShadow = true;
+    group.add(shaft);
+
+    const cornice = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.25, 1.05, 0.4, 8),
+      this.castleSlateLightMat,
+    );
+    cornice.position.y = towerH + 0.1;
+    cornice.castShadow = true;
+    group.add(cornice);
+
+    for (let i = 0; i < 4; i++) {
+      const merlon = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55, 0.6, 0.35),
+        this.castleSlateMat,
+      );
+      const ang = (i / 4) * Math.PI * 2;
+      merlon.position.set(Math.cos(ang) * 0.95, towerH + 0.55, Math.sin(ang) * 0.95);
+      merlon.rotation.y = -ang;
+      merlon.castShadow = true;
+      group.add(merlon);
+    }
+
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(1.15, 2.1, 8), this.royalBlueMat);
+    roof.position.y = towerH + 1.35;
+    roof.castShadow = true;
+    group.add(roof);
+
+    const finial = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.55, 4), this.royalGoldMat);
+    finial.position.y = towerH + 2.7;
+    group.add(finial);
+
+    this.root.add(group);
+    this.obstacles.push({ x, z, radius: 1.15 });
   }
 
   /**

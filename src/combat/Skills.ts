@@ -29,8 +29,10 @@ export const WARRIOR_SKILLS: Record<SkillId, SkillDef> = {
     id: 'basic',
     name: 'Slash',
     keyHint: 'LMB / 1',
+    // Hardest basic hit of the three kits — the melee bruiser out-swings the
+    // mage's ranged bolt and the rogue's poke, and every swing staggers.
     cooldown: 0.4,
-    damage: 15,
+    damage: 18,
     range: 2.55,
     radius: 0,
     color: 0xffe08a,
@@ -40,18 +42,18 @@ export const WARRIOR_SKILLS: Record<SkillId, SkillDef> = {
     name: 'Quake',
     keyHint: '2',
     cooldown: 3.2,
-    damage: 26,
+    damage: 30,
     range: 0.5,
-    radius: 3.55,
+    radius: 3.7,
     color: 0xff5a5a,
   },
   bash: {
     id: 'bash',
     name: 'Shield Bash',
     keyHint: '3',
-    // Mid CD utility — less damage than Slash/Quake; pays for stun + knockback.
+    // Mid CD utility — lighter than Slash/Quake; pays for stun + knockback.
     cooldown: 2.0,
-    damage: 12,
+    damage: 16,
     range: 2.15,
     radius: 1.35,
     color: 0x7ec8ff,
@@ -60,9 +62,10 @@ export const WARRIOR_SKILLS: Record<SkillId, SkillDef> = {
     id: 'burst',
     name: 'Leap Strike',
     keyHint: '4',
-    // Gap-closer — longer CD than Quake; smaller landing AoE; mobility is the payoff.
+    // Gap-closer — longer CD than Quake; smaller landing AoE; mobility + a
+    // hammer-like landing (launches survivors) is the payoff.
     cooldown: 5.6,
-    damage: 22,
+    damage: 28,
     range: 5.2,
     radius: 2.35,
     color: 0xffb040,

@@ -197,14 +197,17 @@ export class Game {
           this.hud.showToast('Armored Brute crushed!  ·  rich loot + XP', 2.0);
         }
       },
+      onSlashImpact: () => {
+        this.cameraRig.addImpactPunch(0.08);
+      },
       onQuakeImpact: () => {
-        this.cameraRig.addImpactPunch(0.16);
+        this.cameraRig.addImpactPunch(0.24);
       },
       onBashImpact: () => {
-        this.cameraRig.addImpactPunch(0.1);
+        this.cameraRig.addImpactPunch(0.14);
       },
       onBurstImpact: () => {
-        this.cameraRig.addImpactPunch(0.18);
+        this.cameraRig.addImpactPunch(0.26);
       },
       onPlayerDisplace: (player) => {
         this.constrainEntity(player.position, player.radius);
@@ -614,8 +617,8 @@ export class Game {
 
     const mouseYaw = this.input.consumeYawDelta();
     const mousePitch = this.input.consumePitchDelta();
-    if (mouseYaw !== 0) this.cameraRig.addYaw(mouseYaw);
-    if (mousePitch !== 0) this.cameraRig.addPitch(-mousePitch);
+    if (mouseYaw !== 0) this.cameraRig.addYaw(-mouseYaw);
+    if (mousePitch !== 0) this.cameraRig.addPitch(mousePitch);
 
     // Keyboard camera rotation (← / →, [ / ], or , / .)
     const rotSpeed = 2.4 * dt;
@@ -624,14 +627,14 @@ export class Game {
       this.input.isDown('BracketLeft') ||
       this.input.isDown('Comma')
     ) {
-      this.cameraRig.addYaw(-rotSpeed);
+      this.cameraRig.addYaw(rotSpeed);
     }
     if (
       this.input.isDown('ArrowRight') ||
       this.input.isDown('BracketRight') ||
       this.input.isDown('Period')
     ) {
-      this.cameraRig.addYaw(rotSpeed);
+      this.cameraRig.addYaw(-rotSpeed);
     }
 
     // Keyboard / wheel zoom

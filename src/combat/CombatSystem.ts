@@ -18,6 +18,8 @@ export type CombatHooks = {
   onQuakeImpact?: (hitCount: number) => void;
   /** Optional: lighter punch when Shield Bash connects. */
   onBashImpact?: (hitCount: number) => void;
+  /** Optional: faint punch when Slash connects. */
+  onSlashImpact?: (hitCount: number) => void;
   /** Clamp / sync player after Leap Strike displaces them. */
   onPlayerDisplace?: (player: Player) => void;
   /** Optional: punch when Leap Strike lands or Meteor impacts. */
@@ -38,6 +40,8 @@ type PendingLeap = {
   color: number;
   damageMult: number;
   bonusDamage: number;
+  /** Landing knockback distance (0 = no launch — rogue Shadow Leap). */
+  knockback: number;
   landed: boolean;
 };
 
@@ -760,7 +764,15 @@ export class CombatSystem {
       this.fx.spawnSeal(player.position, 0xffd76a);
       if (target) {
         this.applyDamageToMob(target, skill.damage, false);
-        this.pulseHitStop(0.045);
+        // Heavy blade stagger — the basic swing shoves and briefly dazes.
+        this.tmp.set(
+          target.position.x - player.position.x,
+          0,
+          target.position.z - player.position.z,
+        );
+        target.applyKnockback(this.tmp.x, this.tmp.z, 0.9, 0.3);
+        this.pulseHitStop(0.055);
+        this.hooks.onSlashImpact?.(1);
       }
       return true;
     }
@@ -803,12 +815,12 @@ export class CombatSystem {
         if (lateral > skill.radius / Math.max(dist, 0.6)) continue;
 
         this.applyDamageToMob(mob, skill.damage, false);
-        const push = 2.15 + (1 - Math.min(1, dist / hitRange)) * 0.55;
-        mob.applyKnockback(dx, dz, push, 0.9);
+        const push = 2.6 + (1 - Math.min(1, dist / hitRange)) * 0.7;
+        mob.applyKnockback(dx, dz, push, 1.05);
         hits += 1;
       }
       if (hits > 0) {
-        this.pulseHitStop(0.05);
+        this.pulseHitStop(0.06);
         this.hooks.onBashImpact?.(hits);
       }
       return true;
@@ -818,7 +830,8 @@ export class CombatSystem {
       return this.castLeapStrike(player, skill, mobs);
     }
 
-    // AoE slam centered on player — ring matches gameplay radius
+    // AoE slam centered on player — ring matches gameplay radius.
+    // Ground slam launches nearby enemies outward for a heavy, crunchy hit.
     player.playQuake();
     this.fx.spawnRing(player.position, skill.color, skill.radius);
     this.fx.spawnSeal(player.position, skill.color);
@@ -829,11 +842,14 @@ export class CombatSystem {
       const d2 = dist2(player.position.x, player.position.z, mob.position.x, mob.position.z);
       if (d2 <= reach * reach) {
         this.applyDamageToMob(mob, skill.damage, true);
+        const dx = mob.position.x - player.position.x;
+        const dz = mob.position.z - player.position.z;
+        mob.applyKnockback(dx, dz, 2.4, 0.7);
         hits += 1;
       }
     }
     if (hits > 0) {
-      this.pulseHitStop(0.055);
+      this.pulseHitStop(0.07);
       this.hooks.onQuakeImpact?.(hits);
     }
     return true;
@@ -1015,6 +1031,7 @@ export class CombatSystem {
       color: skill.color,
       damageMult: this.playerDamageMult,
       bonusDamage: this.playerBonusDamage,
+      knockback: player.playerClass === 'warrior' ? 2.6 : 0,
       landed: false,
     });
     return true;
@@ -1095,8 +1112,20 @@ export class CombatSystem {
             const hits = this.withCastDamage(cast, () =>
               this.applyRadiusDamage(cast.toX, cast.toZ, cast.radius, cast.damage, mobs, true),
             );
+            // Warrior leap lands like a hammer — launch survivors outward.
+            if (cast.knockback > 0) {
+              for (const mob of mobs) {
+                if (!mob.alive) continue;
+                const kx = mob.position.x - cast.toX;
+                const kz = mob.position.z - cast.toZ;
+                const kd = Math.hypot(kx, kz);
+                if (kd <= cast.radius + mob.radius * 0.35) {
+                  mob.applyKnockback(kx, kz, cast.knockback, 0.6);
+                }
+              }
+            }
             if (hits > 0) {
-              this.pulseHitStop(0.055);
+              this.pulseHitStop(0.07);
               this.hooks.onBurstImpact?.(hits);
             }
           }
