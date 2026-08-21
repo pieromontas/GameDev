@@ -5537,6 +5537,7 @@ export class MeadowBiome {
       const group = new THREE.Group();
       group.position.set(bird.x, 0, bird.z);
       group.rotation.y = bird.yaw;
+      group.scale.setScalar(1.65);
       group.name = 'MarketInnChicken';
 
       const bodyMat = bird.dark ? duskMat : creamMat;
