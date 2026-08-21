@@ -41,6 +41,7 @@ import {
   MARKET_FOUNTAIN_SPOT,
   MARKET_HITCHING_SPOT,
   MARKET_HITCHING_YAW,
+  MARKET_INN_CHICKENS,
   MARKET_INN_SPOT,
   MARKET_NOTICE_BOARD_SPOT,
   MARKET_NOTICE_BOARD_YAW,
@@ -216,6 +217,8 @@ export class MeadowBiome {
   private readonly marketForgeSmoke: THREE.Mesh[] = [];
   private readonly marketForgeEmbers: THREE.Mesh[] = [];
   private marketForgeLight: THREE.PointLight | null = null;
+  /** Inn-yard chicken neck pivots — tiny peck phase in `updateMarketAmbience`. */
+  private readonly marketInnChickenPivots: THREE.Group[] = [];
   /** Gate sentry mesh — idle sway + slight head-track toward nearby players. */
   private gateGuardGroup: THREE.Group | null = null;
   private gateGuardHead: THREE.Object3D | null = null;
@@ -1634,6 +1637,7 @@ export class MeadowBiome {
       ),
     );
     this.addMarketInnYard(MARKET_INN_SPOT.x, MARKET_INN_SPOT.z);
+    this.addMarketInnChickens();
 
     // Stylized stall awnings + crates (dense but not a capital).
     // Crates sit off the fountain footprint so the plaza center stays readable.
@@ -5504,6 +5508,99 @@ export class MeadowBiome {
     this.obstacles.push({ x: x + 0.95, z: z + 0.4, radius: 0.55 });
   }
 
+  /**
+   * Two chunky MeshToon chickens among the inn-yard tables / barrels.
+   * Porch/yard side only — south of the door pad, clear of fountain loop,
+   * hitch/cart, and tailor stoop. Peck uses a tiny local neck phase (same
+   * idea as gate-banner pivots, smaller amp). Visual-only: no E, no lights,
+   * no extra colliders so the inn approach stays open.
+   */
+  private addMarketInnChickens(): void {
+    const creamMat = createToonMaterial(Palette.flowerWhite);
+    const duskMat = createToonMaterial(Palette.signBoard);
+    const clothMat = createToonMaterial(Palette.warriorCloth);
+    const bodyGeo = new THREE.SphereGeometry(0.16, 8, 6);
+    const headGeo = new THREE.SphereGeometry(0.1, 7, 6);
+    const beakGeo = new THREE.ConeGeometry(0.048, 0.15, 5);
+    const combGeo = new THREE.BoxGeometry(0.04, 0.1, 0.08);
+    const wingGeo = new THREE.SphereGeometry(0.09, 6, 5);
+    const tailGeo = new THREE.BoxGeometry(0.1, 0.12, 0.14);
+    const legGeo = new THREE.BoxGeometry(0.05, 0.13, 0.05);
+    const shadowGeo = new THREE.CircleGeometry(0.2, 10);
+    const shadowMat = createToonMaterial(0x1a2818, {
+      transparent: true,
+      opacity: 0.3,
+    });
+
+    for (const bird of MARKET_INN_CHICKENS) {
+      const group = new THREE.Group();
+      group.position.set(bird.x, 0, bird.z);
+      group.rotation.y = bird.yaw;
+      group.name = 'MarketInnChicken';
+
+      const bodyMat = bird.dark ? duskMat : creamMat;
+
+      const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.y = 0.02;
+      group.add(shadow);
+
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.position.set(0, 0.22, 0.02);
+      body.scale.set(1.2, 0.95, 1.5);
+      body.castShadow = true;
+      group.add(body);
+
+      for (const side of [-1, 1] as const) {
+        const wing = new THREE.Mesh(wingGeo, clothMat);
+        wing.position.set(side * 0.15, 0.22, 0.02);
+        wing.scale.set(0.55, 0.85, 1.2);
+        wing.castShadow = true;
+        group.add(wing);
+      }
+
+      const tail = new THREE.Mesh(tailGeo, clothMat);
+      tail.position.set(0, 0.28, -0.22);
+      tail.rotation.x = 0.55;
+      tail.castShadow = true;
+      group.add(tail);
+
+      for (const side of [-1, 1] as const) {
+        const leg = new THREE.Mesh(legGeo, this.trunkDarkMat);
+        leg.position.set(side * 0.06, 0.075, 0.03);
+        group.add(leg);
+      }
+
+      const neck = new THREE.Group();
+      neck.position.set(0, 0.3, 0.16);
+      neck.userData.phase = hash2(bird.x, bird.z) * 7.2;
+      neck.userData.amp = 0.34;
+      group.add(neck);
+      this.marketInnChickenPivots.push(neck);
+
+      const head = new THREE.Mesh(headGeo, bodyMat);
+      head.position.set(0, 0.08, 0.07);
+      head.castShadow = true;
+      neck.add(head);
+
+      const beak = new THREE.Mesh(beakGeo, this.trunkDarkMat);
+      beak.position.set(0, 0.05, 0.18);
+      beak.rotation.x = -Math.PI / 2;
+      beak.castShadow = true;
+      neck.add(beak);
+
+      // Two comb lobes — a hairline fin vanishes in the steep iso cam.
+      for (const cz of [0.02, -0.05] as const) {
+        const comb = new THREE.Mesh(combGeo, this.roofMat);
+        comb.position.set(0, 0.19, 0.06 + cz);
+        comb.castShadow = true;
+        neck.add(comb);
+      }
+
+      this.root.add(group);
+    }
+  }
+
   /** Idle fountain sparkles + forge smoke / ember flicker for the market landmarks. */
   updateMarketAmbience(dt: number): void {
     this.marketAmbienceT += dt;
@@ -5556,6 +5653,15 @@ export class MeadowBiome {
 
     if (this.marketForgeLight) {
       this.marketForgeLight.intensity = 0.7 + 0.35 * (0.5 + 0.5 * Math.sin(t * 9.5));
+    }
+
+    // Inn-yard chickens — peck on the positive lobe, rest on the negative.
+    for (let i = 0; i < this.marketInnChickenPivots.length; i++) {
+      const pivot = this.marketInnChickenPivots[i]!;
+      const phase = (pivot.userData.phase as number) ?? i * 1.8;
+      const amp = (pivot.userData.amp as number) ?? 0.34;
+      const wave = Math.sin(t * 3.15 + phase);
+      pivot.rotation.x = Math.max(0, wave) * amp;
     }
   }
 
