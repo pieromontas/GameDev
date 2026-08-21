@@ -74,6 +74,17 @@ export const MARKET_INN_SPOT = { x: 48.5, z: 40.8 } as const;
 export const MARKET_INN_DOOR = { x: 49.6, z: 45.3 } as const;
 
 /**
+ * Two MeshToon chickens pecking in the inn yard (south plaza rim).
+ * Sit among outdoor tables / barrels on the porch/yard side — south of the
+ * inn-door E pad, not on the fountain cobble loop, hitch/cart, or tailor stoop.
+ * Visual-only (no E, no extra lights, no collision).
+ */
+export const MARKET_INN_CHICKENS = [
+  { x: 48.32, z: 44.5, yaw: 0.55, dark: false },
+  { x: 50.28, z: 44.55, yaw: -0.35, dark: true },
+] as const;
+
+/**
  * Short west-rim side alley off the plaza (between curtain wall + crate stacks).
  * Keep clear of KayKit shop pack radii (~4.4) and the gate→market diagonal.
  */
