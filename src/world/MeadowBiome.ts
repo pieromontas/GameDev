@@ -51,6 +51,7 @@ import {
   MARKET_WAGON_SPOT,
   MARKET_WAGON_YAW,
   MARKET_WATER_TROUGH,
+  MARKET_WELL_SPOT,
 } from './MarketDistrict';
 import {
   MARKET_VENDOR_NPC,
@@ -1693,8 +1694,8 @@ export class MeadowBiome {
       this.addMarketPlazaLantern(lamp.x, lamp.z);
     }
 
-    // KayKit well accent off the fountain — pack-swapped with shops.
-    this.marketWellPlacement = { x: 47.8, z: 55.4 };
+    // KayKit well accent off the fountain — pack-swapped with shops (E via MarketPlazaWell).
+    this.marketWellPlacement = { x: MARKET_WELL_SPOT.x, z: MARKET_WELL_SPOT.z };
     this.addMarketWellStandIn(this.marketWellPlacement.x, this.marketWellPlacement.z);
 
     // Low curtain walls + corner posts — enclose parts of the rim, link to the gate.
@@ -6769,6 +6770,7 @@ export class MeadowBiome {
         this.marketWellPlacement.z,
       );
       if (well) {
+        well.name = 'MarketWell';
         this.root.add(well);
         placed += 1;
       }

@@ -208,6 +208,14 @@ function plazaShopDoor(spot: { readonly x: number; readonly z: number; readonly 
 
 /** East stoop beside the well — local +Z is blocked by the plaza well. */
 export const MARKET_BAKERY_DOOR = { x: 47.9, z: 57.85 } as const;
+
+/**
+ * KayKit well accent between baker and plaza (MeadowBiome pack-swap).
+ * Local +Z from the baker hits this well, so MARKET_BAKERY_DOOR sits on the
+ * east stoop. Visual + existing well collider only — no extra props, lights,
+ * or grown radius. Matches MeadowBiome.marketWellPlacement.
+ */
+export const MARKET_WELL_SPOT = { x: 47.8, z: 55.4 } as const;
 /** North cobble stoop — local +Z overlaps the traveling cart / inn radii. */
 export const MARKET_TAILOR_DOOR = { x: 55.9, z: 46.35 } as const;
 export const MARKET_APOTHECARY_DOOR = plazaShopDoor(MARKET_APOTHECARY_SPOT);
@@ -400,8 +408,8 @@ const FOUNTAIN_TOAST_FLAVOR = 'Fountain  ·  cool plaza water';
 /**
  * Free small sip at the plaza fountain — tiny heal + cooldown, no gold / panel.
  * Keep E-priority after plaza baker/tailor/apothecary so a stoop never reads
- * as Drink; before street vendor / produce / cart / market sign so the basin
- * wins vs those larger radii on the inner cobble.
+ * as Drink; before plaza well / street vendor / produce / cart / market sign
+ * so the basin wins vs those larger radii on the inner cobble.
  */
 export class MarketFountain {
   private readonly spot = new THREE.Vector3(
@@ -468,6 +476,51 @@ export class MarketFountain {
     if (this.cooldownRemain > 0) {
       this.cooldownRemain = Math.max(0, this.cooldownRemain - dt);
     }
+  }
+}
+
+/**
+ * Small enough to cover the well lip walk-up (collider r≈1.24 + player 0.5
+ * ≈ 1.74) without reaching MARKET_BAKERY_DOOR (2.45), fountain basin (5.44),
+ * vendor stand (2.39), produce stall, or plaza lantern poles that other pads
+ * do not already own.
+ */
+const WELL_INTERACT_RADIUS = 2.3;
+const WELL_INTERACT_RADIUS_SQ = WELL_INTERACT_RADIUS * WELL_INTERACT_RADIUS;
+const WELL_PROMPT = 'Press E — Well';
+const WELL_TOAST = 'Town well  ·  cold stone · plaza water';
+
+/**
+ * Flavor interact at the plaza well lip — toast only (no heal / gold / panel).
+ * Fountain already sips (+10 HP). Keep E-priority after plaza shops and
+ * fountain so the bakery stoop still reads Bakery and the basin still reads
+ * Drink; before street vendor so the well lip wins vs the vendor's larger radius.
+ */
+export class MarketPlazaWell {
+  private readonly spot = new THREE.Vector3(MARKET_WELL_SPOT.x, 0, MARKET_WELL_SPOT.z);
+  private readonly onToast: (message: string, duration?: number) => void;
+
+  constructor(hooks: { onToast: (message: string, duration?: number) => void }) {
+    this.onToast = hooks.onToast;
+  }
+
+  isNear(pos: THREE.Vector3): boolean {
+    const dx = pos.x - this.spot.x;
+    const dz = pos.z - this.spot.z;
+    return dx * dx + dz * dz <= WELL_INTERACT_RADIUS_SQ;
+  }
+
+  getInteractPrompt(player: Player): MarketHudPrompt {
+    if (!player.alive || !this.isNear(player.position)) {
+      return { visible: false, text: '' };
+    }
+    return { visible: true, text: WELL_PROMPT };
+  }
+
+  tryInteract(player: Player): boolean {
+    if (!player.alive || !this.isNear(player.position)) return false;
+    this.onToast(WELL_TOAST, 2.0);
+    return true;
   }
 }
 

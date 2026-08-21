@@ -20,6 +20,7 @@ import {
   MarketInn,
   MarketNoticeBoard,
   MarketPlazaShops,
+  MarketPlazaWell,
   MarketTravelingCart,
 } from '../world/MarketDistrict';
 import { MarketStreetVendor } from '../world/MarketStreetVendor';
@@ -68,6 +69,7 @@ export class Game {
   private readonly marketVendor: MarketStreetVendor;
   private readonly marketPlazaShops: MarketPlazaShops;
   private readonly marketFountain: MarketFountain;
+  private readonly marketPlazaWell: MarketPlazaWell;
   private readonly marketExtraStall: MarketExtraStall;
   private readonly marketWagon: MarketTravelingCart;
   private readonly marketNoticeBoard: MarketNoticeBoard;
@@ -271,6 +273,9 @@ export class Game {
       onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.marketFountain = new MarketFountain({
+      onToast: (message, duration) => this.hud.showToast(message, duration),
+    });
+    this.marketPlazaWell = new MarketPlazaWell({
       onToast: (message, duration) => this.hud.showToast(message, duration),
     });
     this.marketExtraStall = new MarketExtraStall({
@@ -801,14 +806,17 @@ export class Game {
   /**
    * E key: closed chests → healing spring → west grove herb → east shrine →
    * gate guard → blacksmith → plaza baker/tailor/apothecary → plaza fountain →
-   * street vendor → produce stall → traveling cart → market sign → notice board →
-   * inn → alley → harbor catch crate → residential door → town chapel →
-   * cottage merchant.
+   * plaza well → street vendor → produce stall → traveling cart → market sign →
+   * notice board → inn → alley → harbor catch crate → residential door →
+   * town chapel → cottage merchant.
    * Plaza shop doors sit before vendor / cart / notice so the porches are not
    * stolen by those larger radii; shop r=3.2 still leaves vendor / produce /
    * cart / inn / sign stand points to those pads.
    * Fountain sip sits after shops so a stoop never reads as Drink; before
-   * vendor / produce / cart / sign so the basin wins vs those larger radii.
+   * plaza well / vendor / produce / cart / sign so the basin wins vs those
+   * larger radii. Plaza well sits after shops + fountain so Bakery / Drink
+   * still win at their pads; before street vendor so the well lip is not
+   * stolen by the vendor's larger radius.
    * Produce stall is before the market sign so the west-rim pad wins on overlap;
    * traveling cart is after shops so vendor / produce still win; before the
    * generic market sign so the cart pad wins vs the sign.
@@ -838,6 +846,7 @@ export class Game {
     if (this.marketBlacksmith.tryInteract(this.player)) return;
     if (this.marketPlazaShops.tryInteract(this.player)) return;
     if (this.marketFountain.tryInteract(this.player)) return;
+    if (this.marketPlazaWell.tryInteract(this.player)) return;
     if (this.marketVendor.tryInteract(this.player)) return;
     if (this.marketExtraStall.tryInteract(this.player)) return;
     if (this.marketWagon.tryInteract(this.player)) return;
@@ -869,6 +878,7 @@ export class Game {
     const smithPrompt = this.marketBlacksmith.getInteractPrompt(this.player);
     const plazaShopPrompt = this.marketPlazaShops.getInteractPrompt(this.player);
     const fountainPrompt = this.marketFountain.getInteractPrompt(this.player);
+    const wellPrompt = this.marketPlazaWell.getInteractPrompt(this.player);
     const vendorPrompt = this.marketVendor.getInteractPrompt(this.player);
     const extraStallPrompt = this.marketExtraStall.getInteractPrompt(this.player);
     const wagonPrompt = this.marketWagon.getInteractPrompt(this.player);
@@ -923,6 +933,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: fountainPrompt.text,
+      });
+    } else if (wellPrompt.visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: wellPrompt.text,
       });
     } else if (vendorPrompt.visible) {
       this.hud.setShrineHud({
