@@ -80,8 +80,8 @@ export const MARKET_INN_DOOR = { x: 49.6, z: 45.3 } as const;
  * Visual-only (no E, no extra lights, no collision).
  */
 export const MARKET_INN_CHICKENS = [
-  { x: 48.7, z: 43.82, yaw: 0.33, dark: false },
-  { x: 50.05, z: 43.72, yaw: 0.48, dark: true },
+  { x: 48.32, z: 44.5, yaw: 0.55, dark: false },
+  { x: 50.28, z: 44.55, yaw: -0.35, dark: true },
 ] as const;
 
 /**
