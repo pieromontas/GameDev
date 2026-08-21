@@ -25,6 +25,7 @@ import {
   WELL_OFFSET,
 } from './WorldPropLibrary';
 import {
+  MARKET_ALLEY_CAT,
   MARKET_ALLEY_SPOT,
   MARKET_APOTHECARY_SPOT,
   MARKET_BAKERY_SPOT,
@@ -219,6 +220,8 @@ export class MeadowBiome {
   private marketForgeLight: THREE.PointLight | null = null;
   /** Inn-yard chicken neck pivots — tiny peck phase in `updateMarketAmbience`. */
   private readonly marketInnChickenPivots: THREE.Group[] = [];
+  /** Alley-crate cat tail pivot — tiny idle flick in `updateMarketAmbience`. */
+  private readonly marketAlleyCatPivots: THREE.Group[] = [];
   /** Gate sentry mesh — idle sway + slight head-track toward nearby players. */
   private gateGuardGroup: THREE.Group | null = null;
   private gateGuardHead: THREE.Object3D | null = null;
@@ -4429,6 +4432,8 @@ export class MeadowBiome {
       MARKET_CLOTHESLINE_SPOT.z,
       MARKET_CLOTHESLINE_YAW,
     );
+    // Loafing cat on the west north-flank crate lid — visual only, no collider.
+    this.addMarketAlleyCat();
   }
 
   /**
@@ -4540,6 +4545,147 @@ export class MeadowBiome {
     for (const post of MARKET_CLOTHESLINE_POSTS) {
       this.obstacles.push({ x: post.x, z: post.z, radius: 0.22 });
     }
+  }
+
+  /**
+   * One chunky MeshToon cat loafing on the west north-flank alley crate lid.
+   * Sits on the existing stack (not in the cobble lane) — clear of clothesline
+   * posts, alley E board, produce stall, and fountain loop. Tail uses a tiny
+   * local pivot (same idea as chicken peck / gate banners, smaller amp).
+   * Visual-only: no E, no lights, no extra colliders (crate already blocks).
+   */
+  private addMarketAlleyCat(): void {
+    const clothMat = createToonMaterial(Palette.warriorCloth);
+    const creamMat = createToonMaterial(Palette.flowerWhite);
+    const bodyGeo = new THREE.SphereGeometry(0.22, 8, 6);
+    const headGeo = new THREE.SphereGeometry(0.15, 7, 6);
+    const muzzleGeo = new THREE.SphereGeometry(0.08, 6, 5);
+    const earGeo = new THREE.ConeGeometry(0.08, 0.18, 4);
+    const innerEarGeo = new THREE.ConeGeometry(0.045, 0.11, 4);
+    const noseGeo = new THREE.SphereGeometry(0.035, 5, 4);
+    const eyeGeo = new THREE.BoxGeometry(0.07, 0.028, 0.04);
+    const pawGeo = new THREE.SphereGeometry(0.07, 6, 5);
+    const stripeGeo = new THREE.BoxGeometry(0.08, 0.05, 0.22);
+    const tailSegGeo = new THREE.BoxGeometry(0.1, 0.1, 0.2);
+    const tailTipGeo = new THREE.SphereGeometry(0.07, 6, 5);
+    const shadowGeo = new THREE.CircleGeometry(0.28, 10);
+    const shadowMat = createToonMaterial(0x1a2818, {
+      transparent: true,
+      opacity: 0.28,
+    });
+
+    const group = new THREE.Group();
+    group.position.set(MARKET_ALLEY_CAT.x, MARKET_ALLEY_CAT.y, MARKET_ALLEY_CAT.z);
+    group.rotation.y = MARKET_ALLEY_CAT.yaw;
+    // 1.8× so loaf / ears / tail curl still read at default follow distance 24.
+    group.scale.setScalar(1.8);
+    group.name = 'MarketAlleyCat';
+
+    const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.015;
+    group.add(shadow);
+
+    const body = new THREE.Mesh(bodyGeo, clothMat);
+    body.position.set(0, 0.16, 0.02);
+    body.scale.set(1.45, 0.78, 1.7);
+    body.castShadow = true;
+    group.add(body);
+
+    const chest = new THREE.Mesh(bodyGeo, creamMat);
+    chest.position.set(0, 0.14, 0.18);
+    chest.scale.set(0.85, 0.55, 0.7);
+    chest.castShadow = true;
+    group.add(chest);
+
+    for (const side of [-1, 1] as const) {
+      const stripe = new THREE.Mesh(stripeGeo, this.trunkDarkMat);
+      stripe.position.set(side * 0.12, 0.28, -0.04);
+      stripe.rotation.y = side * 0.12;
+      group.add(stripe);
+    }
+
+    for (const [px, pz] of [
+      [-0.14, 0.2],
+      [0.14, 0.2],
+      [-0.16, -0.16],
+      [0.16, -0.16],
+    ] as const) {
+      const paw = new THREE.Mesh(pawGeo, creamMat);
+      paw.position.set(px, 0.07, pz);
+      paw.scale.set(1.15, 0.7, 1.2);
+      paw.castShadow = true;
+      group.add(paw);
+    }
+
+    const head = new THREE.Mesh(headGeo, clothMat);
+    head.position.set(0, 0.3, 0.28);
+    head.castShadow = true;
+    group.add(head);
+
+    const muzzle = new THREE.Mesh(muzzleGeo, creamMat);
+    muzzle.position.set(0, 0.24, 0.4);
+    muzzle.scale.set(1.15, 0.85, 1.05);
+    muzzle.castShadow = true;
+    group.add(muzzle);
+
+    const nose = new THREE.Mesh(noseGeo, this.trunkDarkMat);
+    nose.position.set(0, 0.26, 0.48);
+    group.add(nose);
+
+    for (const side of [-1, 1] as const) {
+      const eye = new THREE.Mesh(eyeGeo, this.trunkDarkMat);
+      eye.position.set(side * 0.07, 0.34, 0.4);
+      eye.rotation.z = side * 0.15;
+      group.add(eye);
+    }
+
+    // Chunky cones — a hairline triangle vanishes in the steep iso cam.
+    for (const side of [-1, 1] as const) {
+      const ear = new THREE.Mesh(earGeo, clothMat);
+      ear.position.set(side * 0.1, 0.46, 0.24);
+      ear.rotation.z = side * 0.28;
+      ear.rotation.x = -0.18;
+      ear.castShadow = true;
+      group.add(ear);
+      const inner = new THREE.Mesh(innerEarGeo, creamMat);
+      inner.position.set(side * 0.1, 0.45, 0.26);
+      inner.rotation.z = side * 0.28;
+      inner.rotation.x = -0.18;
+      group.add(inner);
+    }
+
+    const tail = new THREE.Group();
+    tail.position.set(0.04, 0.2, -0.28);
+    tail.rotation.y = 0.55;
+    tail.userData.phase = hash2(MARKET_ALLEY_CAT.x, MARKET_ALLEY_CAT.z) * 6.4;
+    tail.userData.amp = 0.18;
+    group.add(tail);
+    this.marketAlleyCatPivots.push(tail);
+
+    const seg1 = new THREE.Mesh(tailSegGeo, clothMat);
+    seg1.position.set(0.06, 0.02, -0.06);
+    seg1.rotation.y = 0.45;
+    seg1.castShadow = true;
+    tail.add(seg1);
+    const seg2 = new THREE.Mesh(tailSegGeo, clothMat);
+    seg2.position.set(0.2, 0.05, -0.04);
+    seg2.rotation.y = 1.15;
+    seg2.scale.set(0.9, 0.9, 0.85);
+    seg2.castShadow = true;
+    tail.add(seg2);
+    const seg3 = new THREE.Mesh(tailSegGeo, this.trunkDarkMat);
+    seg3.position.set(0.3, 0.04, 0.08);
+    seg3.rotation.y = 1.85;
+    seg3.scale.set(0.75, 0.75, 0.7);
+    seg3.castShadow = true;
+    tail.add(seg3);
+    const tip = new THREE.Mesh(tailTipGeo, creamMat);
+    tip.position.set(0.32, 0.04, 0.16);
+    tip.castShadow = true;
+    tail.add(tip);
+
+    this.root.add(group);
   }
 
   /** Compact barrel cluster for alley flanks (smaller footprint than crate stacks). */
@@ -5665,6 +5811,15 @@ export class MeadowBiome {
       const amp = (pivot.userData.amp as number) ?? 0.34;
       const wave = Math.sin(t * 3.15 + phase);
       pivot.rotation.x = Math.max(0, wave) * amp;
+    }
+
+    // Alley crate cat — idle tail flick (small amp, same sine idea as banners).
+    for (let i = 0; i < this.marketAlleyCatPivots.length; i++) {
+      const pivot = this.marketAlleyCatPivots[i]!;
+      const phase = (pivot.userData.phase as number) ?? i * 2.1;
+      const amp = (pivot.userData.amp as number) ?? 0.16;
+      pivot.rotation.y = Math.sin(t * 2.05 + phase) * amp;
+      pivot.rotation.z = Math.sin(t * 1.45 + phase * 1.2) * amp * 0.35;
     }
   }
 
