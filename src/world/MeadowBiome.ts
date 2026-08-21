@@ -4432,7 +4432,7 @@ export class MeadowBiome {
       MARKET_CLOTHESLINE_SPOT.z,
       MARKET_CLOTHESLINE_YAW,
     );
-    // Loafing cat on the clothesline-side crate lid — visual only, no collider.
+    // Loafing cat on the south-flank crate lid — visual only, no collider.
     this.addMarketAlleyCat();
   }
 
@@ -4548,12 +4548,13 @@ export class MeadowBiome {
   }
 
   /**
-   * One chunky MeshToon cat loafing on the mid north-flank alley crate lid
-   * (clothesline-side stack at 44.2, 53.7). Cream loaf + warriorCloth ears/tail
-   * so it reads on brown crates from the steep iso cam. Sits on the existing
-   * stack (not in the cobble lane) — clear of clothesline posts, alley E board,
-   * produce stall, curtain wall, and fountain loop. Tail uses a tiny local
-   * pivot (same idea as chicken peck / gate banners, smaller amp).
+   * One chunky MeshToon cat loafing on the south-flank alley crate lid
+   * (stack at 42.4, 51.35). Cream loaf + warriorCloth ears/tail so it reads
+   * on brown crates from the steep iso cam — foreground of the alley, not
+   * under the baker eaves. Sits on the existing stack (not in the cobble
+   * lane) — clear of clothesline posts, alley E board, produce stall, curtain
+   * wall, and fountain loop. Tail uses a tiny local pivot (same idea as
+   * chicken peck / gate banners, smaller amp).
    * Visual-only: no E, no lights, no extra colliders (crate already blocks).
    */
   private addMarketAlleyCat(): void {
@@ -4562,8 +4563,8 @@ export class MeadowBiome {
     const bodyGeo = new THREE.SphereGeometry(0.26, 8, 6);
     const headGeo = new THREE.SphereGeometry(0.18, 7, 6);
     const muzzleGeo = new THREE.SphereGeometry(0.09, 6, 5);
-    const earGeo = new THREE.ConeGeometry(0.11, 0.24, 4);
-    const innerEarGeo = new THREE.ConeGeometry(0.06, 0.14, 4);
+    const earGeo = new THREE.ConeGeometry(0.16, 0.34, 4);
+    const innerEarGeo = new THREE.ConeGeometry(0.08, 0.18, 4);
     const noseGeo = new THREE.SphereGeometry(0.04, 5, 4);
     const eyeGeo = new THREE.BoxGeometry(0.08, 0.032, 0.045);
     const pawGeo = new THREE.SphereGeometry(0.08, 6, 5);
@@ -4579,21 +4580,28 @@ export class MeadowBiome {
     const group = new THREE.Group();
     group.position.set(MARKET_ALLEY_CAT.x, MARKET_ALLEY_CAT.y, MARKET_ALLEY_CAT.z);
     group.rotation.y = MARKET_ALLEY_CAT.yaw;
-    // 2.05× so loaf / ears / tail curl still read at default follow distance 24.
-    group.scale.setScalar(2.05);
+    // 2.35× so loaf / ears / tail curl still read at default follow distance 24.
+    group.scale.setScalar(2.35);
     group.name = 'MarketAlleyCat';
+    group.frustumCulled = false;
 
     const shadow = new THREE.Mesh(shadowGeo, shadowMat);
     shadow.rotation.x = -Math.PI / 2;
     shadow.position.y = 0.015;
     group.add(shadow);
 
-    // Cream loaf — navy-only body vanishes on brown crates in the steep iso.
-    const body = new THREE.Mesh(bodyGeo, creamMat);
-    body.position.set(0, 0.17, 0.02);
-    body.scale.set(1.4, 0.82, 1.65);
+    // Blue-grey loaf with cream bib — a cream pancake vanishes on crate lids from iso.
+    const body = new THREE.Mesh(bodyGeo, clothMat);
+    body.position.set(0, 0.24, 0.02);
+    body.scale.set(1.35, 1.12, 1.55);
     body.castShadow = true;
     group.add(body);
+
+    const chest = new THREE.Mesh(bodyGeo, creamMat);
+    chest.position.set(0, 0.2, 0.2);
+    chest.scale.set(0.85, 0.7, 0.65);
+    chest.castShadow = true;
+    group.add(chest);
 
     for (const side of [-1, 1] as const) {
       const stripe = new THREE.Mesh(stripeGeo, clothMat);
@@ -4615,24 +4623,24 @@ export class MeadowBiome {
       group.add(paw);
     }
 
-    const head = new THREE.Mesh(headGeo, creamMat);
-    head.position.set(0, 0.34, 0.3);
+    const head = new THREE.Mesh(headGeo, clothMat);
+    head.position.set(0, 0.46, 0.3);
     head.castShadow = true;
     group.add(head);
 
     const muzzle = new THREE.Mesh(muzzleGeo, creamMat);
-    muzzle.position.set(0, 0.28, 0.44);
+    muzzle.position.set(0, 0.4, 0.46);
     muzzle.scale.set(1.15, 0.85, 1.05);
     muzzle.castShadow = true;
     group.add(muzzle);
 
     const nose = new THREE.Mesh(noseGeo, this.trunkDarkMat);
-    nose.position.set(0, 0.3, 0.53);
+    nose.position.set(0, 0.42, 0.55);
     group.add(nose);
 
     for (const side of [-1, 1] as const) {
       const eye = new THREE.Mesh(eyeGeo, this.trunkDarkMat);
-      eye.position.set(side * 0.08, 0.4, 0.44);
+      eye.position.set(side * 0.08, 0.52, 0.44);
       eye.rotation.z = side * 0.18;
       group.add(eye);
     }
@@ -4640,21 +4648,21 @@ export class MeadowBiome {
     // Chunky cones — a hairline triangle vanishes in the steep iso cam.
     for (const side of [-1, 1] as const) {
       const ear = new THREE.Mesh(earGeo, clothMat);
-      ear.position.set(side * 0.12, 0.54, 0.26);
-      ear.rotation.z = side * 0.32;
-      ear.rotation.x = -0.22;
+      ear.position.set(side * 0.14, 0.72, 0.24);
+      ear.rotation.z = side * 0.22;
+      ear.rotation.x = -0.12;
       ear.castShadow = true;
       group.add(ear);
       const inner = new THREE.Mesh(innerEarGeo, creamMat);
-      inner.position.set(side * 0.12, 0.53, 0.29);
-      inner.rotation.z = side * 0.32;
-      inner.rotation.x = -0.22;
+      inner.position.set(side * 0.14, 0.71, 0.28);
+      inner.rotation.z = side * 0.22;
+      inner.rotation.x = -0.12;
       group.add(inner);
     }
 
     const tail = new THREE.Group();
-    tail.position.set(0.06, 0.22, -0.32);
-    tail.rotation.y = 0.7;
+    tail.position.set(0.1, 0.28, -0.34);
+    tail.rotation.y = 0.85;
     tail.userData.phase = hash2(MARKET_ALLEY_CAT.x, MARKET_ALLEY_CAT.z) * 6.4;
     tail.userData.amp = 0.2;
     group.add(tail);
