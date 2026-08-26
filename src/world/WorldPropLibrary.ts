@@ -108,10 +108,18 @@ const TARGET = {
 export const TREE_TRUNK_RADIUS = 0.55;
 
 /**
+ * Ground-footprint radius for the KayKit / procedural mill tower.
+ * Never multiply the procedural 1.1 disk by `PROP_SCALE.windmill` (that 3.3
+ * cage pinned a walking knight against the adjacent ring tree).
+ */
+export const WINDMILL_TOWER_RADIUS = 1.85;
+
+/**
  * Soft-collision radius multipliers / absolutes for pack-retuned obstacles.
  * Buildings / rocks / wells keep visual scale so footprints match bulk.
  * Trees: retune *sets* `TREE_TRUNK_RADIUS * instanceScale` (not a multiply of a
- * crown-sized procedural radius). Bushes never receive obstacle entries.
+ * crown-sized procedural radius). Windmill: absolute tower radius (same idea).
+ * Bushes never receive obstacle entries.
  */
 export const PROP_COLLISION_SCALE = {
   /** Absolute trunk radius at scale 1 — see `TREE_TRUNK_RADIUS`. */
@@ -120,7 +128,8 @@ export const PROP_COLLISION_SCALE = {
   /** Pack bushes are walk-through dressing (no obstacle entries); API parity. */
   bush: 0,
   cottage: PROP_SCALE.cottage,
-  windmill: PROP_SCALE.windmill,
+  /** Absolute tower radius — see `WINDMILL_TOWER_RADIUS`. */
+  windmill: WINDMILL_TOWER_RADIUS,
   well: PROP_SCALE.well,
   church: PROP_SCALE.church,
 } as const;
