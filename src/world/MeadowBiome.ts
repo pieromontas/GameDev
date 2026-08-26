@@ -23,6 +23,7 @@ import {
   PROP_COLLISION_SCALE,
   TREE_TRUNK_RADIUS,
   WELL_OFFSET,
+  WINDMILL_TOWER_RADIUS,
 } from './WorldPropLibrary';
 import {
   MARKET_ALLEY_CAT,
@@ -1028,6 +1029,9 @@ export class MeadowBiome {
       if (this.isOnSouthBranchApproach(x, z)) continue;
       if (this.isOnNortheastBranchApproach(x, z)) continue;
       if (meadowPathInfluence(x, z) > 0.28) continue;
+      // Mill landmark sits at (34, 16). A ring tree ~4.5 away + mill disk
+      // left a walk-through gap smaller than the knight, freeze-stalling WASD.
+      if (Math.hypot(x - 34, z - 16) < 8) continue;
       this.addTree(x, z, 0.88 + (i % 5) * 0.07);
     }
   }
@@ -7176,7 +7180,7 @@ export class MeadowBiome {
     }
 
     this.root.add(group);
-    this.obstacles.push({ x, z, radius: 1.1 });
+    this.obstacles.push({ x, z, radius: WINDMILL_TOWER_RADIUS });
   }
 
   /**
@@ -7387,7 +7391,12 @@ export class MeadowBiome {
       bump(this.cottagePlacement.x, this.cottagePlacement.z, PROP_COLLISION_SCALE.cottage);
     }
     if (this.windmillPlacement) {
-      bump(this.windmillPlacement.x, this.windmillPlacement.z, PROP_COLLISION_SCALE.windmill);
+      // Absolute tower radius — never multiply the procedural disk by visual scale.
+      setRadius(
+        this.windmillPlacement.x,
+        this.windmillPlacement.z,
+        PROP_COLLISION_SCALE.windmill,
+      );
     }
     for (const shop of this.shopPlacements) {
       bump(shop.x, shop.z, PROP_COLLISION_SCALE.cottage);
@@ -7720,8 +7729,9 @@ export class MeadowBiome {
   /** Keep props off the northeast dirt/stone road into the city gate + market + homes + docks + castle. */
   private isOnNortheastBranchApproach(x: number, z: number): boolean {
     if (x < 10 || z < 10) return false;
-    // Wide cone along +X/+Z so the tree ring does not choke the NE exit / market street.
-    if (x > 22 && z > 22 && Math.abs(x - z) < 12) return true;
+    // Full spawn→gate diagonal (inner on-ramp from (12,12), not only the outer
+    // rim past (22,22)) so first paving stones stay clear of trunks / rocks.
+    if (x > 10 && z > 10 && Math.abs(x - z) < 12) return true;
     if (x > 15 && z > 32 && x < 24 && z < 40) return true;
     if (this.distToNortheastCorridor(x, z) < this.northeastCorridorHalfWidth + 1.6) {
       return true;

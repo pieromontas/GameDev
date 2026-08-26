@@ -564,9 +564,11 @@ export function createStarterMobs(): Mob[] {
     // Was (16, -8) — pink home nestled on the ruin pillar; SE meadow pocket instead.
     new THREE.Vector3(12, 0, -18),
     new THREE.Vector3(-16, 0, -6),
-    // Was (14, 20) → (22, 12) — still leashed onto the on-ramp (pathDist ~7).
-    // Farther SE pocket (~15.6 off centerline); one off-road flavor slime ok.
-    new THREE.Vector3(30, 0, 8),
+    // Was (14, 20) → (22, 12) → (30, 8). (30, 8) sat in the east-path / NE-road
+    // / windmill gap (pathDist ~15.6, mill inside aggro 9.5) so a walking Lv1
+    // still got pulled, then pinned under the mill tree. True SE pocket with
+    // the pink blob + spitter (~35 off the (12,12)→gate centerline).
+    new THREE.Vector3(20, 0, -22),
     // Was (-15, 22) — NW of the approach; pushed farther into the NW pocket
     // so a north→gate cut does not auto-pull on the way to the stones.
     new THREE.Vector3(-22, 0, 26),
