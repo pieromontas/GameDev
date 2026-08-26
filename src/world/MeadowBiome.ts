@@ -1757,7 +1757,8 @@ export class MeadowBiome {
 
   /**
    * Compact residential street stub past the market’s open far-NE exit.
-   * 3 KayKit cottage homes + town chapel landmark + denser fences / lanterns / garden / well;
+   * 3 KayKit cottage homes (window flower boxes on the street facade) + town chapel
+   * landmark + denser fences / lanterns / garden / well;
    * clear street lane market → homes (door pads + chapel porch stay open).
    */
   private buildNortheastResidentialStreet(): void {
@@ -3049,6 +3050,120 @@ export class MeadowBiome {
 
     this.root.add(group);
     this.obstacles.push({ x, z, radius: 1.6 });
+    // Window box is a separate root child so it survives the KayKit pack swap.
+    this.addResidentialHomeWindowBox(x, z, scale, yaw);
+  }
+
+  /**
+   * Wooden window box on a residential cottage's street-facing facade (KayKit home_A +Z).
+   * Same pack math as plaza shop boxes — under the left +Z window, inside r≈4.4,
+   * no extra collider. Meadow yellow / pink / cyan blooms, chunky for the iso cam.
+   */
+  private addResidentialHomeWindowBox(
+    x: number,
+    z: number,
+    scale: number,
+    yaw: number,
+  ): void {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    group.name = 'ResidentialHomeWindowBox';
+
+    // Same pack factor as market shop window boxes (TARGET.cottage / raw height 0.93).
+    const pack = 7.54 * scale;
+    const wallZ = 0.385 * pack;
+    // Left +Z window (raw x≈-0.18..-0.37, sill y≈0.328). Bias toward the door
+    // so the outer corner stays inside pack r≈4.4.
+    const boxX = -0.188 * pack;
+    const sillY = 0.328 * pack;
+    const boxW = 1.08;
+    const boxH = 0.26;
+    const boxD = 0.32;
+    const boxZ = wallZ + 0.03 + boxD * 0.5;
+    const boxY = sillY - boxH * 0.28;
+
+    const trough = new THREE.Mesh(new THREE.BoxGeometry(boxW, boxH, boxD), this.woodMat);
+    trough.position.set(boxX, boxY, boxZ);
+    trough.castShadow = true;
+    trough.receiveShadow = true;
+    group.add(trough);
+
+    const lip = new THREE.Mesh(
+      new THREE.BoxGeometry(boxW + 0.06, 0.055, boxD + 0.045),
+      this.woodDarkMat,
+    );
+    lip.position.set(boxX, boxY + boxH * 0.42, boxZ + 0.01);
+    lip.castShadow = true;
+    group.add(lip);
+
+    const soil = new THREE.Mesh(
+      new THREE.BoxGeometry(boxW * 0.86, 0.06, boxD * 0.68),
+      createToonMaterial(Palette.pathDark),
+    );
+    soil.position.set(boxX, boxY + boxH * 0.44, boxZ);
+    group.add(soil);
+
+    for (const side of [-1, 1] as const) {
+      const brace = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.17, 0.16), this.woodDarkMat);
+      brace.position.set(boxX + side * boxW * 0.34, boxY - 0.07, wallZ + 0.09);
+      brace.rotation.x = 0.48;
+      brace.castShadow = true;
+      group.add(brace);
+    }
+
+    // Meadow mix — rotate the start color per cottage so the three facades read apart.
+    const bloomColors = [
+      Palette.flowerYellow,
+      Palette.flowerPink,
+      Palette.flowerCyan,
+    ] as const;
+    const colorShift = Math.floor(hash2(x, z) * bloomColors.length) % bloomColors.length;
+    const bloomMats = bloomColors.map((hex) =>
+      createToonMaterial(hex, { emissive: hex, emissiveIntensity: 0.16 }),
+    );
+
+    const bloomCount = 4;
+    for (let i = 0; i < bloomCount; i++) {
+      const along = ((i + 0.5) / bloomCount - 0.5) * boxW * 0.7;
+      const jitter = (hash2(x + i * 1.7, z + i * 0.9) - 0.5) * 0.05;
+      const stemH = 0.16 + (i % 2) * 0.045;
+      const bloom = new THREE.Group();
+      bloom.position.set(
+        boxX + along + jitter,
+        soil.position.y + 0.02,
+        boxZ + (i % 2 === 0 ? 0.055 : -0.01),
+      );
+
+      const stem = new THREE.Mesh(this.stemGeo, this.stemMat);
+      stem.scale.set(0.9, stemH / 0.26, 0.9);
+      stem.position.y = stemH * 0.5;
+      bloom.add(stem);
+
+      const petalMat = bloomMats[(i + colorShift) % bloomMats.length]!;
+      const petals = new THREE.Mesh(this.flowerPetalGeo, petalMat);
+      petals.position.y = stemH + 0.055;
+      petals.scale.set(0.88, 0.54, 0.88);
+      bloom.add(petals);
+
+      const center = new THREE.Mesh(this.flowerCenterGeo, this.flowerCenterMat);
+      center.position.y = stemH + 0.1;
+      center.scale.setScalar(1.05);
+      bloom.add(center);
+
+      group.add(bloom);
+    }
+
+    for (let i = 0; i < 3; i++) {
+      const along = ((i + 0.5) / 3 - 0.5) * boxW * 0.52;
+      const leaf = new THREE.Mesh(this.rockSmallGeo, this.leafMat);
+      leaf.position.set(boxX + along, soil.position.y + 0.07, boxZ + 0.08);
+      leaf.scale.set(0.32, 0.16, 0.25);
+      leaf.rotation.set(0.35, i * 0.9, -0.25 + i * 0.2);
+      group.add(leaf);
+    }
+
+    this.root.add(group);
   }
 
   /** Tiny door stoop marker — no soft collision (walk-up E interact). */
@@ -7190,6 +7305,7 @@ export class MeadowBiome {
     }
 
     // Residential street homes — KayKit cottages facing the lane.
+    // Window flower boxes are independent root children (survive this swap).
     for (const home of this.homePlacements) {
       const mesh = library.createCottage(home.x, home.z, {
         scale: home.scale,
