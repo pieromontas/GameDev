@@ -65,6 +65,7 @@ import {
   RESIDENTIAL_CHAPEL_DOOR,
   RESIDENTIAL_CHAPEL_SPOT,
   RESIDENTIAL_DOOR_SPOT,
+  RESIDENTIAL_DOOR_SPOT_B,
   RESIDENTIAL_GARDEN_SPOT,
   RESIDENTIAL_HOME_SPOTS,
   RESIDENTIAL_STREET_FENCES,
@@ -1774,8 +1775,9 @@ export class MeadowBiome {
       this.addResidentialHome(home.x, home.z, home.scale, home.yaw);
     }
 
-    // Soft door marker — E flavor via ResidentialDoor (no collision on the pad).
+    // Soft door markers — E flavor via ResidentialDoor (no collision on the pads).
     this.addResidentialDoorMarker(RESIDENTIAL_DOOR_SPOT.x, RESIDENTIAL_DOOR_SPOT.z);
+    this.addResidentialDoorMarker(RESIDENTIAL_DOOR_SPOT_B.x, RESIDENTIAL_DOOR_SPOT_B.z);
 
     // Town chapel landmark on the east rim — KayKit church + soft porch (E bless).
     this.addResidentialChapel(
