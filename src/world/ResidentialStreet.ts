@@ -38,8 +38,16 @@ export const RESIDENTIAL_HOME_SPOTS = [
   },
 ] as const;
 
-/** Door pad in front of the first home (E flavor) — outside cottage footprint. */
+/** Door pad in front of the NW street-facing home (E flavor) — outside cottage footprint. */
 export const RESIDENTIAL_DOOR_SPOT = { x: 64.5, z: 69.5 } as const;
+
+/**
+ * Door pad in front of the SE street-facing home (mirror of the NW stoop
+ * across the cobble diagonal). Outside cottage footprint; radii do not reach
+ * the NW door pad or the chapel porch stand point. Third (NE) cottage stays
+ * without a walk-up E.
+ */
+export const RESIDENTIAL_DOOR_SPOT_B = { x: 69.5, z: 64.5 } as const;
 
 /**
  * KayKit church / town chapel on the east residential rim (street-facing).
@@ -64,7 +72,7 @@ export const RESIDENTIAL_GARDEN_SPOT = { x: 74.2, z: 72.5 } as const;
 /**
  * Low fence runs flanking the homes cobble — densify the lived-in street read.
  * Centers sit ≥~3 off the NE diagonal so soft blockers leave the walk lane open;
- * clear of door pad, chapel porch, well, and garden.
+ * clear of door pads, chapel porch, well, and garden.
  */
 export const RESIDENTIAL_STREET_FENCES = [
   { x: 63.5, z: 70.2, yaw: -Math.PI * 0.25, length: 2.4 },
@@ -79,7 +87,7 @@ export const RESIDENTIAL_STREET_FENCES = [
 
 /**
  * Warm street lanterns along the residential cobble (not market plaza lamps).
- * Rim offsets keep the lane / door / chapel porch walkable; soft post collision only.
+ * Rim offsets keep the lane / door pads / chapel porch walkable; soft post collision only.
  */
 export const RESIDENTIAL_STREET_LANTERNS = [
   { x: 63.0, z: 66.5 },
@@ -102,41 +110,74 @@ export const CHAPEL_BLESS_DAMAGE_MULT = 1.15;
 const DOOR_INTERACT_RADIUS = 3.2;
 const DOOR_INTERACT_RADIUS_SQ = DOOR_INTERACT_RADIUS * DOOR_INTERACT_RADIUS;
 const DOOR_PROMPT = 'Press E — Cottage Door';
-const DOOR_TOAST = 'Locked — townsfolk later';
+
+type HomeDoorDef = {
+  spot: THREE.Vector3;
+  toast: string;
+};
 
 /**
- * Flavor interact at a residential cottage door — toast only (no NPC / interior).
- * Keep E-priority after market alley so plaza interacts still win on overlap.
+ * Flavor interact at two street-facing residential cottage doors — toast only
+ * (no NPC / interior / heal / gold / panel). Closest in-range pad wins so the
+ * stoops never steal each other. Keep E-priority after market alley so plaza
+ * interacts still win on overlap; before the chapel so a stoop never reads as
+ * Town Chapel. Pads sit outside r=3.2 of the chapel porch stand point.
  */
 export class ResidentialDoor {
-  private readonly spot = new THREE.Vector3(
-    RESIDENTIAL_DOOR_SPOT.x,
-    0,
-    RESIDENTIAL_DOOR_SPOT.z,
-  );
+  private readonly doors: readonly HomeDoorDef[];
   private readonly onToast: (message: string, duration?: number) => void;
 
   constructor(hooks: { onToast: (message: string, duration?: number) => void }) {
     this.onToast = hooks.onToast;
+    this.doors = [
+      {
+        spot: new THREE.Vector3(RESIDENTIAL_DOOR_SPOT.x, 0, RESIDENTIAL_DOOR_SPOT.z),
+        toast: 'Locked — townsfolk later',
+      },
+      {
+        spot: new THREE.Vector3(
+          RESIDENTIAL_DOOR_SPOT_B.x,
+          0,
+          RESIDENTIAL_DOOR_SPOT_B.z,
+        ),
+        toast: 'Quiet inside — miller\'s kin at market',
+      },
+    ];
   }
 
   isNear(pos: THREE.Vector3): boolean {
-    const dx = pos.x - this.spot.x;
-    const dz = pos.z - this.spot.z;
-    return dx * dx + dz * dz <= DOOR_INTERACT_RADIUS_SQ;
+    return this.nearestDoor(pos) != null;
   }
 
   getInteractPrompt(player: Player): ResidentialHudPrompt {
-    if (!player.alive || !this.isNear(player.position)) {
+    if (!player.alive || !this.nearestDoor(player.position)) {
       return { visible: false, text: '' };
     }
     return { visible: true, text: DOOR_PROMPT };
   }
 
   tryInteract(player: Player): boolean {
-    if (!player.alive || !this.isNear(player.position)) return false;
-    this.onToast(DOOR_TOAST, 2.0);
+    if (!player.alive) return false;
+    const door = this.nearestDoor(player.position);
+    if (!door) return false;
+    this.onToast(door.toast, 2.0);
     return true;
+  }
+
+  /** Closest in-range stoop — NW / SE radii do not overlap. */
+  private nearestDoor(pos: THREE.Vector3): HomeDoorDef | null {
+    let best: HomeDoorDef | null = null;
+    let bestD2 = Infinity;
+    for (const door of this.doors) {
+      const dx = pos.x - door.spot.x;
+      const dz = pos.z - door.spot.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 <= DOOR_INTERACT_RADIUS_SQ && d2 < bestD2) {
+        best = door;
+        bestD2 = d2;
+      }
+    }
+    return best;
   }
 }
 
@@ -148,7 +189,7 @@ const CHAPEL_TOAST_FLAVOR = 'Town Chapel  ·  quiet prayer · townsfolk shrine';
 /**
  * Free short blessing at the residential chapel door — tiny heal + cooldown.
  * Distinct from the east meadow shrine (no waves / crystal defend).
- * Keep E-priority after residential door so the cottage stoop still wins on overlap.
+ * Keep E-priority after residential doors so a cottage stoop still wins on overlap.
  */
 export class ResidentialChapel {
   private readonly door = new THREE.Vector3(

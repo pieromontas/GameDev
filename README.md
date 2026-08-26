@@ -109,7 +109,7 @@ Through the gate, a compact **market district** stub fills the first town pocket
 
 ## Residential street
 
-Past the market’s open **far-NE exit**, a short **residential street** stub continues the town diagonal: a cobble lane, **3 KayKit cottage homes** (street-facing, window flower boxes, soft house footprints), a **town chapel** landmark on the east rim (**KayKit church** with steeple — distinct from the east meadow shrine and market fountain), extra **street lanterns** and **fence** runs lining the cobble (warm modest lamps — not the market plaza set), a small **garden patch**, and a **well** accent. Soft collisions on house / chapel / fence / lamp-post footprints keep the street walkable — market → homes path stays clear. Press **E** at one cottage door for a flavor toast (`Locked — townsfolk later`). At the chapel door, press **E** for a free **town blessing** (**+22 HP**, brief mild damage favor, **40s** cooldown) — not the meadow shrine wave defend. Optional benches / lantern on the chapel apron. No new enemies. Play clamp includes the market→homes corridor + residential pocket. Minimap marks **Homes** plus a small chapel accent.
+Past the market’s open **far-NE exit**, a short **residential street** stub continues the town diagonal: a cobble lane, **3 KayKit cottage homes** (street-facing, window flower boxes, soft house footprints), a **town chapel** landmark on the east rim (**KayKit church** with steeple — distinct from the east meadow shrine and market fountain), extra **street lanterns** and **fence** runs lining the cobble (warm modest lamps — not the market plaza set), a small **garden patch**, and a **well** accent. Soft collisions on house / chapel / fence / lamp-post footprints keep the street walkable — market → homes path stays clear. Press **E** at two street-facing cottage doors for flavor toasts (`Locked — townsfolk later` / `Quiet inside — miller's kin at market`). At the chapel door, press **E** for a free **town blessing** (**+22 HP**, brief mild damage favor, **40s** cooldown) — not the meadow shrine wave defend. Optional benches / lantern on the chapel apron. No new enemies. Play clamp includes the market→homes corridor + residential pocket. Minimap marks **Homes** plus a small chapel accent.
 
 ## Harbor docks
 
@@ -282,7 +282,7 @@ src/
   world/MarketDistrict.ts    NE market sign + blacksmith + plaza shop doors + plaza fountain sip + plaza well toast + produce stall + traveling cart + notice board + inn + alley interacts (E)
   world/MarketStreetVendor.ts Market plaza street-vendor snack shop (E)
   world/GateGuard.ts         NE city gate sentry flavor dialogue (E)
-  world/ResidentialStreet.ts Homes door + town chapel interacts (E)
+  world/ResidentialStreet.ts Homes doors + town chapel interacts (E)
   world/HarborDocks.ts       Harbor pier catch-crate flavor interact (E)
   world/TreasureChests.ts Treasure chest interact + rewards
   world/HealingSprings.ts Healing spring interact

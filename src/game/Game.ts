@@ -810,7 +810,7 @@ export class Game {
    * E key: closed chests → healing spring → west grove herb → east shrine →
    * gate guard → blacksmith → plaza baker/tailor/apothecary → plaza fountain →
    * plaza well → street vendor → produce stall → traveling cart → market sign →
-   * notice board → inn → alley → harbor catch crate → residential door →
+   * notice board → inn → alley → harbor catch crate → residential doors →
    * town chapel → cottage merchant.
    * Plaza shop doors sit before vendor / cart / notice so the porches are not
    * stolen by those larger radii; shop r=3.2 still leaves vendor / produce /
