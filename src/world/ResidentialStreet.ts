@@ -70,6 +70,14 @@ export const RESIDENTIAL_WELL_SPOT = { x: 72.5, z: 64.8 } as const;
 export const RESIDENTIAL_GARDEN_SPOT = { x: 74.2, z: 72.5 } as const;
 
 /**
+ * Short wooden flower planter on the chapel cobble apron (north rim).
+ * Garden / offering dressing — distinct from the veggie rows at
+ * RESIDENTIAL_GARDEN_SPOT and from cottage window boxes. Clear of the
+ * porch stand point, both door pads, well, and the cobble lane.
+ */
+export const RESIDENTIAL_CHAPEL_APRON_PLANTER = { x: 74.95, z: 69.58 } as const;
+
+/**
  * Low fence runs flanking the homes cobble — densify the lived-in street read.
  * Centers sit ≥~3 off the NE diagonal so soft blockers leave the walk lane open;
  * clear of door pads, chapel porch, well, and garden.
