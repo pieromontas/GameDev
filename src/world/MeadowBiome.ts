@@ -62,6 +62,7 @@ import {
 } from './MarketStreetVendor';
 import { GATE_GUARD_NPC, GATE_GUARD_YAW } from './GateGuard';
 import {
+  RESIDENTIAL_CHAPEL_APRON_PLANTER,
   RESIDENTIAL_CHAPEL_DOOR,
   RESIDENTIAL_CHAPEL_SPOT,
   RESIDENTIAL_DOOR_SPOT,
@@ -3259,7 +3260,8 @@ export class MeadowBiome {
   }
 
   /**
-   * Small chapel apron — cobble pad, benches, lantern toward the street.
+   * Small chapel apron — cobble pad, benches, lantern toward the street,
+   * plus a short wooden flower planter on the visible west porch flank.
    * Soft collisions leave the door lane open; E interact uses RESIDENTIAL_CHAPEL_DOOR.
    */
   private addResidentialChapelYard(chapelX: number, chapelZ: number): void {
@@ -3322,7 +3324,126 @@ export class MeadowBiome {
     const light = addDynamicPointLight(group, 0xffc070, 0.35, 4.2, 2);
     if (light) light.position.set(0.15, 0.55, -0.85);
 
+    this.addResidentialChapelApronPlanter(group, x, z);
+
     this.root.add(group);
+  }
+
+  /**
+   * Short wooden flower planter on the west porch flank — chapel offering
+   * blooms (white / gold / pink), not the veggie garden or cottage window boxes.
+   * Trough runs north–south along the church's street face, west of the KayKit
+   * AABB, so it reads from the iso cam. Soft trough collision only; porch
+   * walk-up and door pad stay open.
+   */
+  private addResidentialChapelApronPlanter(
+    yard: THREE.Group,
+    yardX: number,
+    yardZ: number,
+  ): void {
+    const lx = RESIDENTIAL_CHAPEL_APRON_PLANTER.x - yardX;
+    const lz = RESIDENTIAL_CHAPEL_APRON_PLANTER.z - yardZ;
+    const planter = new THREE.Group();
+    planter.name = 'ResidentialChapelApronPlanter';
+    planter.position.set(lx, 0, lz);
+
+    // Long axis along world Z (church west facade); keep X thin so we stay
+    // west of the KayKit church AABB (~x=72.84) and off the porch pad.
+    const troughW = 0.48;
+    const troughH = 0.28;
+    const troughD = 1.38;
+    const trough = new THREE.Mesh(
+      new THREE.BoxGeometry(troughW, troughH, troughD),
+      this.woodMat,
+    );
+    trough.position.y = 0.17;
+    trough.castShadow = true;
+    trough.receiveShadow = true;
+    planter.add(trough);
+
+    const lip = new THREE.Mesh(
+      new THREE.BoxGeometry(troughW + 0.07, 0.06, troughD + 0.07),
+      this.woodDarkMat,
+    );
+    lip.position.y = 0.3;
+    lip.castShadow = true;
+    planter.add(lip);
+
+    // Soft gold band — same chapel trim as the nave, not a plaza accent.
+    const trim = new THREE.Mesh(
+      new THREE.BoxGeometry(troughW + 0.09, 0.035, troughD + 0.09),
+      createToonMaterial(0xc9a24a, {
+        emissive: 0xc9a24a,
+        emissiveIntensity: 0.14,
+      }),
+    );
+    trim.position.y = 0.325;
+    planter.add(trim);
+
+    const soil = new THREE.Mesh(
+      new THREE.BoxGeometry(troughW * 0.68, 0.07, troughD * 0.86),
+      createToonMaterial(Palette.pathDark),
+    );
+    soil.position.y = 0.33;
+    planter.add(soil);
+
+    // Chapel offering mix — white / gold / pink (not the cottage window rotation).
+    const bloomColors = [
+      Palette.flowerWhite,
+      Palette.flowerYellow,
+      Palette.flowerPink,
+    ] as const;
+    const bloomMats = bloomColors.map((hex) =>
+      createToonMaterial(hex, { emissive: hex, emissiveIntensity: 0.2 }),
+    );
+
+    const bloomCount = 5;
+    for (let i = 0; i < bloomCount; i++) {
+      const along = ((i + 0.5) / bloomCount - 0.5) * troughD * 0.72;
+      const jitter = (hash2(lx + i * 1.3, lz + i * 0.7) - 0.5) * 0.04;
+      const stemH = 0.34 + (i % 2) * 0.1;
+      const bloom = new THREE.Group();
+      bloom.position.set(
+        i % 2 === 0 ? 0.05 : -0.04,
+        soil.position.y + 0.02,
+        along + jitter,
+      );
+
+      const stem = new THREE.Mesh(this.stemGeo, this.stemMat);
+      stem.scale.set(1.2, stemH / 0.26, 1.2);
+      stem.position.y = stemH * 0.5;
+      bloom.add(stem);
+
+      const petalMat = bloomMats[i % bloomMats.length]!;
+      const petals = new THREE.Mesh(this.flowerPetalGeo, petalMat);
+      petals.position.y = stemH + 0.09;
+      petals.scale.set(1.45, 0.78, 1.45);
+      bloom.add(petals);
+
+      const center = new THREE.Mesh(this.flowerCenterGeo, this.flowerCenterMat);
+      center.position.y = stemH + 0.16;
+      center.scale.setScalar(1.35);
+      bloom.add(center);
+
+      planter.add(bloom);
+    }
+
+    for (let i = 0; i < 3; i++) {
+      const along = ((i + 0.5) / 3 - 0.5) * troughD * 0.5;
+      const leaf = new THREE.Mesh(this.rockSmallGeo, this.leafMat);
+      leaf.position.set(0.1, soil.position.y + 0.09, along);
+      leaf.scale.set(0.4, 0.2, 0.32);
+      leaf.rotation.set(0.32, i * 0.85, -0.22 + i * 0.18);
+      planter.add(leaf);
+    }
+
+    yard.add(planter);
+    // Tight trough footprint — do not pinch the porch stand or cobble lane.
+    this.obstacles.push({
+      x: RESIDENTIAL_CHAPEL_APRON_PLANTER.x,
+      z: RESIDENTIAL_CHAPEL_APRON_PLANTER.z,
+      radius: 0.46,
+    });
   }
 
   /** Low wooden fence segment beside the street lane. */
