@@ -70,12 +70,14 @@ export const RESIDENTIAL_WELL_SPOT = { x: 72.5, z: 64.8 } as const;
 export const RESIDENTIAL_GARDEN_SPOT = { x: 74.2, z: 72.5 } as const;
 
 /**
- * Short wooden flower planter on the chapel cobble apron (north rim).
- * Garden / offering dressing — distinct from the veggie rows at
- * RESIDENTIAL_GARDEN_SPOT and from cottage window boxes. Clear of the
- * porch stand point, both door pads, well, and the cobble lane.
+ * Short wooden flower planter on the chapel apron, street-facing west
+ * flank (north of the porch pad). KayKit church AABB starts ~x=72.84, so
+ * this sits in the visible strip beside the walk-up — not under the nave.
+ * Distinct from the veggie rows at RESIDENTIAL_GARDEN_SPOT and from cottage
+ * window boxes. Clear of the porch stand point, both door pads, well, and
+ * the cobble lane.
  */
-export const RESIDENTIAL_CHAPEL_APRON_PLANTER = { x: 74.95, z: 69.58 } as const;
+export const RESIDENTIAL_CHAPEL_APRON_PLANTER = { x: 72.12, z: 69.72 } as const;
 
 /**
  * Low fence runs flanking the homes cobble — densify the lived-in street read.
