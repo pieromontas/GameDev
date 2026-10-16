@@ -973,6 +973,21 @@ kbd {
   font-size: 10px;
 }
 
+/* Zone transition vignette. Sits above the HUD and the touch cluster. */
+.zone-fade {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  background: radial-gradient(ellipse at center, rgba(18, 12, 16, 0.72) 0%, rgba(8, 5, 10, 0.94) 52%, #050308 100%);
+}
+
+.zone-fade.is-down {
+  pointer-events: auto;
+}
+
 .loading-overlay {
   position: absolute;
   inset: 0;

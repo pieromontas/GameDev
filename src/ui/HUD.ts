@@ -40,6 +40,7 @@ import {
   CASTLE_ARMORY_SPOT,
   CASTLE_CHEST_SPOT,
 } from '../world/CastleDistrict';
+import { DUNGEON_HALL_ORIGIN, DUNGEON_MOUTH } from '../world/dungeon/layout';
 
 /** World half-extent projected onto the radar (covers clearings + town + castle). */
 const MINIMAP_EXTENT = 108;
@@ -162,6 +163,14 @@ const MINIMAP_LANDMARKS: MinimapLandmark[] = [
     r: 3.0,
     name: 'Royal Chest',
   },
+  // North-wall crypt mouth. Interior cartography is a later dungeon step.
+  {
+    x: DUNGEON_MOUTH.x,
+    z: DUNGEON_MOUTH.z,
+    color: '#e07a3c',
+    r: 4.2,
+    name: 'Crypt',
+  },
   ...CHEST_SPOTS.map((c) => ({ x: c.x, z: c.z, color: '#f0c040', r: 3, name: 'Chest' })),
   { x: SPRING_SPOT.x, z: SPRING_SPOT.z, color: '#5ed4ef', r: 3.2, name: 'Spring' },
   // Tiny misty-grove herb accent — distinct soft green from the Grove pocket pin.
@@ -239,6 +248,7 @@ export class HUD {
   /** Hover-only landmark name shown beside the radar. */
   private readonly minimapHoverLabel: HTMLElement;
   private minimapHoverName: string | null = null;
+  private readonly zoneFade: HTMLElement;
 
   constructor(host: HTMLElement) {
     this.root = host;
@@ -344,7 +354,7 @@ export class HUD {
         2 / 3 / 4 — skills 2–4<br/>
         Skill 4 unlocks at Level ${SKILL4_UNLOCK_LEVEL}<br/>
         <kbd>C</kbd> / <kbd>Tab</kbd> — cycle Warrior → Mage → Rogue<br/>
-        <kbd>E</kbd> — interact (Knight Captain, shrine, chests, shops, etc.)<br/>
+        <kbd>E</kbd> — interact (Knight Captain, shrine, chests, shops, crypt, etc.)<br/>
         <strong>Camera Controls</strong><br/>
         RMB / MMB drag (or <kbd>Alt</kbd>+LMB) — orbit &amp; tilt camera<br/>
         <kbd>←</kbd><kbd>→</kbd> / <kbd>[</kbd><kbd>]</kbd> / <kbd>,</kbd><kbd>.</kbd> — rotate view<br/>
@@ -356,6 +366,10 @@ export class HUD {
       <div class="buff-chip" id="buff-chip" hidden></div>
       <div class="toast" id="toast"></div>
     `;
+    this.zoneFade = document.createElement('div');
+    this.zoneFade.className = 'zone-fade';
+    this.zoneFade.setAttribute('aria-hidden', 'true');
+    (this.root.parentElement ?? this.root).appendChild(this.zoneFade);
 
     this.brand = this.root.querySelector('#brand')!;
     this.hpFill = this.root.querySelector('#hp-fill')!;
@@ -677,7 +691,12 @@ export class HUD {
   updateMinimap(
     player: Player,
     enemies: ReadonlyArray<{ position: { x: number; z: number }; alive: boolean }>,
+    view: 'world' | 'hall' = 'world',
   ): void {
+    if (view === 'hall') {
+      this.drawHallMinimap(player);
+      return;
+    }
     const ctx = this.minimapCtx;
     const size = MINIMAP_SIZE;
     const half = size * 0.5;
@@ -742,6 +761,7 @@ export class HUD {
         NortheastCastleKeep.x,
         NortheastCastleKeep.z,
       ],
+      [NortheastCastleKeep.x, NortheastCastleKeep.z, DUNGEON_MOUTH.x, DUNGEON_MOUTH.z],
     ];
     for (const [ax, az, bx, bz] of paths) {
       const a = toScreen(ax, az);
@@ -781,11 +801,12 @@ export class HUD {
       const isCastle =
         mark.x === NortheastCastleKeep.x &&
         mark.z === NortheastCastleKeep.z;
+      const isCrypt = mark.name === 'Crypt';
       ctx.fillStyle = mark.color;
       ctx.strokeStyle = 'rgba(31, 42, 36, 0.45)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      if (isGate || isMarket || isHomes || isDocks || isGatehouse || isCastle) {
+      if (isGate || isMarket || isHomes || isDocks || isGatehouse || isCastle || isCrypt) {
         // Town & Castle icons — small squares so they read apart from clearing dots
         const s = mark.r;
         ctx.rect(p.sx - s * 0.7, p.sy - s * 0.7, s * 1.4, s * 1.4);
@@ -817,6 +838,103 @@ export class HUD {
 
     // Clip ring border
     ctx.strokeStyle = 'rgba(47, 143, 91, 0.65)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(half, half, half - 1.5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  /** Vignette opacity for a zone transition. Blocks pointer input while it's down. */
+  setZoneFade(opacity: number): void {
+    const o = Math.max(0, Math.min(1, opacity));
+    this.zoneFade.style.opacity = o.toFixed(3);
+    if (o < 0.01) {
+      this.zoneFade.style.visibility = 'hidden';
+      this.zoneFade.classList.remove('is-down');
+    } else {
+      this.zoneFade.style.visibility = 'visible';
+      this.zoneFade.classList.add('is-down');
+    }
+  }
+
+  /**
+   * Single-room stand-in so the radar doesn't plot the hall origin off the
+   * meadow map. A full dungeon cartograph is a later step.
+   */
+  private drawHallMinimap(player: Player): void {
+    const ctx = this.minimapCtx;
+    const size = MINIMAP_SIZE;
+    const half = size * 0.5;
+    ctx.clearRect(0, 0, size, size);
+
+    const wash = ctx.createRadialGradient(half, half, 8, half, half, half);
+    wash.addColorStop(0, '#3a342c');
+    wash.addColorStop(0.6, '#241e1a');
+    wash.addColorStop(1, '#120e0c');
+    ctx.fillStyle = wash;
+    ctx.beginPath();
+    ctx.arc(half, half, half - 1, 0, Math.PI * 2);
+    ctx.fill();
+
+    const scale = (half - 22) / 8;
+    const toScreen = (x: number, z: number): { sx: number; sy: number } => ({
+      sx: half + x * scale,
+      // Local −Z (sealed gate) is up; +Z (exit stair) is down.
+      sy: half + z * scale,
+    });
+
+    const room = [
+      toScreen(-3.6, -6.2),
+      toScreen(3.6, -6.2),
+      toScreen(3.6, 7.2),
+      toScreen(-3.6, 7.2),
+    ];
+    ctx.beginPath();
+    ctx.moveTo(room[0]!.sx, room[0]!.sy);
+    for (const p of room.slice(1)) ctx.lineTo(p.sx, p.sy);
+    ctx.closePath();
+    ctx.fillStyle = '#5c5348';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 214, 160, 0.45)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const gate = toScreen(0, -5.6);
+    ctx.fillStyle = '#9fd0e4';
+    ctx.fillRect(gate.sx - 7, gate.sy - 3, 14, 6);
+    const exit = toScreen(0, 6.5);
+    ctx.fillStyle = '#e07a3c';
+    ctx.beginPath();
+    ctx.arc(exit.sx, exit.sy, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    const lx = player.position.x - DUNGEON_HALL_ORIGIN.x;
+    const lz = player.position.z - DUNGEON_HALL_ORIGIN.z;
+    const me = toScreen(lx, lz);
+    const yaw = Math.atan2(player.facing.x, player.facing.z);
+    ctx.save();
+    ctx.translate(me.sx, me.sy);
+    // World arrow treats +Z as up; this radar treats +Z as down.
+    ctx.rotate(yaw + Math.PI);
+    ctx.fillStyle = '#fff4e0';
+    ctx.strokeStyle = '#1a120c';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -7);
+    ctx.lineTo(5, 6);
+    ctx.lineTo(0, 3.5);
+    ctx.lineTo(-5, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = 'rgba(255, 236, 214, 0.9)';
+    ctx.font = '700 11px Nunito, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Crypt', half, size - 10);
+
+    ctx.strokeStyle = 'rgba(224, 122, 60, 0.7)';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(half, half, half - 1.5, 0, Math.PI * 2);

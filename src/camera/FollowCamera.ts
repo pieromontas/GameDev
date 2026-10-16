@@ -112,6 +112,15 @@ export class FollowCamera {
     this.camera.lookAt(this.lookAt);
   }
 
+  /**
+   * Place the orbit behind a facing yaw and snap. Used when a zone change
+   * teleports the hero so the camera does not stay on the far side of a wall.
+   */
+  snapBehind(target: THREE.Vector3, facingYaw: number): void {
+    this.yaw = facingYaw + Math.PI;
+    this.snapTo(target);
+  }
+
   snapTo(target: THREE.Vector3): void {
     this.follow.copy(target);
     this.distance = this.distanceTarget;

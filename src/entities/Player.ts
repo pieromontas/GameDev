@@ -608,6 +608,27 @@ export class Player extends Entity {
     this.mesh.rotation.y = this.yaw;
   }
 
+  /** Snap to a world XZ and facing yaw. Clears roll / leap so a portal cannot softlock. */
+  placeAt(x: number, z: number, yaw: number): void {
+    this.halt();
+    this.position.set(x, 0, z);
+    this.facing.set(Math.sin(yaw), 0, Math.cos(yaw));
+    this.yaw = yaw;
+    this.targetYaw = yaw;
+    this.anim = 'idle';
+    this.animT = 0;
+    this.animDur = 0;
+    this.mesh.rotation.y = yaw;
+    this.syncMesh();
+  }
+
+  /** Drop horizontal velocity and any in-flight dodge / leap. */
+  halt(): void {
+    this.velocity.set(0, 0, 0);
+    this.dodgeRemain = 0;
+    this.leapLockRemain = 0;
+  }
+
   respawn(): void {
     this.alive = true;
     this.hp = this.maxHp;
