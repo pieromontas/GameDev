@@ -115,6 +115,17 @@ Past the market’s open **far-NE exit**, a short **residential street** stub co
 
 Past the market’s open **SE exit** (not the NE homes lane), a compact **harbor / docks** stub: a short stone/wood spur to a small **pier** with pilings, planks, crates, hanging nets, dock lanterns, and a couple of **moored boats**. Soft collisions on boats / crates / nets keep a walkable pier lane. Press **E** at the catch crate for a flavor toast (`Catch of the day later`). No new enemies or combat systems. Play clamp includes the market→docks corridor + docks pocket. Minimap marks **Docks** plus a small catch-crate accent.
 
+## Dungeon crypt
+
+Past the castle yard, the **north city wall** opens into a carved **crypt mouth** (hillside, flanking torches, warm light in a cold arch). Walk up and press **E** (“Press E — Enter Dungeon”):
+
+- **Transition** — vignette fade, input locked, stone-door stinger, then the entry hall
+- **Entry hall** — stone floor and walls, torchlight, fog, braziers, broken pillars, bones, cobwebs, and a **barred gate** at the far end (Press E — the depths are sealed for now)
+- **Leave** — Press E on the entrance stair to fade back to the yard, just outside the arch
+- **Debug** — `?at=dungeon` drops you in the hall (fade in from black)
+
+Repeated enter / leave disposes the hall’s geometries, materials, and lights. Door and ambience are original CC0 synthesis (`public/audio/CREDITS.md`).
+
 ## South river ford
 
 Follow the dirt path **south** from the main meadow to a fifth reachable clearing. Landmark: a **shallow river ford** with **stepping stones**, **reeds**, and a **broken cart / camp remnant** (distinct from the east shrine tower, west fairy ring, and north ruins gate). **2 blobs + 2 spitters + 1 Armored Brute** patrol the riverside. Play-area clamp includes the south corridor + clearing — fully walkable. No new objective this cycle; explore and fight.

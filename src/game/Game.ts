@@ -28,6 +28,16 @@ import { GateGuard } from '../world/GateGuard';
 import { ResidentialChapel, ResidentialDoor } from '../world/ResidentialStreet';
 import { HarborCatchSign } from '../world/HarborDocks';
 import { CastleDistrict } from '../world/CastleDistrict';
+import { DungeonSession } from '../world/dungeon/DungeonSession';
+import { parseDebugAt } from '../world/dungeon/debugSpawn';
+import {
+  DUNGEON_EXIT_LANDING,
+  DUNGEON_HALL_ORIGIN,
+  ENTER_ARRIVAL_TOAST,
+  EXIT_ARRIVAL_TOAST,
+  HALL_SPAWN,
+  SEALED_TOAST,
+} from '../world/dungeon/layout';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
@@ -80,6 +90,19 @@ export class Game {
   private readonly residentialChapel: ResidentialChapel;
   private readonly harborCatchSign: HarborCatchSign;
   private readonly castleDistrict = new CastleDistrict();
+  private readonly session: DungeonSession;
+  private readonly dungeonFog = new THREE.Fog(0x24222a, 22, 72);
+  private readonly dungeonBackground = new THREE.Color(0x100e16);
+  private overworldFog!: THREE.Fog;
+  private overworldBackground!: THREE.Color;
+  private hemi!: THREE.HemisphereLight;
+  private fill!: THREE.DirectionalLight;
+  private transitionLocked = false;
+  private dungeonVisited = false;
+  private dungeonHintShown = false;
+  private readonly onAudioUnlock = (): void => {
+    this.session.unlockAudio();
+  };
   /** Public for DevTools playtests via `window.__game`. */
   readonly player: Player;
   /** Public for DevTools / touch overlay checks via `window.__game.input`. */
@@ -145,6 +168,8 @@ export class Game {
     this.scene.background = new THREE.Color(Palette.skyHorizon);
     // Far plane nudged out so east/west/north/south clearings stay readable
     this.scene.fog = new THREE.Fog(Palette.fog, 30, 115);
+    this.overworldFog = this.scene.fog;
+    this.overworldBackground = this.scene.background as THREE.Color;
     this.sky = createSkyDome(145);
     this.scene.add(this.sky);
 
@@ -152,6 +177,9 @@ export class Game {
 
     this.meadow = new MeadowBiome();
     this.scene.add(this.meadow.root);
+    this.session = new DungeonSession(this.scene);
+    window.addEventListener('pointerdown', this.onAudioUnlock);
+    window.addEventListener('keydown', this.onAudioUnlock);
 
     this.player = new Player();
     this.scene.add(this.player.mesh);
@@ -210,7 +238,7 @@ export class Game {
         this.cameraRig.addImpactPunch(0.26);
       },
       onPlayerDisplace: (player) => {
-        this.constrainEntity(player.position, player.radius);
+        this.constrainPlayer(player.position, player.radius);
         player.syncMesh();
       },
     });
@@ -358,26 +386,36 @@ export class Game {
       !result.mage ? 'Mage' : null,
       !result.rogue ? 'Rogue' : null,
     ].filter(Boolean) as string[];
+    const debugDungeon = parseDebugAt(window.location.search) === 'dungeon';
     if (failed.length === 3) {
       this.hud.showToast('Hero models failed to load — check console', 3.5);
     } else if (failed.length > 0) {
       this.hud.showToast(`${failed.join(' + ')} model failed — others still playable (C)`, 3.2);
-    } else if (propsOk) {
+    } else if (!debugDungeon && propsOk) {
       this.hud.showToast(
         'Welcome — KayKit meadow · chests · healing spring in north ruins',
         2.8,
       );
-    } else {
+    } else if (!debugDungeon) {
       this.hud.showToast(
         'Welcome — chests · east shrine · west grove · north ruins spring · south ford',
         2.8,
       );
+    }
+    if (debugDungeon) {
+      this.session.bootInDungeon();
+      this.presentZone('dungeon', 'hall');
+      this.hud.setZoneFade(1);
+      this.dungeonVisited = true;
     }
     this.loop.start();
   }
 
   dispose(): void {
     this.loop.stop();
+    this.session.dispose();
+    window.removeEventListener('pointerdown', this.onAudioUnlock);
+    window.removeEventListener('keydown', this.onAudioUnlock);
     this.touchControls.dispose();
     this.input.dispose();
     window.removeEventListener('resize', this.onResize);
@@ -413,6 +451,7 @@ export class Game {
   private addLights(): THREE.DirectionalLight {
     // Keep hemi modest so the key sun can carve MeshToon cel bands.
     const hemi = new THREE.HemisphereLight(Palette.hemiSky, Palette.hemiGround, 0.55);
+    this.hemi = hemi;
     this.scene.add(hemi);
 
     const sun = new THREE.DirectionalLight(Palette.sun, 2.0);
@@ -436,6 +475,7 @@ export class Game {
 
     const fill = new THREE.DirectionalLight(Palette.fill, 0.28);
     fill.position.set(-14, 12, -10);
+    this.fill = fill;
     this.scene.add(fill);
 
     // Tiny warm bounce so shaded sides stay colorful (not gray).
@@ -448,14 +488,30 @@ export class Game {
   private update(rawDt: number): void {
     // Hit-stop uses real time; simulation briefly slows on successful hits.
     const dt = this.combat.scaleDt(rawDt);
-    this.updateCameraControls(dt);
+    const zoneEvent = this.session.update(dt);
+    if (zoneEvent.switchedTo) {
+      this.presentZone(zoneEvent.switchedTo, zoneEvent.switchedTo === 'dungeon' ? 'hall' : 'landing');
+      if (zoneEvent.switchedTo === 'dungeon') this.dungeonVisited = true;
+    }
+    if (zoneEvent.arrived) {
+      if (zoneEvent.zone === 'dungeon') this.hud.showToast(ENTER_ARRIVAL_TOAST, 2.4);
+      else if (this.dungeonVisited) this.hud.showToast(EXIT_ARRIVAL_TOAST, 2.0);
+    }
+    this.hud.setZoneFade(zoneEvent.overlay);
+    if (zoneEvent.inputLocked) {
+      if (!this.transitionLocked) this.player.halt();
+      this.transitionLocked = true;
+    } else {
+      this.transitionLocked = false;
+    }
+    if (!zoneEvent.inputLocked) this.updateCameraControls(dt);
 
     this.player.tickSkills(dt);
     if (this.spawnAggroGrace > 0) {
       this.spawnAggroGrace = Math.max(0, this.spawnAggroGrace - dt);
     }
 
-    if (this.player.alive) {
+    if (this.player.alive && !zoneEvent.inputLocked) {
       this.updatePlayerMovement(dt);
       this.handleClassSwitch();
       this.handlePlayerSkills();
@@ -463,6 +519,11 @@ export class Game {
     } else if (this.playerRespawnTimer >= 0) {
       this.playerRespawnTimer -= dt;
       if (this.playerRespawnTimer <= 0) {
+        if (this.session.currentZone !== 'overworld' || this.session.inputLocked) {
+          this.session.forceOverworld();
+          this.presentZone('overworld', 'none');
+          this.hud.setZoneFade(0);
+        }
         this.player.respawn();
         this.playerRespawnTimer = -1;
         this.combat.clearSpitProjectiles();
@@ -546,6 +607,7 @@ export class Game {
     this.meadow.updateGateBanners(dt);
     this.meadow.updateGateGuard(dt, this.player.position);
     this.meadow.updateCastleAmbience(dt, this.player.position);
+    this.meadow.dungeonMouth.update(dt);
     this.castleDistrict.update(dt);
     this.marketInn.update(dt);
     this.marketFountain.update(dt);
@@ -604,7 +666,11 @@ export class Game {
     }
     this.healthBars.update(this.cameraRig.camera);
     this.hud.update(this.player, this.lootCount, this.kills, dt);
-    this.hud.updateMinimap(this.player, this.mobs);
+    this.hud.updateMinimap(
+      this.player,
+      this.mobs,
+      this.session.currentZone === 'dungeon' ? 'hall' : 'world',
+    );
     this.input.endFrame();
   }
 
@@ -673,7 +739,7 @@ export class Game {
     this.player.applyMovement(this.moveDir, dt);
     // Soft unstick vs living enemies so adjacent WASD is not zeroed (dodge still punches through).
     this.separatePlayerFromEnemies();
-    this.constrainEntity(this.player.position, this.player.radius);
+    this.constrainPlayer(this.player.position, this.player.radius);
     this.player.syncMesh();
 
     if (!this.cityGateHintShown && this.meadow.isNearCityGate(this.player.position)) {
@@ -696,11 +762,79 @@ export class Game {
       this.castleHintShown = true;
       this.hud.showToast('Castle Keep · seat of the realm · royal courtyard & battlements', 2.4);
     }
+    if (
+      !this.dungeonHintShown &&
+      this.session.currentZone === 'overworld' &&
+      this.meadow.dungeonMouth.isNear(this.player.position)
+    ) {
+      this.dungeonHintShown = true;
+      this.hud.showToast('Old crypt — firelight in the north wall', 2.2);
+    }
   }
 
+  /**
+   * Swap fog, sun, and the meadow while the vignette is black.
+   * `place` snaps the hero (and camera) on a real transition; respawn passes `none`.
+   */
+  private presentZone(zone: 'overworld' | 'dungeon', place: 'hall' | 'landing' | 'none'): void {
+    const dungeon = zone === 'dungeon';
+    this.meadow.root.visible = !dungeon;
+    this.sky.visible = !dungeon;
+    if (dungeon) {
+      this.scene.fog = this.dungeonFog;
+      this.scene.background = this.dungeonBackground;
+      // Toon bands are multiplied by light intensity, so a very dim key
+      // crushes the stone to the fog color. Keep a real key and let the
+      // warm point lights and dark fog carry the crypt mood.
+      this.sun.intensity = 1.45;
+      this.sun.color.set(0xe0d2b4);
+      this.hemi.intensity = 0.55;
+      this.hemi.color.set(0xd5dee6);
+      this.hemi.groundColor.set(0x4a4036);
+      this.fill.intensity = 0.2;
+      if (place === 'hall') {
+        this.player.placeAt(
+          DUNGEON_HALL_ORIGIN.x + HALL_SPAWN.x,
+          DUNGEON_HALL_ORIGIN.z + HALL_SPAWN.z,
+          HALL_SPAWN.yaw,
+        );
+      }
+    } else {
+      this.scene.fog = this.overworldFog;
+      this.scene.background = this.overworldBackground;
+      this.sun.intensity = 2;
+      this.sun.color.set(Palette.sun);
+      this.hemi.intensity = 0.55;
+      this.hemi.color.set(Palette.hemiSky);
+      this.hemi.groundColor.set(Palette.hemiGround);
+      this.fill.intensity = 0.28;
+      if (place === 'landing') {
+        this.player.placeAt(
+          DUNGEON_EXIT_LANDING.x,
+          DUNGEON_EXIT_LANDING.z,
+          DUNGEON_EXIT_LANDING.yaw,
+        );
+      }
+    }
+    if (place === 'hall') {
+      this.cameraRig.snapBehind(this.player.position, HALL_SPAWN.yaw);
+    } else if (place === 'landing') {
+      this.cameraRig.snapBehind(this.player.position, DUNGEON_EXIT_LANDING.yaw);
+    }
+  }
+
+  /** Mobs stay on the overworld even while the hero is inside the crypt. */
   private constrainEntity(position: THREE.Vector3, radius: number): void {
     this.meadow.resolveObstacles(position, radius);
     this.meadow.clampToPlayArea(position);
+  }
+
+  private constrainPlayer(position: THREE.Vector3, radius: number): void {
+    if (this.session.currentZone === 'dungeon') {
+      this.session.resolve(position, radius);
+      return;
+    }
+    this.constrainEntity(position, radius);
   }
 
   /** Teleport living enemies out of the camp clear circle (boot + player respawn). */
@@ -828,6 +962,22 @@ export class Game {
    */
   private handleInteract(): void {
     if (!this.input.wasPressed('KeyE')) return;
+    if (this.session.inputLocked) return;
+    if (this.session.currentZone === 'dungeon') {
+      const hall = this.session.getPrompt(
+        this.player.position.x,
+        this.player.position.z,
+        this.player.alive,
+      );
+      if (hall.kind === 'exit') {
+        this.session.requestExit();
+        return;
+      }
+      if (hall.kind === 'sealed') {
+        this.hud.showToast(SEALED_TOAST, 2.2);
+      }
+      return;
+    }
     if (this.merchant.isOpen) {
       this.merchant.close();
       return;
@@ -861,12 +1011,34 @@ export class Game {
     if (this.residentialDoor.tryInteract(this.player)) return;
     if (this.residentialChapel.tryInteract(this.player)) return;
     if (this.castleDistrict.interact(this.player, (text) => this.hud.showToast(text, 2.2))) return;
+    if (this.meadow.dungeonMouth.tryInteract(this.player)) {
+      this.session.requestEnter();
+      return;
+    }
     this.merchant.tryInteract(this.player);
   }
 
   /** Merge shrine objective HUD with chest / spring / herb / shrine / market / homes / merchant prompts. */
   private syncInteractHud(): void {
     const shrineHud = this.shrine.getHudState(this.player);
+    if (this.session.inputLocked) {
+      this.hud.setShrineHud({ ...shrineHud, promptVisible: false, promptText: '' });
+      return;
+    }
+    if (this.session.currentZone === 'dungeon') {
+      const hall = this.session.getPrompt(
+        this.player.position.x,
+        this.player.position.z,
+        this.player.alive,
+      );
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: hall.visible,
+        promptText: hall.text,
+        objectiveVisible: false,
+      });
+      return;
+    }
     // Bounty progress banner when shrine defense isn't already using the slot.
     const bountyBanner = this.marketNoticeBoard.getObjectiveBanner();
     if (!shrineHud.objectiveVisible && bountyBanner) {
@@ -1008,6 +1180,12 @@ export class Game {
         ...shrineHud,
         promptVisible: true,
         promptText: castlePrompt.text,
+      });
+    } else if (this.meadow.dungeonMouth.getInteractPrompt(this.player).visible) {
+      this.hud.setShrineHud({
+        ...shrineHud,
+        promptVisible: true,
+        promptText: this.meadow.dungeonMouth.getInteractPrompt(this.player).text,
       });
     } else if (merchantPrompt.visible) {
       this.hud.setShrineHud({

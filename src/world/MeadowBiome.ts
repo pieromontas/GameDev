@@ -82,6 +82,15 @@ import {
   CASTLE_ARMORY_SPOT,
   CASTLE_CHEST_SPOT,
 } from './CastleDistrict';
+import { DungeonMouth } from './dungeon/DungeonMouth';
+import {
+  CITY_NORTH_WALL_A,
+  CITY_NORTH_WALL_B,
+  DUNGEON_MOUTH,
+  DUNGEON_POCKET_RADIUS,
+  NORTH_POSTERN,
+  isInsideDungeonPocket,
+} from './dungeon/layout';
 
 export type Obstacle = { x: number; z: number; radius: number };
 
@@ -177,6 +186,8 @@ export class MeadowBiome {
     0,
     NortheastCastleKeep.z,
   );
+  /** North-wall crypt mouth — Press E enters the dungeon entry hall. */
+  readonly dungeonMouth = new DungeonMouth();
   /** Solid props used for soft collision (trees + rocks + landmarks). */
   readonly obstacles: Obstacle[] = [];
   /**
@@ -344,6 +355,8 @@ export class MeadowBiome {
     this.buildNortheastHarborDocks();
     this.buildNortheastCastleKeep();
     this.buildCityWallRing();
+    this.root.add(this.dungeonMouth.root);
+    for (const obstacle of this.dungeonMouth.obstacles) this.obstacles.push(obstacle);
     this.buildEdgeLedges();
   }
 
@@ -2435,7 +2448,18 @@ export class MeadowBiome {
       this.addCityWallTower(x, z);
       if (i >= corners.length - 1) break; // keep the gate gap open
       const [nx, nz] = corners[i + 1]!;
-      this.addCityWallRun(x, z, nx, nz);
+      // North curtain: leave a postern for the crypt arch instead of a solid run.
+      const northRun =
+        x === CITY_NORTH_WALL_A.x &&
+        z === CITY_NORTH_WALL_A.z &&
+        nx === CITY_NORTH_WALL_B.x &&
+        nz === CITY_NORTH_WALL_B.z;
+      if (northRun) {
+        this.addCityWallRun(x, z, NORTH_POSTERN.from.x, NORTH_POSTERN.from.z);
+        this.addCityWallRun(NORTH_POSTERN.to.x, NORTH_POSTERN.to.z, nx, nz);
+      } else {
+        this.addCityWallRun(x, z, nx, nz);
+      }
     }
   }
 
@@ -7704,7 +7728,8 @@ export class MeadowBiome {
     }
     if (this.distToDocksCorridor(x, z) <= this.docksCorridorHalfWidth) return true;
     if (this.distToCastleGateCorridor(x, z) <= this.castleCorridorHalfWidth) return true;
-    return this.distToCastleCourtyardCorridor(x, z) <= this.castleCorridorHalfWidth;
+    if (this.distToCastleCourtyardCorridor(x, z) <= this.castleCorridorHalfWidth) return true;
+    return isInsideDungeonPocket(x, z);
   }
 
   /** Keep entities inside meadow ∪ corridors ∪ clearings ∪ NE gate ∪ market ∪ homes ∪ docks ∪ castle. */
@@ -7880,6 +7905,9 @@ export class MeadowBiome {
       return true;
     }
     if (Math.hypot(x - this.northeastCastle.x, z - this.northeastCastle.z) < 14.0) {
+      return true;
+    }
+    if (Math.hypot(x - DUNGEON_MOUTH.x, z - DUNGEON_MOUTH.z) < DUNGEON_POCKET_RADIUS + 1.2) {
       return true;
     }
     return meadowPathInfluence(x, z) > 0.35 && x > 14 && z > 14;
@@ -8122,6 +8150,17 @@ export class MeadowBiome {
       consider(
         this.northeastCastle.x + (dx / d) * this.northeastCastle.radius,
         this.northeastCastle.z + (dz / d) * this.northeastCastle.radius,
+      );
+    }
+
+    // Crypt mouth pocket (north postern, just past the castle yard)
+    {
+      const dx = x - DUNGEON_MOUTH.x;
+      const dz = z - DUNGEON_MOUTH.z;
+      const d = Math.hypot(dx, dz) || 1;
+      consider(
+        DUNGEON_MOUTH.x + (dx / d) * DUNGEON_POCKET_RADIUS,
+        DUNGEON_MOUTH.z + (dz / d) * DUNGEON_POCKET_RADIUS,
       );
     }
 
