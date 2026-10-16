@@ -28,7 +28,7 @@ Every step ships finished.
 
 ## Done
 
-- This PR — Step 1: north-wall crypt mouth, vignette into the entry hall, leave prompt, `?at=dungeon` debug spawn.
+- #84 — Step 1: north-wall crypt mouth, vignette into the entry hall, leave prompt, `?at=dungeon` debug spawn.
 
 ## Next step:
 
