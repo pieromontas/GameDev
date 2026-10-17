@@ -4,6 +4,7 @@ import { InputManager } from '../input/InputManager';
 import { TouchControls } from '../input/TouchControls';
 import { FollowCamera } from '../camera/FollowCamera';
 import { FoliageOcclusion } from '../camera/FoliageOcclusion';
+import { OccluderFade } from '../camera/OccluderFade';
 import { MeadowBiome } from '../world/MeadowBiome';
 import { WorldPropLibrary } from '../world/WorldPropLibrary';
 import { ShrineObjective } from '../world/ShrineObjective';
@@ -38,6 +39,7 @@ import {
   HALL_SPAWN,
   SEALED_TOAST,
 } from '../world/dungeon/layout';
+import { documentTitleForZone } from '../world/dungeon/zoneTitle';
 import { Player } from '../entities/Player';
 import { Enemy, createStarterMobs } from '../entities/Mob';
 import { createStarterSpitters, Spitter } from '../entities/Spitter';
@@ -65,6 +67,7 @@ export class Game {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly cameraRig: FollowCamera;
   private readonly foliageOcclusion = new FoliageOcclusion();
+  private readonly occluderFade = new OccluderFade();
   private readonly foliageLookAt = new THREE.Vector3();
   private readonly touchControls: TouchControls;
   private readonly loop: GameLoop;
@@ -177,7 +180,7 @@ export class Game {
 
     this.meadow = new MeadowBiome();
     this.scene.add(this.meadow.root);
-    this.session = new DungeonSession(this.scene);
+    this.session = new DungeonSession(this.scene, (root) => this.occluderFade.forget(root));
     window.addEventListener('pointerdown', this.onAudioUnlock);
     window.addEventListener('keydown', this.onAudioUnlock);
 
@@ -650,6 +653,14 @@ export class Game {
       this.foliageLookAt,
       this.meadow.getFoliageOccluders(),
     );
+    this.occluderFade.update(
+      this.cameraRig.camera,
+      this.player.position,
+      this.session.currentZone === 'dungeon'
+        ? this.session.getOccluders()
+        : this.meadow.getStructureOccluders(),
+      rawDt,
+    );
     // Keep the sun shadow frustum centered on the player (desktop only).
     if (this.sun.castShadow) {
       this.sun.target.position.copy(this.player.position);
@@ -777,7 +788,11 @@ export class Game {
    * `place` snaps the hero (and camera) on a real transition; respawn passes `none`.
    */
   private presentZone(zone: 'overworld' | 'dungeon', place: 'hall' | 'landing' | 'none'): void {
+    if (typeof document !== 'undefined') {
+      document.title = documentTitleForZone(zone);
+    }
     const dungeon = zone === 'dungeon';
+    this.cameraRig.setFraming(dungeon ? 'crypt' : 'yard');
     this.meadow.root.visible = !dungeon;
     this.sky.visible = !dungeon;
     if (dungeon) {

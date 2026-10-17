@@ -1,9 +1,18 @@
 import * as THREE from 'three';
+import { OCCLUDER_SKIP, markOccluderFade } from '../../camera/OccluderFade';
 import { Palette, createToonMaterial } from '../../render/stylized';
-import { addDynamicPointLight } from '../../render/deviceQuality';
+import { addDynamicPointLight, isMobilePlay } from '../../render/deviceQuality';
+import {
+  HALL_DUST_COUNT,
+  HALL_DUST_COUNT_MOBILE,
+  createDustMotes,
+  stepDustMote,
+  type DustMote,
+} from './hallDust';
 import {
   DUNGEON_HALL_ORIGIN,
   HALL_BOUNDS,
+  HALL_EXIT_ARCH_Z,
   LEAVE_PROMPT,
   SEALED_PROMPT,
   hallPromptKind,
@@ -27,6 +36,11 @@ export class DungeonHall {
   private readonly flames: THREE.Object3D[] = [];
   private readonly lights: THREE.PointLight[] = [];
   private readonly circles: Circle[] = [];
+  private readonly occluders: THREE.Object3D[] = [];
+  private readonly dust: DustMote[] = [];
+  private dustMesh: THREE.InstancedMesh | null = null;
+  private fogMats: THREE.ShaderMaterial[] = [];
+  private readonly dustDummy = new THREE.Object3D();
   private time = 0;
   disposedGeometries = 0;
   disposedMaterials = 0;
@@ -74,6 +88,11 @@ export class DungeonHall {
     return n;
   }
 
+  /** Exit arch, side walls, and pillars — geometry that can hide the hero. */
+  getOccluders(): readonly THREE.Object3D[] {
+    return this.occluders;
+  }
+
   update(dt: number): void {
     if (!this.built) return;
     this.time += dt;
@@ -93,33 +112,29 @@ export class DungeonHall {
         base *
         (0.84 + Math.sin(this.time * 10 + phase) * 0.1 + Math.cos(this.time * 16 + phase) * 0.05);
     }
+    this.updateDust(dt);
   }
 
+  /**
+   * Pillars, braziers, and the loose stone chunk. A few passes, then a slide
+   * when a radial push would leave the hero inside a prop and the wall at once
+   * (the old single push jittered against the braziers).
+   */
   resolve(position: THREE.Vector3, radius: number): void {
     const originX = DUNGEON_HALL_ORIGIN.x;
     const originZ = DUNGEON_HALL_ORIGIN.z;
     let x = position.x - originX;
     let z = position.z - originZ;
-    for (const circle of this.circles) {
-      const minDist = circle.radius + radius;
-      let dx = x - circle.x;
-      let dz = z - circle.z;
-      const d2 = dx * dx + dz * dz;
-      if (d2 >= minDist * minDist) continue;
-      if (d2 < 1e-8) {
-        x = circle.x + minDist;
-        z = circle.z;
-        continue;
+    for (let iter = 0; iter < 6; iter++) {
+      for (const circle of this.circles) {
+        const next = this.pushCircle(x, z, circle, radius);
+        x = next.x;
+        z = next.z;
       }
-      const d = Math.sqrt(d2);
-      const push = (minDist - d) / d;
-      x += dx * push;
-      z += dz * push;
+      const clamped = this.clampHall(x, z, radius);
+      x = clamped.x;
+      z = clamped.z;
     }
-    if (x < HALL_BOUNDS.minX + radius) x = HALL_BOUNDS.minX + radius;
-    if (x > HALL_BOUNDS.maxX - radius) x = HALL_BOUNDS.maxX - radius;
-    if (z < HALL_BOUNDS.minZ + radius) z = HALL_BOUNDS.minZ + radius;
-    if (z > HALL_BOUNDS.maxZ - radius) z = HALL_BOUNDS.maxZ - radius;
     position.x = originX + x;
     position.z = originZ + z;
   }
@@ -159,7 +174,7 @@ export class DungeonHall {
 
     this.addFloor(stoneDark, stone, stoneLight);
     this.addWalls(stone, stoneLight, stoneDark);
-    this.addGate(iron, voidMat, coldMat, ivyMat, stone);
+    this.addGate(voidMat, coldMat, ivyMat, stone);
     this.addExitArch(stone, stoneLight, stoneDark);
     this.addPillars(stone, stoneDark);
     this.addBraziers(stoneDark, stoneLight, flameMat, iron);
@@ -168,14 +183,17 @@ export class DungeonHall {
     this.addWebs(webMat);
     this.addMoss(moss);
     this.addRubble(stone, stoneDark);
+    this.addAtmosphere();
 
     this.circles.push(
       { x: -2.05, z: -1.35, radius: 0.58 },
       { x: 2.05, z: -1.35, radius: 0.58 },
       { x: -1.65, z: 2.55, radius: 0.46 },
-      { x: 1.8, z: 3.05, radius: 0.4 },
-      { x: -2.3, z: 0.15, radius: 0.46 },
-      { x: 2.3, z: 0.15, radius: 0.46 },
+      { x: 1.8, z: 3.05, radius: 0.42 },
+      { x: -2.3, z: 0.15, radius: 0.52 },
+      { x: 2.3, z: 0.15, radius: 0.52 },
+      // Loose chunk near the stair — solid, not a decoration you walk through.
+      { x: 1.15, z: 5.15, radius: 0.42 },
     );
   }
 
@@ -238,49 +256,104 @@ export class DungeonHall {
       wall.position.set(side * 4.15, 3.3, 0.35);
       wall.castShadow = true;
       wall.receiveShadow = true;
-      this.root.add(wall);
+      const sideGroup = new THREE.Group();
+      sideGroup.name = side < 0 ? 'HallWallWest' : 'HallWallEast';
+      sideGroup.add(wall);
       const trim = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.86, 0.28, 15.4)), stoneLight);
       trim.position.set(side * 4.15, 6.55, 0.35);
-      this.root.add(trim);
+      sideGroup.add(trim);
       const base = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.9, 0.45, 15.4)), stoneDark);
       base.position.set(side * 4.15, 0.22, 0.35);
       base.receiveShadow = true;
-      this.root.add(base);
+      sideGroup.add(base);
+      this.tagOccluder(sideGroup);
+      this.root.add(sideGroup);
     }
   }
 
   private addGate(
-    iron: THREE.Material,
     voidMat: THREE.Material,
     coldMat: THREE.Material,
     ivyMat: THREE.Material,
     stone: THREE.Material,
   ): void {
-    // Recess so the bars read as a gate into the next wing, not a flat dead end.
-    const recess = new THREE.Mesh(this.geo(new THREE.BoxGeometry(2.5, 4.2, 2.6)), voidMat);
-    recess.position.set(0, 2.05, -7.55);
-    this.root.add(recess);
-    const slit = new THREE.Mesh(this.geo(new THREE.PlaneGeometry(0.35, 1.4)), coldMat);
-    slit.position.set(0, 2.2, -8.7);
-    this.root.add(slit);
+    // Steel that actually reads: standard metal, not the near-black toon iron
+    // that disappeared into the old flat doorway.
+    const iron = this.mat(
+      new THREE.MeshStandardMaterial({
+        color: 0xc5ced6,
+        metalness: 0.86,
+        roughness: 0.34,
+        emissive: 0x243848,
+        emissiveIntensity: 0.45,
+      }),
+    );
+
+    const frame = new THREE.Group();
+    frame.name = 'HallSealedGate';
 
     for (const side of [-1, 1]) {
       const pier = new THREE.Mesh(this.geo(new THREE.BoxGeometry(1.15, 5.4, 0.7)), stone);
       pier.position.set(side * 1.85, 2.7, -6.85);
       pier.castShadow = true;
       pier.receiveShadow = true;
-      this.root.add(pier);
+      frame.add(pier);
     }
     const lintel = new THREE.Mesh(this.geo(new THREE.BoxGeometry(4.9, 0.7, 0.75)), stone);
     lintel.position.set(0, 5.15, -6.85);
     lintel.castShadow = true;
-    this.root.add(lintel);
+    frame.add(lintel);
+    this.tagOccluder(frame);
+    this.root.add(frame);
 
-    const barGeo = this.geo(new THREE.BoxGeometry(0.08, 3.6, 0.08));
-    const bars = new THREE.InstancedMesh(barGeo, iron, 7);
+    // Recess stays BEHIND the bars. The old box extended into the room and
+    // covered them, which is why the gate read as a flat dark-blue door.
+    const recess = new THREE.Mesh(this.geo(new THREE.BoxGeometry(2.15, 3.7, 1.45)), voidMat);
+    recess.position.set(0, 2.05, -7.85);
+    this.root.add(recess);
+    const coldWash = new THREE.Mesh(this.geo(new THREE.PlaneGeometry(1.55, 2.8)), coldMat);
+    coldWash.position.set(0, 2.1, -7.2);
+    coldWash.userData[OCCLUDER_SKIP] = true;
+    this.root.add(coldWash);
+
+    const glowMat = this.mat(
+      new THREE.MeshBasicMaterial({
+        color: 0x9fd4ff,
+        transparent: true,
+        opacity: 0.42,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    const glow = new THREE.Mesh(this.geo(new THREE.PlaneGeometry(2.15, 2.4)), glowMat);
+    glow.position.set(0, 2.15, -7.15);
+    // Tipped toward the room, with the near lip still behind the bars.
+    glow.rotation.x = -0.55;
+    glow.userData[OCCLUDER_SKIP] = true;
+    this.root.add(glow);
+    const glowCore = new THREE.Mesh(
+      this.geo(new THREE.PlaneGeometry(0.7, 2.2)),
+      this.mat(
+        new THREE.MeshBasicMaterial({
+          color: 0xd7f2ff,
+          transparent: true,
+          opacity: 0.55,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+      ),
+    );
+    glowCore.position.set(0, 2.2, -7.35);
+    glowCore.rotation.x = -0.55;
+    glowCore.userData[OCCLUDER_SKIP] = true;
+    this.root.add(glowCore);
+
+    const barGeo = this.geo(new THREE.CylinderGeometry(0.11, 0.11, 3.65, 8));
+    const barCount = 5;
+    const bars = new THREE.InstancedMesh(barGeo, iron, barCount);
     const dummy = new THREE.Object3D();
-    for (let i = 0; i < 7; i++) {
-      dummy.position.set(-0.9 + i * 0.3, 2.15, -6.55);
+    for (let i = 0; i < barCount; i++) {
+      dummy.position.set(-0.84 + i * 0.42, 2.05, -6.48);
       dummy.rotation.set(0, 0, 0);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
@@ -290,17 +363,18 @@ export class DungeonHall {
     bars.castShadow = true;
     this.root.add(bars);
 
-    const rail = new THREE.Mesh(this.geo(new THREE.BoxGeometry(2.0, 0.08, 0.08)), iron);
-    rail.position.set(0, 3.5, -6.55);
-    this.root.add(rail);
-    const rail2 = rail.clone();
-    rail2.position.y = 1.05;
-    this.root.add(rail2);
+    for (const y of [1.15, 2.15, 3.35]) {
+      const rail = new THREE.Mesh(this.geo(new THREE.BoxGeometry(1.9, 0.1, 0.1)), iron);
+      rail.position.set(0, y, -6.48);
+      rail.castShadow = true;
+      this.root.add(rail);
+    }
 
     for (const side of [-1, 1]) {
-      const chain = new THREE.Mesh(this.geo(new THREE.TorusGeometry(0.16, 0.035, 6, 8)), iron);
-      chain.position.set(side * 0.55, 4.55, -6.5);
+      const chain = new THREE.Mesh(this.geo(new THREE.TorusGeometry(0.18, 0.045, 8, 12)), iron);
+      chain.position.set(side * 0.55, 4.45, -6.42);
       chain.rotation.x = Math.PI / 2;
+      chain.castShadow = true;
       this.root.add(chain);
     }
 
@@ -311,22 +385,27 @@ export class DungeonHall {
   }
 
   private addExitArch(stone: THREE.Material, stoneLight: THREE.Material, stoneDark: THREE.Material): void {
-    // Low arch behind the hero (camera side) so it frames the stair without covering them.
+    // Arch is past the leave pad so the beam is not the hero's hat. It still
+    // fades if a lower camera looks through it.
+    const arch = new THREE.Group();
+    arch.name = 'HallExitArch';
+    const z = HALL_EXIT_ARCH_Z;
     for (const side of [-1, 1]) {
       const jamb = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.7, 2.8, 0.7)), stone);
-      jamb.position.set(side * 1.55, 1.4, 7.55);
+      jamb.position.set(side * 1.55, 1.4, z);
       jamb.castShadow = true;
-      this.root.add(jamb);
+      arch.add(jamb);
     }
     const lintel = new THREE.Mesh(this.geo(new THREE.BoxGeometry(3.8, 0.42, 0.75)), stoneLight);
-    lintel.position.set(0, 2.95, 7.55);
+    lintel.position.set(0, 2.95, z);
     lintel.castShadow = true;
-    this.root.add(lintel);
+    arch.add(lintel);
+    this.tagOccluder(arch);
+    this.root.add(arch);
 
-    // Steps drop away from the landing, outside the walk clamp, as the way out.
     for (let i = 0; i < 3; i++) {
       const step = new THREE.Mesh(this.geo(new THREE.BoxGeometry(2.4, 0.08, 0.42)), i === 1 ? stoneLight : stoneDark);
-      step.position.set(0, 0.04 - i * 0.015, 7.15 + i * 0.38);
+      step.position.set(0, 0.04 - i * 0.015, z - 1.35 + i * 0.38);
       step.receiveShadow = true;
       this.root.add(step);
     }
@@ -347,6 +426,7 @@ export class DungeonHall {
       pillar.rotation.z = tilt;
       pillar.castShadow = true;
       pillar.receiveShadow = true;
+      this.tagOccluder(pillar);
       this.root.add(pillar);
       const ring = new THREE.Mesh(this.geo(new THREE.CylinderGeometry(0.5, 0.5, 0.12, 8)), stoneDark);
       ring.position.set(x, 0.08, z);
@@ -502,6 +582,164 @@ export class DungeonHall {
     this.root.add(chunk);
   }
 
+  private addAtmosphere(): void {
+    const count = isMobilePlay() ? HALL_DUST_COUNT_MOBILE : HALL_DUST_COUNT;
+    this.dust.push(...createDustMotes(count));
+    const dustMat = this.mat(
+      new THREE.MeshBasicMaterial({
+        color: 0xd5dee6,
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false,
+      }),
+    );
+    const dustGeo = this.geo(new THREE.SphereGeometry(0.07, 5, 4));
+    const dustMesh = new THREE.InstancedMesh(dustGeo, dustMat, count);
+    dustMesh.name = 'HallDust';
+    dustMesh.userData[OCCLUDER_SKIP] = true;
+    dustMesh.frustumCulled = false;
+    this.dustMesh = dustMesh;
+    this.root.add(dustMesh);
+    this.writeDust();
+
+    const low = this.fogPlane(0.42, 7.4, 12.4, 0.28);
+    const high = this.fogPlane(1.45, 7.1, 11.6, 0.12);
+    this.root.add(low);
+    this.root.add(high);
+  }
+
+  private fogPlane(y: number, width: number, depth: number, alpha: number): THREE.Mesh {
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      fog: false,
+      uniforms: {
+        uTime: { value: 0 },
+        uAlpha: { value: alpha },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uAlpha;
+        varying vec2 vUv;
+        void main() {
+          float n = sin(vUv.x * 8.0 + uTime * 0.15) * sin(vUv.y * 6.0 - uTime * 0.1);
+          n += sin((vUv.x + vUv.y) * 15.0 + uTime * 0.22) * 0.4;
+          float edge = smoothstep(0.0, 0.16, vUv.x) * smoothstep(1.0, 0.84, vUv.x);
+          edge *= smoothstep(0.0, 0.12, vUv.y) * smoothstep(1.0, 0.88, vUv.y);
+          float alpha = edge * uAlpha * (0.75 + 0.35 * n);
+          gl_FragColor = vec4(0.76, 0.82, 0.88, clamp(alpha, 0.0, 0.32));
+        }
+      `,
+    });
+    this.mat(mat);
+    this.fogMats.push(mat);
+    const mesh = new THREE.Mesh(this.geo(new THREE.PlaneGeometry(width, depth)), mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(0, y, 0.4);
+    mesh.userData[OCCLUDER_SKIP] = true;
+    return mesh;
+  }
+
+  private updateDust(dt: number): void {
+    for (const mat of this.fogMats) mat.uniforms.uTime!.value = this.time;
+    if (!this.dustMesh) return;
+    for (const mote of this.dust) stepDustMote(mote, dt, this.time);
+    this.writeDust();
+  }
+
+  private writeDust(): void {
+    const mesh = this.dustMesh;
+    if (!mesh) return;
+    for (let i = 0; i < this.dust.length; i++) {
+      const mote = this.dust[i]!;
+      const bob = 1 + Math.sin(this.time * 1.3 + mote.phase) * 0.18;
+      this.dustDummy.position.set(mote.x, mote.y, mote.z);
+      this.dustDummy.rotation.set(mote.spin, mote.phase, 0);
+      this.dustDummy.scale.setScalar(bob);
+      this.dustDummy.updateMatrix();
+      mesh.setMatrixAt(i, this.dustDummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+
+  private tagOccluder(root: THREE.Object3D): void {
+    markOccluderFade(root);
+    this.occluders.push(root);
+  }
+
+  private clampHall(x: number, z: number, radius: number): { x: number; z: number } {
+    return {
+      x: Math.min(HALL_BOUNDS.maxX - radius, Math.max(HALL_BOUNDS.minX + radius, x)),
+      z: Math.min(HALL_BOUNDS.maxZ - radius, Math.max(HALL_BOUNDS.minZ + radius, z)),
+    };
+  }
+
+  private overlaps(x: number, z: number, circle: Circle, minDist: number): boolean {
+    const dx = x - circle.x;
+    const dz = z - circle.z;
+    return dx * dx + dz * dz < minDist * minDist - 1e-6;
+  }
+
+  /**
+   * Push out of one circle. If the wall clamps that push back into the circle,
+   * slide to the nearest in-bounds rim point so the hero is not stuck jittering.
+   */
+  private pushCircle(x: number, z: number, circle: Circle, radius: number): { x: number; z: number } {
+    const minDist = circle.radius + radius;
+    let dx = x - circle.x;
+    let dz = z - circle.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 >= minDist * minDist) return { x, z };
+    if (d2 < 1e-8) {
+      dx = minDist;
+      dz = 0;
+    } else {
+      const scale = minDist / Math.sqrt(d2);
+      dx *= scale;
+      dz *= scale;
+    }
+    const pushed = this.clampHall(circle.x + dx, circle.z + dz, radius);
+    if (!this.overlaps(pushed.x, pushed.z, circle, minDist)) return pushed;
+
+    let bestX = pushed.x;
+    let bestZ = pushed.z;
+    let bestD = Infinity;
+    for (let i = 0; i < 20; i++) {
+      const angle = (i / 20) * Math.PI * 2;
+      const candidate = this.clampHall(
+        circle.x + Math.cos(angle) * minDist,
+        circle.z + Math.sin(angle) * minDist,
+        radius,
+      );
+      if (this.overlaps(candidate.x, candidate.z, circle, minDist)) continue;
+      let blocked = false;
+      for (const other of this.circles) {
+        if (other === circle) continue;
+        if (this.overlaps(candidate.x, candidate.z, other, other.radius + radius)) {
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked) continue;
+      const ddx = candidate.x - x;
+      const ddz = candidate.z - z;
+      const dist = ddx * ddx + ddz * ddz;
+      if (dist < bestD) {
+        bestD = dist;
+        bestX = candidate.x;
+        bestZ = candidate.z;
+      }
+    }
+    return { x: bestX, z: bestZ };
+  }
+
   private geo<T extends THREE.BufferGeometry>(geometry: T): T {
     this.geos.push(geometry);
     return geometry;
@@ -527,6 +765,10 @@ export class DungeonHall {
     this.flames.length = 0;
     this.lights.length = 0;
     this.circles.length = 0;
+    this.occluders.length = 0;
+    this.dust.length = 0;
+    this.dustMesh = null;
+    this.fogMats = [];
     this.built = false;
   }
 }
