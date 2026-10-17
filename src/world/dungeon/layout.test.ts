@@ -8,6 +8,7 @@ import {
   DUNGEON_EXIT_LANDING,
   DUNGEON_MOUTH,
   DUNGEON_POCKET_RADIUS,
+  HALL_EXIT_ARCH_Z,
   HALL_EXIT_PAD,
   HALL_EXIT_RADIUS,
   HALL_SEALED_PAD,
@@ -70,5 +71,7 @@ describe('entry hall prompts', () => {
     expect(dist(HALL_SPAWN, HALL_EXIT_PAD)).toBeGreaterThan(HALL_EXIT_RADIUS);
     expect(dist(HALL_SPAWN, HALL_SEALED_PAD)).toBeGreaterThan(HALL_SEALED_RADIUS);
     expect(dist(HALL_EXIT_PAD, HALL_SEALED_PAD)).toBeGreaterThan(HALL_EXIT_RADIUS + HALL_SEALED_RADIUS);
+    // Leave prompt is in the open hall, clear of the stair beam.
+    expect(HALL_EXIT_ARCH_Z - HALL_EXIT_PAD.z).toBeGreaterThan(HALL_EXIT_RADIUS + 0.8);
   });
 });

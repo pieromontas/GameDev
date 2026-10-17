@@ -12,6 +12,16 @@ const DEFAULT_PITCH = 1.12;
 const MIN_PITCH = 0.28;
 const MAX_PITCH = 1.48;
 
+/**
+ * Entry hall is a small roofless room. The yard orbit (distance 24, pitch ~64°)
+ * sits past the exit stair and looks out into the crypt fog, so the first
+ * frame is a black void. A closer, steeper orbit stays over the floor.
+ */
+const CRYPT_DISTANCE = 8.2;
+const CRYPT_PITCH = 1.08;
+
+export type CameraFraming = 'yard' | 'crypt';
+
 export class FollowCamera {
   readonly camera: THREE.PerspectiveCamera;
   /**
@@ -30,6 +40,7 @@ export class FollowCamera {
   private readonly lookAt = new THREE.Vector3();
   /** Brief impact punch (0–1-ish); decays each frame. */
   private impactPunch = 0;
+  private framing: CameraFraming = 'yard';
 
   constructor(aspect: number) {
     // Slightly wider FOV keeps the iso-ish frame without going FPS.
@@ -64,10 +75,26 @@ export class FollowCamera {
     this.distanceTarget = clamp(this.distanceTarget + delta, MIN_DISTANCE, MAX_DISTANCE);
   }
 
+  /**
+   * Yard keeps the wide meadow orbit. Crypt pulls in so the hall, gate, and
+   * hero fill the frame. Home (`resetView`) restores whichever frame is active.
+   */
+  setFraming(mode: CameraFraming): void {
+    this.framing = mode;
+    const distance = mode === 'crypt' ? CRYPT_DISTANCE : DEFAULT_DISTANCE;
+    const pitch = mode === 'crypt' ? CRYPT_PITCH : DEFAULT_PITCH;
+    this.distanceTarget = distance;
+    this.pitchTarget = pitch;
+    this.distance = distance;
+    this.pitch = pitch;
+  }
+
   resetView(): void {
     this.yaw = 0;
-    this.pitchTarget = DEFAULT_PITCH;
-    this.distanceTarget = DEFAULT_DISTANCE;
+    const distance = this.framing === 'crypt' ? CRYPT_DISTANCE : DEFAULT_DISTANCE;
+    const pitch = this.framing === 'crypt' ? CRYPT_PITCH : DEFAULT_PITCH;
+    this.pitchTarget = pitch;
+    this.distanceTarget = distance;
   }
 
   /** Camera-forward flattened onto XZ for WASD relative movement. */

@@ -57,8 +57,11 @@ export const DUNGEON_APPROACH_SIDE = {
  */
 export const DUNGEON_MOUTH_YAW = Math.atan2(DUNGEON_APPROACH.x, DUNGEON_APPROACH.z);
 
-const PAD_FORWARD = 2.85;
-const PAD_SIDE = 0.85;
+// Slightly toward the arch center (smaller side) so the default yard camera
+// looks through the opening more than the flanking battlement. Forward stays
+// short of the armory interact radius.
+const PAD_FORWARD = 2.72;
+const PAD_SIDE = 0.48;
 
 /** E pad in front of the arch, still clear of the armory / captain radii. */
 export const DUNGEON_ENTER_PAD = {
@@ -113,8 +116,15 @@ export const DUNGEON_HALL_ORIGIN = { x: 520, z: 520 } as const;
 /** Local spawn: facing the sealed gate (−Z), short of the exit stair. */
 export const HALL_SPAWN = { x: 0, z: 4.45, yaw: Math.PI } as const;
 
-export const HALL_EXIT_PAD = { x: 0, z: 6.55 } as const;
-export const HALL_EXIT_RADIUS = 1.7;
+/**
+ * Leave prompt sits in the open hall, short of the stair arch, so the beam
+ * is not the thing the hero stands under. The arch itself is further +Z.
+ */
+export const HALL_EXIT_PAD = { x: 0, z: 5.9 } as const;
+export const HALL_EXIT_RADIUS = 1.3;
+
+/** Local Z of the exit-stair lintel (camera side of the hall). */
+export const HALL_EXIT_ARCH_Z = 8.55;
 
 export const HALL_SEALED_PAD = { x: 0, z: -4.65 } as const;
 export const HALL_SEALED_RADIUS = 1.85;

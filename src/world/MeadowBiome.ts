@@ -82,6 +82,7 @@ import {
   CASTLE_ARMORY_SPOT,
   CASTLE_CHEST_SPOT,
 } from './CastleDistrict';
+import { markOccluderFade } from '../camera/OccluderFade';
 import { DungeonMouth } from './dungeon/DungeonMouth';
 import {
   CITY_NORTH_WALL_A,
@@ -195,6 +196,9 @@ export class MeadowBiome {
    * Populated by procedural trees, then rebuilt when the KayKit pack swaps in.
    */
   private readonly foliageOccluders: THREE.Object3D[] = [];
+  /** Crypt-postern battlements that can hide the hero at the enter prompt. */
+  private readonly structureOccluders: THREE.Object3D[] = [];
+  private structureOccludersReady = false;
 
   /** Interact radius for the east shrine crystal (player proximity). */
   readonly shrineInteractRadius = 5.8;
@@ -2518,8 +2522,18 @@ export class MeadowBiome {
     }
 
     this.root.add(group);
+    this.noteCryptOccluder(group, x, z);
     // Soft capsule along the segment — consecutive sub-walls overlap, no gaps.
     this.obstacles.push({ x, z, radius: length * 0.45 });
+  }
+
+  /** Fade only the curtain pieces that can cover the crypt interact spot. */
+  private noteCryptOccluder(group: THREE.Object3D, x: number, z: number): void {
+    const dx = x - DUNGEON_MOUTH.x;
+    const dz = z - DUNGEON_MOUTH.z;
+    if (dx * dx + dz * dz > 16 * 16) return;
+    markOccluderFade(group);
+    this.structureOccluders.push(group);
   }
 
   /** Bastion tower post at a city-wall corner — castle-gatehouse language. */
@@ -2568,6 +2582,7 @@ export class MeadowBiome {
     group.add(finial);
 
     this.root.add(group);
+    this.noteCryptOccluder(group, x, z);
     this.obstacles.push({ x, z, radius: 1.15 });
   }
 
@@ -7652,6 +7667,19 @@ export class MeadowBiome {
   /** KayKit / procedural tree & bush roots for camera foliage occlusion. */
   getFoliageOccluders(): readonly THREE.Object3D[] {
     return this.foliageOccluders;
+  }
+
+  /**
+   * Stone between the yard camera and the crypt hero: postern wings, the arch,
+   * and the curtain segments beside the mouth. The rest of the city is left
+   * solid so a walk along an unrelated wall does not ghost it.
+   */
+  getStructureOccluders(): readonly THREE.Object3D[] {
+    if (!this.structureOccludersReady) {
+      this.structureOccluders.push(...this.dungeonMouth.occluderRoots);
+      this.structureOccludersReady = true;
+    }
+    return this.structureOccluders;
   }
 
   /** True if inside main meadow, any corridor, clearing, NE gate, market, homes, or docks. */

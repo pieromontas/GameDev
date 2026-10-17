@@ -3,6 +3,8 @@ import { DungeonAudio } from '../../audio/DungeonAudio';
 import { DungeonHall, type HallPrompt } from './DungeonHall';
 import { ZoneTransition, type ZoneId } from './ZoneTransition';
 
+const NO_OCCLUDERS: readonly THREE.Object3D[] = [];
+
 export type SessionEvent = {
   switchedTo: ZoneId | null;
   arrived: boolean;
@@ -25,7 +27,11 @@ export class DungeonSession {
   /** Geometries freed across releases. Survives `dispose()` nulling the hall. */
   private geometryDisposals = 0;
 
-  constructor(private readonly scene: THREE.Scene) {}
+  constructor(
+    private readonly scene: THREE.Scene,
+    /** Fired with the hall root before its geometries are disposed. */
+    private readonly beforeHallRelease?: (root: THREE.Object3D) => void,
+  ) {}
 
   get currentZone(): ZoneId {
     return this.zone;
@@ -113,6 +119,11 @@ export class DungeonSession {
     this.hall?.resolve(position, radius);
   }
 
+  getOccluders(): readonly THREE.Object3D[] {
+    if (this.zone !== 'dungeon' || !this.hall) return NO_OCCLUDERS;
+    return this.hall.getOccluders();
+  }
+
   getPrompt(x: number, z: number, alive: boolean): HallPrompt {
     if (this.zone !== 'dungeon' || !this.hall) {
       return { visible: false, text: '', kind: null };
@@ -128,6 +139,7 @@ export class DungeonSession {
 
   private releaseHall(): void {
     if (!this.hall) return;
+    this.beforeHallRelease?.(this.hall.root);
     const before = this.hall.disposedGeometries;
     this.hall.release();
     this.geometryDisposals += this.hall.disposedGeometries - before;
