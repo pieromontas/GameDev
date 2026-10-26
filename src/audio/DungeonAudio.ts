@@ -9,9 +9,23 @@
  * back. Volumes stay low so a later combat/music pass is not fighting a loud loop.
  */
 
-const AMBIENCE_GAIN = 0.2;
-const DOOR_GAIN = 0.46;
-const DRIP_GAIN = 0.07;
+/**
+ * Mix against a silent overworld. The stinger is louder than the bed so the
+ * door reads, and the bed stays under ~0.15 at the master so later combat
+ * and music are not fighting it. Door layers sum with the master under 0.5
+ * so the whoosh and the thump do not clip each other.
+ */
+export const DUNGEON_MIX = {
+  master: 0.8,
+  ambience: 0.16,
+  doorNoise: 0.26,
+  doorThump: 0.3,
+  drip: 0.05,
+} as const;
+
+const AMBIENCE_GAIN = DUNGEON_MIX.ambience;
+const DOOR_GAIN = DUNGEON_MIX.doorNoise;
+const DRIP_GAIN = DUNGEON_MIX.drip;
 
 type AudioContextCtor = typeof AudioContext;
 
@@ -33,6 +47,9 @@ export class DungeonAudio {
   private dripIn = 2.4;
   private unlocked = false;
 
+  /** `injected` is for tests. The game uses the browser constructor. */
+  constructor(private readonly injected?: AudioContext) {}
+
   /** Call from a pointer / key listener so the context can leave `suspended`. */
   unlock(): void {
     const ctx = this.ensure();
@@ -47,6 +64,7 @@ export class DungeonAudio {
   playDoor(): void {
     const ctx = this.ensure();
     if (!ctx || !this.master) return;
+    this.resume(ctx);
     const now = ctx.currentTime;
     const duration = 1.15;
 
@@ -73,7 +91,7 @@ export class DungeonAudio {
     thump.frequency.exponentialRampToValueAtTime(36, now + 0.55);
     const thumpGain = ctx.createGain();
     thumpGain.gain.setValueAtTime(0.0001, now);
-    thumpGain.gain.exponentialRampToValueAtTime(0.55, now + 0.03);
+    thumpGain.gain.exponentialRampToValueAtTime(DUNGEON_MIX.doorThump, now + 0.03);
     thumpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
     thump.connect(thumpGain);
     thumpGain.connect(this.master);
@@ -97,6 +115,7 @@ export class DungeonAudio {
   fadeAmbience(on: boolean, seconds: number): void {
     const ctx = this.ensure();
     if (!ctx || !this.ambienceGain) return;
+    this.resume(ctx);
     this.startAmbience();
     this.ambienceOn = on;
     const now = ctx.currentTime;
@@ -194,13 +213,26 @@ export class DungeonAudio {
     return osc;
   }
 
+  private resume(ctx: AudioContext): void {
+    if (ctx.state === 'suspended') void ctx.resume();
+  }
+
   private ensure(): AudioContext | null {
     if (this.ctx) return this.ctx;
+    const ctx = this.injected ?? null;
+    if (ctx) {
+      this.wire(ctx);
+      return ctx;
+    }
     const Ctor = audioContextCtor();
     if (!Ctor) return null;
-    const ctx = new Ctor();
+    this.wire(new Ctor());
+    return this.ctx;
+  }
+
+  private wire(ctx: AudioContext): void {
     const master = ctx.createGain();
-    master.gain.value = 0.9;
+    master.gain.value = DUNGEON_MIX.master;
     master.connect(ctx.destination);
     const ambienceGain = ctx.createGain();
     ambienceGain.gain.value = 0.0001;
@@ -211,7 +243,6 @@ export class DungeonAudio {
     if (this.unlocked && ctx.state === 'suspended') {
       void ctx.resume();
     }
-    return ctx;
   }
 }
 

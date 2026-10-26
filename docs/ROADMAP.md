@@ -29,6 +29,7 @@ Every step ships finished.
 ## Done
 
 - #84 — Step 1: north-wall crypt mouth, vignette into the entry hall, leave prompt, `?at=dungeon` debug spawn.
+- #86 — Step 1 polish: occluder fade at the crypt prompts, lit mouth, iron bars with a cold glow, hall dust, and the Old Crypt document title.
 
 ## Next step:
 
@@ -41,3 +42,5 @@ Step 2 — Dungeon zone layout: stone corridors, torch lighting, fog, collisions
 - Prompts still say “Press E” on touch, matching every other interact. The on-screen E button is the touch affordance.
 - The postern is tied to the north curtain corners in `layout.ts`. If that wall run moves, the gap and the arch must move together.
 - Inside the hall the sun stays on as a readable key so MeshToon bands are not crushed by the fog. A later lighting pass can replace it with baked torch light if mobile cost allows.
+- Occluder fade is wired for the postern pocket and the entry hall. Step 2 corridor meshes should call `markOccluderFade` so the same camera path fades them. The rest of the city curtain stays solid.
+- Home inside the crypt restores the closer crypt orbit, not the wide yard camera, so the roofless hall stays in frame.
