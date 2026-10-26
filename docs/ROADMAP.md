@@ -30,6 +30,7 @@ Every step ships finished.
 
 - #84 — Step 1: north-wall crypt mouth, vignette into the entry hall, leave prompt, `?at=dungeon` debug spawn.
 - #86 — Step 1 polish: occluder fade at the crypt prompts, lit mouth, iron bars with a cold glow, hall dust, and the Old Crypt document title.
+- Look-test — Scenario crypt models in the entry hall (`CRYPT_MODELS_ENABLED`, `?models=0` restores the procedural hall). Loot chest, barrels, lanterns, gargoyles, cultists, and a non-hostile golem teaser.
 
 ## Next step:
 
@@ -44,3 +45,4 @@ Step 2 — Dungeon zone layout: stone corridors, torch lighting, fog, collisions
 - Inside the hall the sun stays on as a readable key so MeshToon bands are not crushed by the fog. A later lighting pass can replace it with baked torch light if mobile cost allows.
 - Occluder fade is wired for the postern pocket and the entry hall. Step 2 corridor meshes should call `markOccluderFade` so the same camera path fades them. The rest of the city curtain stays solid.
 - Home inside the crypt restores the closer crypt orbit, not the wide yard camera, so the roofless hall stays in frame.
+- Scenario props are a look-test. They stay graded PBR next to the toon hall. Flip `CRYPT_MODELS_ENABLED` or open `?models=0` to compare. The animated chest is many draw calls; a later pass can atlas it if it stays.

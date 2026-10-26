@@ -8,3 +8,7 @@ SpiritVale’s dungeon stingers are original synthesis, not ripped samples.
 | Entry-hall ambience (low drone, air, occasional drip) | Loop while inside the entry hall | Generated in `src/audio/DungeonAudio.ts` | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) — original work, dedicated to the public domain |
 
 No third-party audio files are vendored. The overworld has no music bed yet; the hall loop crossfades against silence. The bed sits at `0.16` into a `0.8` master (about `0.13` at the speakers). The door stinger's noise and thump sum to `0.56` before that master (about `0.45`) so the door reads without clipping, and the drip stays under the bed. See `DUNGEON_MIX` in `src/audio/DungeonAudio.ts`.
+
+## 3D models
+
+3D models: "Scenario 3D Collection" by Scenario (https://huggingface.co/datasets/scenario-labs/3d-collection), licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Models were resized/decimated/compressed for use in this game.
