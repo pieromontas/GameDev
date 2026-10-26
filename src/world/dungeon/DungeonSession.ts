@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { DungeonAudio } from '../../audio/DungeonAudio';
-import { DungeonHall, type HallPrompt } from './DungeonHall';
+import { DungeonHall, type CryptChestGrant, type HallPrompt } from './DungeonHall';
 import { ZoneTransition, type ZoneId } from './ZoneTransition';
 
 const NO_OCCLUDERS: readonly THREE.Object3D[] = [];
@@ -129,6 +129,11 @@ export class DungeonSession {
       return { visible: false, text: '', kind: null };
     }
     return this.hall.getPrompt(x, z, alive);
+  }
+
+  tryLootChest(x: number, z: number): CryptChestGrant | null {
+    if (this.zone !== 'dungeon' || !this.hall) return null;
+    return this.hall.tryLootChest(x, z);
   }
 
   dispose(): void {

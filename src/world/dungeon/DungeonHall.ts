@@ -9,17 +9,28 @@ import {
   stepDustMote,
   type DustMote,
 } from './hallDust';
+import { CryptModelKit } from './CryptModelKit';
+import { cryptModelsEnabled } from './cryptModelsFlag';
+import {
+  CRYPT_CHEST_REWARD,
+  cryptChestToast,
+  cryptLootPlacement,
+  cryptShowcaseCircles,
+  resolveHallPrompt,
+  type CryptChestGrant,
+} from './cryptShowcase';
 import {
   DUNGEON_HALL_ORIGIN,
   HALL_BOUNDS,
   HALL_EXIT_ARCH_Z,
-  LEAVE_PROMPT,
-  SEALED_PROMPT,
+  HALL_PROP_CIRCLES,
   hallPromptKind,
   type HallPromptKind,
 } from './layout';
 
 export type HallPrompt = { visible: boolean; text: string; kind: HallPromptKind | null };
+
+export type { CryptChestGrant };
 
 type Circle = { x: number; z: number; radius: number };
 
@@ -42,12 +53,15 @@ export class DungeonHall {
   private fogMats: THREE.ShaderMaterial[] = [];
   private readonly dustDummy = new THREE.Object3D();
   private time = 0;
+  private kit: CryptModelKit | null = null;
+  private readonly modelsEnabled: boolean;
   disposedGeometries = 0;
   disposedMaterials = 0;
 
-  constructor() {
+  constructor(opts?: { models?: boolean }) {
     this.root.name = 'DungeonHall';
     this.root.position.set(DUNGEON_HALL_ORIGIN.x, 0, DUNGEON_HALL_ORIGIN.z);
+    this.modelsEnabled = opts?.models ?? cryptModelsEnabled();
   }
 
   get attached(): boolean {
@@ -113,6 +127,7 @@ export class DungeonHall {
         (0.84 + Math.sin(this.time * 10 + phase) * 0.1 + Math.cos(this.time * 16 + phase) * 0.05);
     }
     this.updateDust(dt);
+    this.kit?.update(dt);
   }
 
   /**
@@ -141,10 +156,31 @@ export class DungeonHall {
 
   getPrompt(x: number, z: number, alive: boolean): HallPrompt {
     if (!alive) return { visible: false, text: '', kind: null };
-    const kind = hallPromptKind(x - DUNGEON_HALL_ORIGIN.x, z - DUNGEON_HALL_ORIGIN.z);
-    if (kind === 'exit') return { visible: true, text: LEAVE_PROMPT, kind };
-    if (kind === 'sealed') return { visible: true, text: SEALED_PROMPT, kind };
-    return { visible: false, text: '', kind: null };
+    const localX = x - DUNGEON_HALL_ORIGIN.x;
+    const localZ = z - DUNGEON_HALL_ORIGIN.z;
+    const kind = hallPromptKind(localX, localZ);
+    const chestReady = this.kit?.chestPrompt(localX, localZ) ?? false;
+    return resolveHallPrompt(kind, chestReady);
+  }
+
+  /**
+   * Open the Scenario loot chest. Reward numbers match the meadow chests.
+   * Returns null unless the mesh is loaded and the hero is in range.
+   */
+  tryLootChest(x: number, z: number): CryptChestGrant | null {
+    if (!this.kit) return null;
+    const localX = x - DUNGEON_HALL_ORIGIN.x;
+    const localZ = z - DUNGEON_HALL_ORIGIN.z;
+    if (!this.kit.tryOpen(localX, localZ)) return null;
+    const spot = cryptLootPlacement();
+    return {
+      xp: CRYPT_CHEST_REWARD.xp,
+      heal: CRYPT_CHEST_REWARD.heal,
+      coins: CRYPT_CHEST_REWARD.coins,
+      toast: cryptChestToast(),
+      x: DUNGEON_HALL_ORIGIN.x + spot.x,
+      z: DUNGEON_HALL_ORIGIN.z + spot.z,
+    };
   }
 
   private build(): void {
@@ -185,16 +221,15 @@ export class DungeonHall {
     this.addRubble(stone, stoneDark);
     this.addAtmosphere();
 
-    this.circles.push(
-      { x: -2.05, z: -1.35, radius: 0.58 },
-      { x: 2.05, z: -1.35, radius: 0.58 },
-      { x: -1.65, z: 2.55, radius: 0.46 },
-      { x: 1.8, z: 3.05, radius: 0.42 },
-      { x: -2.3, z: 0.15, radius: 0.52 },
-      { x: 2.3, z: 0.15, radius: 0.52 },
-      // Loose chunk near the stair — solid, not a decoration you walk through.
-      { x: 1.15, z: 5.15, radius: 0.42 },
-    );
+    this.circles.push(...HALL_PROP_CIRCLES);
+    if (this.modelsEnabled) {
+      this.circles.push(...cryptShowcaseCircles());
+      this.kit = new CryptModelKit({
+        tagOccluder: (root) => this.tagOccluder(root),
+      });
+      this.root.add(this.kit.root);
+      this.kit.start();
+    }
   }
 
   private addFloor(mortar: THREE.Material, stone: THREE.Material, stoneLight: THREE.Material): void {
@@ -751,6 +786,8 @@ export class DungeonHall {
   }
 
   private disposeBuilt(): void {
+    this.disposedGeometries += this.kit?.dispose() ?? 0;
+    this.kit = null;
     this.root.clear();
     for (const geometry of this.geos) {
       geometry.dispose();

@@ -143,7 +143,21 @@ export function isNearDungeonEntrance(x: number, z: number): boolean {
   return dx * dx + dz * dz <= DUNGEON_ENTER_RADIUS * DUNGEON_ENTER_RADIUS;
 }
 
-export type HallPromptKind = 'exit' | 'sealed';
+export type HallPromptKind = 'exit' | 'sealed' | 'chest';
+
+/**
+ * Soft circles already in the entry hall (pillars, braziers, stair chunk).
+ * Showcase props test against this list so a new barrel cannot seal the aisle.
+ */
+export const HALL_PROP_CIRCLES = [
+  { x: -2.05, z: -1.35, radius: 0.58 },
+  { x: 2.05, z: -1.35, radius: 0.58 },
+  { x: -1.65, z: 2.55, radius: 0.46 },
+  { x: 1.8, z: 3.05, radius: 0.42 },
+  { x: -2.3, z: 0.15, radius: 0.52 },
+  { x: 2.3, z: 0.15, radius: 0.52 },
+  { x: 1.15, z: 5.15, radius: 0.42 },
+] as const;
 
 export function hallPromptKind(localX: number, localZ: number): HallPromptKind | null {
   const ex = localX - HALL_EXIT_PAD.x;

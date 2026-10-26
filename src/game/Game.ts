@@ -30,6 +30,7 @@ import { ResidentialChapel, ResidentialDoor } from '../world/ResidentialStreet';
 import { HarborCatchSign } from '../world/HarborDocks';
 import { CastleDistrict } from '../world/CastleDistrict';
 import { DungeonSession } from '../world/dungeon/DungeonSession';
+import type { CryptChestGrant } from '../world/dungeon/cryptShowcase';
 import { parseDebugAt } from '../world/dungeon/debugSpawn';
 import {
   DUNGEON_EXIT_LANDING,
@@ -792,6 +793,7 @@ export class Game {
       document.title = documentTitleForZone(zone);
     }
     const dungeon = zone === 'dungeon';
+    if (!dungeon) this.releaseCryptLoot();
     this.cameraRig.setFraming(dungeon ? 'crypt' : 'yard');
     this.meadow.root.visible = !dungeon;
     this.sky.visible = !dungeon;
@@ -990,7 +992,10 @@ export class Game {
       }
       if (hall.kind === 'sealed') {
         this.hud.showToast(SEALED_TOAST, 2.2);
+        return;
       }
+      const grant = this.session.tryLootChest(this.player.position.x, this.player.position.z);
+      if (grant) this.grantCryptChest(grant);
       return;
     }
     if (this.merchant.isOpen) {
@@ -1236,6 +1241,37 @@ export class Game {
     // Occasional toast so XP still reads if floaters are missed in the scrap.
     if (this.kills % 5 === 0) {
       this.hud.showToast(`+${amount} XP  ·  Lv.${this.player.level}`, 0.9);
+    }
+  }
+
+  /** Scenario crypt chest — same XP / heal / coin burst as the meadow chests. */
+  private grantCryptChest(grant: CryptChestGrant): void {
+    this.player.heal(grant.heal);
+    for (let i = 0; i < grant.coins; i++) {
+      const a = (i / grant.coins) * Math.PI * 2 + 0.4;
+      const r = 1.15 + (i % 2) * 0.25;
+      const pickup = new LootPickup(
+        new THREE.Vector3(grant.x + Math.cos(a) * r, 0, grant.z + Math.sin(a) * r),
+      );
+      this.loot.push(pickup);
+      this.scene.add(pickup.mesh);
+    }
+    this.hud.showToast(grant.toast, 2.4);
+    this.grantChestXp(grant.xp, new THREE.Vector3(grant.x, 0.6, grant.z));
+  }
+
+  /** Coins spawned in the hall should not linger at the parked crypt origin. */
+  private releaseCryptLoot(): void {
+    const ox = DUNGEON_HALL_ORIGIN.x;
+    const oz = DUNGEON_HALL_ORIGIN.z;
+    for (let i = this.loot.length - 1; i >= 0; i--) {
+      const pickup = this.loot[i]!;
+      const dx = pickup.position.x - ox;
+      const dz = pickup.position.z - oz;
+      if (dx * dx + dz * dz > 24 * 24) continue;
+      this.scene.remove(pickup.mesh);
+      pickup.dispose();
+      this.loot.splice(i, 1);
     }
   }
 

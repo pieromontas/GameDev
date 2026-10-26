@@ -123,6 +123,7 @@ Past the castle yard, the **north city wall** opens into a carved **crypt mouth*
 - **Entry hall** — stone floor and walls, torchlight, fog, braziers, broken pillars, bones, cobwebs, and a **barred gate** at the far end (Press E — the depths are sealed for now)
 - **Leave** — Press E on the entrance stair to fade back to the yard, just outside the arch
 - **Debug** — `?at=dungeon` drops you in the hall (fade in from black)
+- **Look-test** — Scenario props (stone chest, openable animated chest, barrels, lanterns, gargoyles, two cultists, golem teaser behind the bars). `?models=0` hides them and restores the procedural hall. `?at=dungeon&models=0` is the A/B. Credit is in `public/audio/CREDITS.md`.
 
 Repeated enter / leave disposes the hall’s geometries, materials, and lights. Door and ambience are original CC0 synthesis (`public/audio/CREDITS.md`).
 
